@@ -1,0 +1,47 @@
+#!/bin/bash
+
+NAME="geld"
+
+# Django project directory
+DJANGODIR=/opt/geld/source
+
+# Virtual environment
+VIRTUALENV=/opt/geld/.venv
+
+# Gunicorn Unix socket
+SOCKFILE=/opt/geld/run/gunicorn.sock
+
+# User and group to run Gunicorn as
+USER=geld
+GROUP=geld
+
+# Number of Gunicorn workers
+NUM_WORKERS=3
+
+# Django settings and WSGI module
+DJANGO_SETTINGS_MODULE=core.settings
+DJANGO_WSGI_MODULE=core.wsgi
+
+echo "Starting $NAME as $(whoami)"
+
+# Activate the virtual environment
+cd "$DJANGODIR" || exit 1
+source "$VIRTUALENV/bin/activate"
+
+export DJANGO_SETTINGS_MODULE="$DJANGO_SETTINGS_MODULE"
+export PYTHONPATH="$DJANGODIR:$PYTHONPATH"
+
+# Make sure the run directory exists
+RUNDIR=$(dirname "$SOCKFILE")
+mkdir -p "$RUNDIR"
+
+# Start Gunicorn
+# Do not daemonize when running under Supervisor/systemd/etc.
+exec "$VIRTUALENV/bin/gunicorn" "${DJANGO_WSGI_MODULE}:application" \
+    --name "$NAME" \
+    --workers "$NUM_WORKERS" \
+    --user="$USER" \
+    --group="$GROUP" \
+    --bind="unix:$SOCKFILE" \
+    --log-level=debug \
+    --log-file=-

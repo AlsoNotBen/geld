@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% load static %}
+{% comment %}
+  ============================================================================
+  inventory/templates/inventory/module_base.html
+  ----------------------------------------------------------------------------
+  This template is the base of the Inventory module. It has the same structure
+  as the base of the Accounting module. Only the toolbar, the side panel and
+  the module key are different.
+
+  Blocks that a page can override:
+    title, page_key, breadcrumb, toolbar, context_actions, sidebar_extra,
+    content, extra_head, extra_js.
+  ============================================================================
+{% endcomment %}
+
+{% block module_key %}inventory{% endblock %}
+
+{% block title %}{{ page_title|default:"Overview" }} · Inventory · Console{% endblock %}
+
+{% comment %}
+  The folder inventory/static/inventory/css/ is already in the project.
+  Remove the comment marks when the file exists.
+{% endcomment %}
+{% block module_css %}
+{# <link rel="stylesheet" href="{% static 'inventory/css/inventory.css' %}"> #}
+{% endblock %}
+
+
+{# ===================== MODULE BAR (breadcrumb + toolbar) ===================== #}
+{% block module_bar %}
+<div class="context">
+    <nav class="crumbs" aria-label="Breadcrumb">
+        {% block breadcrumb %}
+        <a href="/">Home</a>
+        <span class="sep">/</span>
+        <a href="#">Inventory</a>
+        <span class="sep">/</span>
+        <span class="here">{{ page_title|default:"Overview" }}</span>
+        {% endblock %}
+    </nav>
+
+    <div class="toolbar" role="toolbar" aria-label="Inventory tools">
+        {% block toolbar %}
+        <button class="tool tool--primary" type="button">
+            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+            New asset
+        </button>
+        <button class="tool" type="button">Receive stock</button>
+        <button class="tool" type="button">Move stock</button>
+        <span class="tool__sep" aria-hidden="true"></span>
+        <button class="tool" type="button">
+            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 9V3h12v6M6 18H4v-6h16v6h-2M8 14h8v7H8z"/></svg>
+            Print labels
+        </button>
+        {% endblock %}
+    </div>
+
+    <div class="context__actions">
+        {% block context_actions %}
+        <button class="tool tool--ghost" type="button">
+            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 5h16l-6 7v6l-4 2v-8L4 5z" stroke-linejoin="round"/></svg>
+            {{ location|default:"All locations" }}
+        </button>
+        {% endblock %}
+    </div>
+</div>
+{% endblock %}
+
+
+{# ===================== SIDE PANEL ===================== #}
+{% block sidebar %}
+<div class="sidebar__title">Inventory</div>
+
+<nav class="nav" aria-label="Inventory sections">
+    <div class="nav__group">Stock</div>
+    <a class="nav__item" data-nav="overview" href="#">Overview</a>
+    <a class="nav__item" data-nav="assets"   href="#">
+        Assets <span class="nav__count">{{ asset_count|default:"318" }}</span>
+    </a>
+    <a class="nav__item" data-nav="items"     href="#">Items</a>
+    <a class="nav__item" data-nav="movements" href="#">Movements</a>
+
+    <div class="nav__group">Structure</div>
+    <a class="nav__item" data-nav="locations"  href="#">Locations</a>
+    <a class="nav__item" data-nav="categories" href="#">Categories</a>
+    <a class="nav__item" data-nav="suppliers"  href="#">Suppliers</a>
+
+    <div class="nav__group">Analysis</div>
+    <a class="nav__item" data-nav="reports"  href="#">Reports</a>
+    <a class="nav__item" data-nav="settings" href="#">Module settings</a>
+</nav>
+
+{% block sidebar_extra %}{% endblock %}
+{% endblock %}

@@ -1,0 +1,66 @@
+{% extends "inventory/module_base.html" %}
+{% comment %}
+  ============================================================================
+  inventory/templates/inventory/assets.html
+  ----------------------------------------------------------------------------
+  Level 3 of the chain: base.html > module_base.html > this page.
+  This page replaces the toolbar of the module. It does not use block.super.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}assets{% endblock %}
+
+{% block title %}Assets · Inventory · Console{% endblock %}
+
+{% block breadcrumb %}
+<a href="/">Home</a>
+<span class="sep">/</span>
+<a href="#">Inventory</a>
+<span class="sep">/</span>
+<span class="here">Assets</span>
+{% endblock %}
+
+{% comment %} This page has its own tools. The module tools do not apply here. {% endcomment %}
+{% block toolbar %}
+<button class="tool tool--primary" type="button">
+    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+    New asset
+</button>
+<button class="tool" type="button">Import CSV</button>
+<span class="tool__sep" aria-hidden="true"></span>
+<button class="tool" type="button">Filter</button>
+<button class="tool" type="button">Columns</button>
+{% endblock %}
+
+{% block sidebar_extra %}
+<div class="sidebar__title">Saved views</div>
+<nav class="nav" aria-label="Saved views">
+    <a class="nav__item" href="#">In use</a>
+    <a class="nav__item" href="#">In repair</a>
+    <a class="nav__item" href="#">Written off</a>
+</nav>
+{% endblock %}
+
+{% block content %}
+<section class="page">
+    <h1 class="page__title">Assets</h1>
+
+    <table class="table">
+        <thead>
+            <tr><th>Tag</th><th>Name</th><th>Location</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+            {% for asset in assets %}
+            <tr>
+                <td>{{ asset.tag }}</td>
+                <td>{{ asset.name }}</td>
+                <td>{{ asset.location }}</td>
+                <td>{{ asset.get_status_display }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4">There are no assets. Select New asset to add the first one.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endblock %}

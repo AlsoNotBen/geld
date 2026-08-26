@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% comment %}
+  ============================================================================
+  accounting/templates/accounting/module_base.html
+  ----------------------------------------------------------------------------
+  This template is the base of the Accounting module. It extends the core
+  template and adds three parts:
+      - the module bar (breadcrumb + toolbar) below the ribbon
+      - the layout: the shell, the side panel and the content area
+      - the drawer button in the ribbon, for a small screen
+
+  base.html holds the ribbon and the footer only. Thus this file owns
+  everything between them. It also declares the content block, because a
+  block that no parent declares prints nothing.
+
+  All Accounting pages extend this file. Example:
+
+      {% verbatim %}{% extends "accounting/module_base.html" %}{% endverbatim %}
+
+  Blocks that a page can override:
+    title            Text for the browser tab.
+    page_key         The key of the side panel item: dashboard, invoices,
+                     bills, journal, accounts, reports or settings.
+    breadcrumb       The breadcrumb trail.
+    toolbar          The tool buttons. Use {% verbatim %}{{ block.super }}{% endverbatim %} to keep the
+                     default buttons and to add more.
+    context_actions  The buttons at the right side of the module bar.
+    sidebar          The side panel. Use {% verbatim %}{{ block.super }}{% endverbatim %} to keep the navigation.
+    sidebar_extra    An extra area below the navigation, e.g. a filter.
+    content          The page content.
+  ============================================================================
+{% endcomment %}
+
+{% block module_key %}accounting{% endblock %}
+
+{% block title %}{{ page_title|default:"Overview" }} · Accounting · Console{% endblock %}
+
+{% block module_css %}
+<link rel="stylesheet" href="{% static 'accounting/css/accounting.css' %}">
+{% endblock %}
+
+
+{# ===================== DRAWER BUTTON (small screens only) ===================== #}
+{% block ribbon_lead %}
+<button class="icon-btn drawer-toggle" type="button" aria-label="Open the menu"
+        aria-controls="accounting-sidebar" aria-expanded="false" data-drawer-toggle>
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 6h18M3 12h18M3 18h18" stroke-linecap="round"/></svg>
+</button>
+{% endblock %}
+
+
+{# ===================== MODULE BAR (breadcrumb + toolbar) ===================== #}
+{% block module_bar %}
+<div class="context">
+    {% comment %}
+    Uncomment this if there is actually a need/want for a breadcrumb. At the moment it will not be used
+    <nav class="crumbs" aria-label="Breadcrumb">
+        {% block breadcrumb %}
+        <a href="/">Home</a>
+        <span class="sep">/</span>
+        <a href="#">Accounting</a>
+        <span class="sep">/</span>
+        <span class="here">{{ page_title|default:"Overview" }}</span>
+        {% endblock %}
+    </nav>
+    {% endcomment %}
+
+    <div class="toolbar" role="toolbar" aria-label="Accounting tools">
+        {% block toolbar %}
+            <button class="tool tool--primary" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                New Quote
+            </button>
+            <button class="tool tool--primary" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                New Invoice
+            </button>
+            <span class="tool__sep" aria-hidden="true"></span>
+
+            <div class="tbar-menu">
+                <button class="tool tbar-menu__btn" type="button" aria-haspopup="true" aria-expanded="false">
+                    Sales
+                    <svg class="icon icon--caret" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 10l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <div class="tbar-menu__panel" role="menu" aria-label="Sales">
+                    <a class="tbar-menu__item" role="menuitem" href="#">Leads</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Quotes</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Invoices</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Credit Notes</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Partners</a>
+                    <span class="tbar-menu__sep" role="separator" aria-hidden="true"></span>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Sales Dashboard</a>
+                </div>
+            </div>
+
+            <div class="tbar-menu">
+                <button class="tool tbar-menu__btn" type="button" aria-haspopup="true" aria-expanded="false">
+                    Customers
+                    <svg class="icon icon--caret" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 10l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <div class="tbar-menu__panel" role="menu" aria-label="Customers">
+                    <a class="tbar-menu__item" role="menuitem" href="#">All Customers</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">New Customer</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Receivables</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Aging Receivables</a>
+                    <span class="tbar-menu__sep" role="separator" aria-hidden="true"></span>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Customer Dashboard</a>
+                </div>
+            </div>
+
+            <div class="tbar-menu">
+                <button class="tool tbar-menu__btn" type="button" aria-haspopup="true" aria-expanded="false">
+                    Suppliers
+                    <svg class="icon icon--caret" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 10l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <div class="tbar-menu__panel" role="menu" aria-label="Suppliers">
+                    <a class="tbar-menu__item" role="menuitem" href="#">All Suppliers</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">New Supplier</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Payables</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Aging Payables</a>
+                    <span class="tbar-menu__sep" role="separator" aria-hidden="true"></span>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Supplier Dashboard</a>
+                </div>
+            </div>
+
+            <div class="tbar-menu">
+                <button class="tool tbar-menu__btn" type="button" aria-haspopup="true" aria-expanded="false">
+                    Banking
+                    <svg class="icon icon--caret" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 10l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <div class="tbar-menu__panel tbar-menu__panel--right" role="menu" aria-label="Banking">
+                    <a class="tbar-menu__item" role="menuitem" href="#">All Bank Accounts</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">New Bank Account</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Cards</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Import Statement</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Reconcile</a>
+                    <span class="tbar-menu__sep" role="separator" aria-hidden="true"></span>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Payment Runs</a>
+                </div>
+            </div>
+
+            <div class="tbar-menu">
+                <button class="tool tbar-menu__btn" type="button" aria-haspopup="true" aria-expanded="false">
+                    Taxes
+                    <svg class="icon icon--caret" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 10l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <div class="tbar-menu__panel" role="menu" aria-label="Customers">
+                    <a class="tbar-menu__item" role="menuitem" href="#">Income Tax Returns</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Provisional Taxes</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">VAT</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">PAYE</a>
+                    <span class="tbar-menu__sep" role="separator" aria-hidden="true"></span>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Tax Dashboard</a>
+                </div>
+            </div>
+
+            <span class="tool__sep" aria-hidden="true"></span>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+        {% endblock %}
+    </div>
+
+    <div class="context__actions">
+        {% block context_actions %}
+        <button class="tool tool--ghost" type="button">
+            <svg class="icon" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18" stroke-linecap="round"/></svg>
+            {{ period|default:"FY 2026" }}
+        </button>
+        {% endblock %}
+    </div>
+</div>
+{% endblock %}
+
+
+{# ===================== LAYOUT: SIDE PANEL + CONTENT =====================
+   The class "fill" gives the shell the free height, thus the footer stays
+   at the bottom. The main element carries id="main", for the skip link of
+   base.html.
+======================================================================= #}
+{% block layout %}
+<div class="shell fill">
+
+    <aside class="sidebar" id="accounting-sidebar" aria-label="Accounting sections">
+        {% block sidebar %}
+        <div class="sidebar__title">Accounting</div>
+
+        <nav class="nav">
+            <div class="nav__group">Analysis</div>
+            <a class="nav__item" data-nav="dashboard" href="#">Overview</a>
+            <a class="nav__item" data-nav="journal"   href="#">Analytics</a>
+            <a class="nav__item" data-nav="accounts"  href="#">Reports</a>
+
+
+            <div class="nav__group">Bookkeeping</div>
+            <a class="nav__item" data-nav="invoices" href="#">
+                Journal Entries <span class="nav__count">{{ open_invoices|default:"12" }}</span>
+            </a>
+            <a class="nav__item" data-nav="customers" href="#">Chart of Accounts</a>
+            <a class="nav__item" data-nav="customers" href="#">General Ledger</a>
+
+            <div class="nav__group">Cost Centre</div>
+            <a class="nav__item" data-nav="bills"     href="#">Bills</a>
+            <a class="nav__item" data-nav="suppliers" href="#">Suppliers</a>
+            <a class="nav__item" data-nav="suppliers" href="#">Claims</a>
+
+            <div class="nav__group">General</div>
+            <a class="nav__item" data-nav="reports"  href="#">Module Settings</a>
+            <a class="nav__item" data-nav="settings" href="#">Module settings</a>
+        </nav>
+
+        {% block sidebar_extra %}{% endblock %}
+        {% endblock %}
+    </aside>
+
+    <main class="main" id="main">
+        {% block content %}
+        <section class="page">
+            <h1 class="page__title">{{ page_title|default:"Overview" }}</h1>
+            <p class="page__empty">This page has no content block yet.</p>
+        </section>
+        {% endblock %}
+    </main>
+
+</div>
+
+{% comment %} The scrim closes the drawer. base.js reads data-drawer-close. {% endcomment %}
+<div class="scrim" data-drawer-close></div>
+{% endblock %}

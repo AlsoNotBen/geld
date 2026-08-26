@@ -1,0 +1,746 @@
+/* ==========================================================================
+   accounting.css  —  styles for the Accounting module (dark theme)
+   Place this file at: static/css/accounting.css
+
+   module_base.html loads this file in the module_css block of base.html,
+   thus it always comes after base.css.
+
+   base.css holds the chrome only: the ribbon, the module bar and the
+   footer. This file holds everything else of the module:
+     1. the layout   (.shell, .sidebar, .main, the drawer)
+     2. the tools    (.tool, .tool__sep)
+     3. the content  (.page, .cards, .card, .table)
+
+   All colors come from the tokens of base.css. The file adds only the
+   money tokens that a ledger needs.
+   ========================================================================== */
+
+/* ---- Module tokens ------------------------------------------------- */
+:root {
+    --credit:      #7FBF9A;                    /* money that comes in */
+    --debit:       #E0785E;                    /* money that goes out */
+    --overdue:     #fff38c; 
+    --credit-soft: rgba(127, 191, 154, 0.14);
+    --debit-soft:  rgba(224, 120, 94, 0.14);
+
+    --rule:        rgba(232, 230, 222, 0.07);  /* ledger hairline */
+    --gold-deep:   #C79A4E;                    /* dark gold — card labels */
+    --card-line:   rgba(240, 190, 114, 0.38);  /* thin gold card border */
+    --tool-h:      34px;
+    --sidebar-w:   244px;
+}
+
+/* ================================================================== */
+/*  LAYOUT  (base.css no longer supplies a shell)                     */
+/* ================================================================== */
+.shell { display: flex; min-height: 0; }
+
+.main {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+    padding: 26px 30px 44px;
+}
+.page__empty { color: var(--ink-soft); }
+
+/* ================================================================== */
+/*  SIDE PANEL                                                        */
+/* ================================================================== */
+/* The panel stays on the canvas color. Only a hairline divides it from
+   the content, thus the figures on the right hold the attention. */
+.sidebar {
+    width: var(--sidebar-w);
+    flex: none;
+    background: var(--cream);
+    border-right: 1px solid var(--line);
+    padding: 18px 10px 28px;
+    overflow-y: auto;
+}
+
+.sidebar__title {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: var(--gold-deep);
+    padding: 2px 12px 16px;
+}
+
+.nav { display: flex; flex-direction: column; gap: 1px; }
+
+/* The group label carries a rule to the right edge. The rule separates
+   the parts of the ledger without a heading that shouts. */
+.nav__group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 16px 0 6px;
+    padding: 0 12px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    white-space: nowrap;
+}
+.nav__group::after {
+    content: "";
+    flex: 1 1 auto;
+    height: 1px;
+    background: var(--line);
+}
+.nav__group:first-child { margin-top: 0; }
+
+.nav__item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    color: var(--ink-soft);
+    font-weight: 500;
+    transition: color 0.12s ease, background 0.12s ease;
+}
+.nav__item:hover { color: var(--ink); background: rgba(232, 230, 222, 0.05); }
+
+/* The script of base.html adds is-active to the item that matches the
+   data-page attribute of the body. */
+.nav__item.is-active {
+    color: var(--gold);
+    font-weight: 600;
+    background: transparent;
+}
+.nav__item.is-active::before {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 9px;
+    bottom: 9px;
+    width: 2px;
+    border-radius: 2px;
+    background: var(--gold);
+}
+
+.nav__count {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+    background: var(--white);
+    border: 1px solid var(--line);
+    padding: 0 7px;
+    border-radius: 20px;
+}
+.nav__item.is-active .nav__count {
+    color: var(--gold);
+    background: var(--gold-soft);
+    border-color: var(--gold-line);
+}
+
+/* The drawer button in the ribbon. It appears on a small screen only.
+   Refer to the media query at 900px. */
+.drawer-toggle { display: none; }
+.scrim { display: none; }
+
+/* ================================================================== */
+/*  CONTENT FURNITURE                                                 */
+/*  base.css no longer holds these classes. The module owns them now. */
+/* ================================================================== */
+.page__title    { margin: 0; font-size: 22px; font-weight: 600; color: var(--ink); }
+.page__subtitle { font-size: 15px; font-weight: 600; color: var(--ink); }
+
+.cards { display: grid; }
+
+.card {
+    background: var(--white);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+}
+.card__label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+}
+.card__value {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    color: var(--ink);
+}
+
+.table { font-size: 13px; }
+.table th,
+.table td { text-align: left; white-space: nowrap; }
+.table th {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+}
+.table tbody tr:hover { background: var(--gold-soft); }
+
+/* ================================================================== */
+/*  TOOLBAR  (module_base.html fills .toolbar with .tool buttons)     */
+/* ================================================================== */
+
+/* The toolbar itself should center its controls vertically. */
+.toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: var(--tool-h);
+}
+
+/* Every tool is a self-contained, vertically and horizontally centered
+   control. Explicit line-height prevents font metrics from making the
+   label appear a few pixels too high or low. */
+.tool {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
+
+    flex: 0 0 auto;
+    min-width: 34px;
+    height: var(--tool-h);
+    box-sizing: border-box;
+
+    padding: 0 13px;
+    margin: 0;
+
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--white);
+    color: var(--ink-soft);
+
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+
+    text-align: center;
+    vertical-align: middle;
+    white-space: nowrap;
+
+    appearance: none;
+    -webkit-appearance: none;
+
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease,
+        color 0.15s ease;
+}
+
+/* Icon + text combinations remain optically centered as one unit. */
+.tool {
+    gap: 7px;
+}
+
+/* SVGs/icons don't participate in the text baseline. */
+.tool .icon {
+    display: block;
+    flex: 0 0 16px;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    stroke: currentColor;
+    stroke-width: 1.8;
+}
+
+/* If the icon is the only content, it remains exactly centered. */
+.tool:has(.icon:only-child) {
+    padding-left: 8px;
+    padding-right: 12px;
+}
+
+/* Text inside a tool is centered independently of font rendering. */
+.tool > span,
+.tool > label {
+    display: block;
+    margin: 0;
+    padding: 0;
+    line-height: 1;
+    text-align: center;
+}
+
+/* Hover ------------------------------------------------------------- */
+
+.tool:hover {
+    background: var(--gold-soft);
+    border-color: var(--gold-line);
+    color: var(--gold);
+}
+
+/* Primary ----------------------------------------------------------- */
+
+.tool--primary,
+.tool.is-primary {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: var(--navy);
+}
+
+.tool--primary:hover,
+.tool.is-primary:hover {
+    background: #F5CB8C;
+    border-color: #F5CB8C;
+    color: var(--navy);
+}
+
+.tool--primary .icon,
+.tool.is-primary .icon {
+    stroke: var(--navy);
+}
+
+/* Ghost ------------------------------------------------------------- */
+
+.tool--ghost {
+    background: transparent;
+}
+
+.tool--ghost:hover {
+    background: var(--gold-soft);
+}
+
+/* Disabled ---------------------------------------------------------- */
+
+.tool[disabled] {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.tool[disabled]:hover {
+    background: var(--white);
+    border-color: var(--line);
+    color: var(--ink-soft);
+}
+
+/* Divider ----------------------------------------------------------- */
+
+.tool__sep {
+    flex: 0 0 1px;
+    width: 1px;
+    height: 20px;
+    margin: 0 4px;
+    padding: 0;
+    background: var(--line-strong);
+    align-self: center;
+}
+
+/* If the toolbar contains native buttons alongside .tool elements,
+   normalize their box model so they line up identically. */
+.toolbar > button,
+.toolbar > a {
+    box-sizing: border-box;
+    vertical-align: middle;
+}
+
+/* ------------------------------------------------------------------ */
+/*  TOOLBAR MENUS                                                     */
+/*                                                                    */
+/*  The prefix tbar- keeps these rules away from the .menu rules of   */
+/*  base.css, which belong to the profile drop-down of the ribbon.    */
+/* ------------------------------------------------------------------ */
+
+/* base.css makes .toolbar a scroll container. A scroll container
+   clips a panel that hangs below the bar. The module thus removes
+   the scroll. The media queries below keep the bar inside the
+   screen instead. */
+.context { overflow: visible; }
+.toolbar {
+    overflow: visible;
+    flex-wrap: nowrap;
+}
+
+.tbar-menu {
+    position: relative;
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-self: center;
+}
+
+/* The caret is smaller than a tool icon. */
+.tbar-menu__btn .icon--caret {
+    flex: 0 0 12px;
+    width: 12px;
+    height: 12px;
+    opacity: 0.75;
+}
+
+.tbar-menu__panel {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 70;
+    min-width: 196px;
+    margin-top: 6px;
+    padding: 6px;
+
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
+
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-4px);
+    transition:
+        opacity 0.12s ease,
+        transform 0.12s ease,
+        visibility 0.12s;
+}
+
+/* A gap of 6px is between the button and the panel. This bridge
+   fills the gap, thus the pointer does not lose the menu. */
+.tbar-menu::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    height: 8px;
+}
+
+.tbar-menu:hover .tbar-menu__panel,
+.tbar-menu:focus-within .tbar-menu__panel {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+/* The button keeps the hover tone while the panel is open. */
+.tbar-menu:hover .tbar-menu__btn,
+.tbar-menu:focus-within .tbar-menu__btn {
+    background: var(--gold-soft);
+    border-color: var(--gold-line);
+    color: var(--gold);
+}
+
+.tbar-menu__item {
+    display: block;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    color: var(--ink-soft);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.2;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+.tbar-menu__item:hover,
+.tbar-menu__item:focus-visible {
+    background: var(--gold-soft);
+    color: var(--gold);
+    outline: none;
+}
+
+.tbar-menu__sep {
+    display: block;
+    height: 1px;
+    margin: 6px 8px;
+    background: var(--line);
+}
+
+/* The last menu is near the right edge. Its panel opens to the left. */
+.tbar-menu__panel--right { left: auto; right: 0; }
+
+/* A device without a pointer has no hover. A touch gives focus, thus
+   focus-within opens the panel. */
+@media (hover: none) {
+    .tbar-menu:hover .tbar-menu__panel {
+        opacity: 0;
+        visibility: hidden;
+    }
+    .tbar-menu:focus-within .tbar-menu__panel {
+        opacity: 1;
+        visibility: visible;
+    }
+}
+
+/* The toolbar has no scroll. The menus therefore go away before the
+   bar becomes too wide. The side panel holds the same links. */
+@media (max-width: 1100px) {
+    .tbar-menu { display: none; }
+    .toolbar .tool__sep:first-of-type { display: none; }
+}
+
+@media print {
+    .tbar-menu__panel { display: none !important; }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Compact toolbar controls                                          */
+/* ------------------------------------------------------------------ */
+
+@media (max-width: 560px) {
+    .toolbar {
+        gap: 6px;
+    }
+
+    .tool {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    .tool:has(.icon:only-child) {
+        padding-left: 7px;
+        padding-right: 7px;
+    }
+
+    .tool__sep {
+        margin-left: 2px;
+        margin-right: 2px;
+    }
+}
+/* ================================================================== */
+/*  PAGE                                                              */
+/* ================================================================== */
+.page { width: 100%; max-width: none; }
+
+.page__title {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin: 0 0 22px;
+}
+/* The period marker. It shows which books the numbers below belong to.
+   Set the text in the template: <h1 class="page__title" data-period="…"> */
+.page__title[data-period]::after {
+    content: attr(data-period);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--gold);
+    border: 1px solid var(--gold-line);
+    border-radius: 20px;
+    padding: 2px 10px;
+}
+
+.page__subtitle { margin: 34px 0 14px; }
+
+/* ================================================================== */
+/*  BALANCE CARDS                                                     */
+/* ================================================================== */
+/* Five cards fill the full width of the content area. The tracks stay
+   equal, thus the row reads as one band of figures. */
+.cards {
+    width: 100%;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 14px;
+}
+
+/* A thin gold border holds each card. */
+.card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 16px 18px 18px;
+    border: 1px solid var(--card-line);
+}
+
+/* The label of the 5th card is long. The value keeps to the bottom
+   edge, thus all five figures stay on one line. */
+.card__label {
+    display: block;
+    color: var(--gold-deep);
+    line-height: 1.4;
+    font-weight: bold;
+}
+
+/* Money must align on the decimal point. Tabular figures do this. */
+.card__value {
+    margin-top: auto;
+    padding-top: 10px;
+    font-variant-numeric: tabular-nums;
+    font-size: 24px;
+    letter-spacing: -0.4px;
+    white-space: nowrap;
+}
+/* Set the currency in the template: <div class="card__value" data-unit="EUR"> */
+.card__value[data-unit]::after {
+    content: attr(data-unit);
+    margin-left: 6px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--ink-soft);
+    vertical-align: 2px;
+}
+
+/* Direction of the money. It touches the figure only. The border and
+   the label keep the gold of the neutral card.
+   Put the class on the value: <div class="card__value is-debit">
+   The .card--debit form still works, for a card that a view builds. */
+.card__value.is-debit,
+.card--debit  .card__value { color: var(--debit); }
+
+.card__value.is-credit,
+.card--credit .card__value { color: var(--credit); }
+
+/* Money at risk. It is receivable, thus it is not a debit. The tone
+   stays the same, because both figures need an action. */
+.card__value.is-overdue { color: var(--overdue); }
+
+/* A count is not money. The figure then loses the currency spacing. */
+.card__value.is-count,
+.card--count .card__value { font-size: 26px; letter-spacing: 0; }
+
+/* ================================================================== */
+/*  LEDGER TABLE                                                      */
+/* ================================================================== */
+/* The dashboard has no .table-wrap element. Thus the panel styles go
+   on the .table element. Use separate borders to keep the corners. */
+.table {
+    width: 100%;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+    table-layout: auto;
+}
+
+.table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--white);
+    border-bottom: 1px solid var(--line-strong);
+    padding: 13px 16px;
+}
+
+.table tbody td {
+    border-bottom: 1px solid var(--rule);
+    padding: 12px 16px;
+}
+.table tbody tr:last-child td { border-bottom: none; }
+.table tbody tr { transition: background 0.12s ease; }
+
+/* Column 1 = Date, column 2 = Reference. Both are machine data. */
+.table td:first-child,
+.table td:nth-child(2) {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-soft);
+}
+.table td:nth-child(2) { color: var(--ink); }
+
+/* Column 3 = Account. It takes the free space. */
+.table th:nth-child(3),
+.table td:nth-child(3) { width: 100%; white-space: normal; }
+
+/* Column 4 = Amount. It stays on the right edge of the row. */
+.table th:last-child,
+.table td:last-child { text-align: right; }
+.table td:last-child {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    color: var(--ink);
+}
+/* Add is-debit or is-credit to the amount cell to show the direction. */
+.table td.is-debit  { color: var(--debit); }
+.table td.is-credit { color: var(--credit); }
+
+/* The empty state. It tells the user what the period holds. */
+.table td[colspan] {
+    padding: 34px 16px;
+    text-align: center;
+    color: var(--ink-soft);
+}
+.table tbody tr:hover td[colspan] { background: transparent; }
+
+/* ================================================================== */
+/*  RESPONSIVE                                                        */
+/* ================================================================== */
+@media (max-width: 1240px) {
+    .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 900px) {
+    /* The side panel becomes a drawer. base.js sets data-drawer on the
+       body when the user operates the button or the scrim. */
+    .drawer-toggle { display: grid; }
+
+    .sidebar {
+        position: fixed;
+        top: 0; bottom: 0; left: 0;
+        z-index: 60;
+        width: 272px;
+        background: var(--white);
+        transform: translateX(-100%);
+        transition: transform 0.2s ease;
+        box-shadow: var(--shadow-md);
+    }
+    body[data-drawer="true"] .sidebar { transform: translateX(0); }
+
+    .scrim {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        background: rgba(24, 26, 31, 0.55);
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s ease, visibility 0.2s;
+    }
+    body[data-drawer="true"] .scrim { opacity: 1; visibility: visible; }
+
+    .main { padding: 20px; }
+    .page__subtitle { margin-top: 28px; }
+    .card__value { font-size: 22px; }
+}
+
+@media (max-width: 560px) {
+    /* A ledger keeps its columns. Let the table scroll sideways.
+       The block display removes the corner clip, thus the radius
+       moves to a scroll frame that the border makes. */
+    .table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .table thead th { position: static; }
+    .table th, .table td { white-space: nowrap; }
+    .table th:nth-child(3), .table td:nth-child(3) { width: auto; }
+
+    .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .card { padding: 13px 14px 15px; }
+    .card__value { font-size: 19px; padding-top: 8px; }
+}
+
+/* ================================================================== */
+/*  PRINT  (an accounting page goes into a file or to an auditor)     */
+/* ================================================================== */
+@media print {
+    .ribbon, .context, .sidebar, .footer, .scrim, .drawer-toggle { display: none !important; }
+    .shell { display: block; }
+    .main { padding: 0; overflow: visible; }
+    body { background: #FFFFFF; color: #000000; }
+
+    .page__title, .page__subtitle, .card__value { color: #000000; }
+    .card__label { color: #7A5B22; }
+    .card, .table {
+        background: #FFFFFF;
+        border: 1px solid #999999;
+        box-shadow: none;
+    }
+    .table thead { display: table-header-group; }
+    .table tbody tr { page-break-inside: avoid; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tool,
+    .table tbody tr,
+    .tbar-menu__panel,
+    .tbar-menu__item { transition: none !important; }
+}

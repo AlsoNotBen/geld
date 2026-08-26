@@ -1,0 +1,66 @@
+{% extends "accounting/module_base.html" %}
+
+{% block page_key %}dashboard{% endblock %}
+
+{% block title %}Dashboard · Accounting · Console{% endblock %}
+
+{% comment %} block.super keeps the three buttons of the module base. {% endcomment %}
+{% block toolbar %}{{ block.super }}{% endblock %}
+
+{% block content %}
+<section class="page">
+    <h1 class="page__title">Overview</h1>
+
+    <div class="cards">
+        {% comment %} Neutral: the reference total for the two cards that follow. {% endcomment %}
+        <div class="card">
+            <div class="card__label">Open Invoices</div>
+            <div class="card__value is-credit">{{ open_total|default:"48,120.00" }}</div>
+        </div>
+
+        {% comment %} Debit tone on the figure: this money is late. {% endcomment %}
+        <div class="card">
+            <div class="card__label">Overdue</div>
+            <div class="card__value is-overdue">{{ overdue_total|default:"7,400.00" }}</div>
+        </div>
+
+        {% comment %} Debit tone on the figure: this money goes out. {% endcomment %}
+        <div class="card">
+            <div class="card__label">Payables</div>
+            <div class="card__value is-debit">{{ payable_total|default:"12,905.00" }}</div>
+        </div>
+
+        {% comment %} Credit tone on the figure: this money is in the bank. {% endcomment %}
+        <div class="card">
+            <div class="card__label">Cash on Hand</div>
+            <div class="card__value is-credit">{{ cash_total|default:"93,517.00" }}</div>
+        </div>
+
+        {% comment %} Count: a quantity of invoices, not a sum of money. {% endcomment %}
+        <div class="card">
+            <div class="card__label">Active Invoice Amount</div>
+            <div class="card__value is-count">{{ active_invoice_count|default:"34" }}</div>
+        </div>
+    </div>
+
+    <h2 class="page__subtitle">Recent entries</h2>
+    <table class="table">
+        <thead>
+            <tr><th>Date</th><th>Reference</th><th>Account</th><th>Amount</th></tr>
+        </thead>
+        <tbody>
+            {% for entry in entries %}
+            <tr>
+                <td>{{ entry.date }}</td>
+                <td>{{ entry.reference }}</td>
+                <td>{{ entry.account }}</td>
+                {% comment %} The view sets entry.is_debit for money that goes out. {% endcomment %}
+                <td class="{% if entry.is_debit %}is-debit{% else %}is-credit{% endif %}">{{ entry.amount }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4">There are no entries for this period.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endblock %}
