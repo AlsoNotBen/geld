@@ -1,0 +1,119 @@
+{% extends "documents/base_pdf.html" %}
+{% load humanize %}
+
+{% block doc_title %}Quote {{ options.number }}{% endblock %}
+{% block doc_kind %}Quote{% endblock %}
+{% block footer_kind %}Quote {{ options.number }}{% endblock %}
+{% block doc_number %}{{ options.number }}{% endblock %}
+
+{% block styles %}
+    .accept {
+        margin-top: 12mm;
+        page-break-inside: avoid;
+    }
+    .accept__title {
+        font-size: 7pt;
+        font-weight: 700;
+        letter-spacing: 1pt;
+        text-transform: uppercase;
+        color: #8A8F98;
+        margin-bottom: 4mm;
+    }
+    .accept__grid { display: flex; gap: 12mm; }
+    .accept__field { flex: 1; }
+    .accept__line {
+        border-bottom: 0.6pt solid #23272E;
+        height: 9mm;
+    }
+    .accept__label { font-size: 7.5pt; color: #6B7078; margin-top: 1mm; }
+{% endblock %}
+
+{% block body %}
+<div class="meta">
+    <div class="meta__block">
+        <div class="meta__label">Prepared for</div>
+        <div class="meta__value"><strong>{{ customer.name }}</strong>{% if customer.details %}
+{{ customer.details }}{% endif %}</div>
+    </div>
+    <div class="meta__block">
+        <div class="meta__label">Issue date</div>
+        <div class="meta__value">{{ options.issue_date|date:"j F Y" }}</div>
+    </div>
+    <div class="meta__block">
+        <div class="meta__label">Valid until</div>
+        <div class="meta__value">{{ options.valid_until|date:"j F Y" }}</div>
+    </div>
+</div>
+
+<table class="items">
+    <thead>
+        <tr>
+            <th>Description</th>
+            <th class="num">Qty</th>
+            <th>Unit</th>
+            <th class="num">Unit price</th>
+            <th class="num">Amount</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for line in lines %}
+        <tr>
+            <td>{{ line.description }}</td>
+            <td class="num">{{ line.quantity|floatformat:"-2" }}</td>
+            <td>{{ line.unit }}</td>
+            <td class="num">{{ options.currency }} {{ line.unit_price|floatformat:2|intcomma }}</td>
+            <td class="num">{{ options.currency }} {{ line.total|floatformat:2|intcomma }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<table class="totals">
+    <tr>
+        <td>Subtotal</td>
+        <td class="num">{{ options.currency }} {{ subtotal|floatformat:2|intcomma }}</td>
+    </tr>
+    {% if options.discount_rate %}
+    <tr>
+        <td>Discount ({{ options.discount_rate|floatformat:"-2" }}%)</td>
+        <td class="num">&minus; {{ options.currency }} {{ discount|floatformat:2|intcomma }}</td>
+    </tr>
+    {% endif %}
+    <tr>
+        <td>Tax ({{ options.tax_rate|floatformat:"-2" }}%)</td>
+        <td class="num">{{ options.currency }} {{ tax|floatformat:2|intcomma }}</td>
+    </tr>
+    <tr class="grand">
+        <td>Total</td>
+        <td class="num">{{ options.currency }} {{ total|floatformat:2|intcomma }}</td>
+    </tr>
+</table>
+
+{% if options.notes %}
+<div class="note">
+    <div class="note__label">Notes</div>{{ options.notes }}
+</div>
+{% endif %}
+
+<div class="note">
+    <div class="note__label">Validity</div>This quote stays valid until {{ options.valid_until|date:"j F Y" }}. Prices do not include delivery, unless a line item lists it.
+</div>
+
+<div class="accept">
+    <div class="accept__title">Acceptance</div>
+    <div class="accept__grid">
+        <div class="accept__field">
+            <div class="accept__line"></div>
+            <div class="accept__label">Name</div>
+        </div>
+        <div class="accept__field">
+            <div class="accept__line"></div>
+            <div class="accept__label">Signature</div>
+        </div>
+        <div class="accept__field">
+            <div class="accept__line"></div>
+            <div class="accept__label">Date</div>
+        </div>
+    </div>
+</div>
+{% endblock %}

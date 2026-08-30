@@ -1,0 +1,182 @@
+{% comment %}
+============================================================================
+documents/templates/documents/base_pdf.html
+----------------------------------------------------------------------------
+The base of every PDF template. WeasyPrint renders the result.
+
+The template is self-contained: all CSS sits in the <style> block, and
+no external file is loaded. Keep it that way in a child template too.
+
+The context must hold "options" with at least:
+    paper_size      "A4" or "letter"
+    accent_color    "#RRGGBB"
+    company_name    text for the header and the running footer
+    company_details address lines, one per line
+
+Blocks that a child template overrides:
+    doc_title    the document title in the PDF metadata
+    styles       extra CSS for the document
+    body         the document content
+============================================================================
+{% endcomment %}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{% block doc_title %}Document{% endblock %}</title>
+<style>
+    @page {
+        size: {{ options.paper_size|default:"A4" }};
+        margin: 20mm 18mm 26mm 18mm;
+
+        @bottom-left {
+            content: element(footer-left);
+        }
+        @bottom-right {
+            content: "Page " counter(page) " of " counter(pages);
+            font-family: "IBM Plex Mono", "DejaVu Sans Mono", monospace;
+            font-size: 7.5pt;
+            color: #8A8F98;
+        }
+    }
+
+    /* The running element replaces the @bottom-left content on every
+       page. An element carries user text safely; a CSS string does not. */
+    .running-footer {
+        position: running(footer-left);
+        font-size: 7.5pt;
+        color: #8A8F98;
+    }
+
+    body {
+        margin: 0;
+        font-family: "IBM Plex Sans", "DejaVu Sans", "Helvetica", sans-serif;
+        font-size: 9.5pt;
+        line-height: 1.45;
+        color: #23272E;
+    }
+
+    /* ---- Shared document furniture -------------------------------- */
+
+    .doc-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        border-bottom: 2.5pt solid {{ options.accent_color|default:"#F0BE72" }};
+        padding-bottom: 5mm;
+        margin-bottom: 7mm;
+    }
+
+    .brand { display: flex; gap: 4mm; align-items: flex-start; flex: 1 1 auto; }
+    .doc-title { flex: 0 0 auto; }
+    .brand__mark {
+        width: 11mm;
+        height: 11mm;
+        border-radius: 2.2mm;
+        background: {{ options.accent_color|default:"#F0BE72" }};
+        color: #23272E;
+        font-weight: 700;
+        font-size: 12pt;
+        text-align: center;
+        line-height: 11mm;
+    }
+    .brand__name { font-size: 13pt; font-weight: 700; }
+    .brand__details { color: #6B7078; font-size: 8pt; white-space: pre-line; }
+
+    .doc-title { text-align: right; }
+    .doc-title__kind {
+        font-size: 19pt;
+        font-weight: 700;
+        letter-spacing: 2pt;
+        text-transform: uppercase;
+        color: {{ options.accent_color|default:"#F0BE72" }};
+    }
+    .doc-title__number {
+        font-family: "IBM Plex Mono", "DejaVu Sans Mono", monospace;
+        font-size: 10pt;
+        color: #6B7078;
+    }
+
+    .meta { display: flex; gap: 12mm; margin-bottom: 8mm; }
+    .meta__block { min-width: 34mm; }
+    .meta__label {
+        font-size: 7pt;
+        font-weight: 700;
+        letter-spacing: 1pt;
+        text-transform: uppercase;
+        color: #8A8F98;
+        margin-bottom: 1mm;
+    }
+    .meta__value { font-size: 9.5pt; white-space: pre-line; }
+
+    .items { width: 100%; border-collapse: collapse; margin-bottom: 6mm; }
+    .items th {
+        font-size: 7.5pt;
+        font-weight: 700;
+        letter-spacing: 0.8pt;
+        text-transform: uppercase;
+        text-align: left;
+        color: #6B7078;
+        border-bottom: 1.2pt solid #23272E;
+        padding: 2mm 2.5mm;
+    }
+    .items td {
+        padding: 2.6mm 2.5mm;
+        border-bottom: 0.4pt solid #D9DBDE;
+        vertical-align: top;
+    }
+    .items .num { text-align: right; white-space: nowrap; }
+    .items tr { page-break-inside: avoid; }
+
+    .totals { width: 72mm; margin-left: auto; border-collapse: collapse; }
+    .totals td { padding: 1.8mm 2.5mm; }
+    .totals .num { text-align: right; white-space: nowrap; }
+    .totals .grand td {
+        font-weight: 700;
+        font-size: 11pt;
+        border-top: 1.2pt solid #23272E;
+        background: {{ options.accent_color|default:"#F0BE72" }}22;
+    }
+
+    .note {
+        margin-top: 8mm;
+        padding: 4mm;
+        background: #F4F5F6;
+        border-left: 2.5pt solid {{ options.accent_color|default:"#F0BE72" }};
+        font-size: 8.5pt;
+        white-space: pre-line;
+        page-break-inside: avoid;
+    }
+    .note__label {
+        font-size: 7pt;
+        font-weight: 700;
+        letter-spacing: 1pt;
+        text-transform: uppercase;
+        color: #8A8F98;
+        margin-bottom: 1mm;
+    }
+
+    {% block styles %}{% endblock %}
+</style>
+</head>
+<body>
+    <div class="running-footer">
+        {{ options.company_name }} · {% block footer_kind %}Document{% endblock %}
+    </div>
+
+    <div class="doc-head">
+        <div class="brand">
+            <div class="brand__mark">{{ options.company_name|slice:":1"|upper }}</div>
+            <div>
+                <div class="brand__name">{{ options.company_name }}</div>
+                <div class="brand__details">{{ options.company_details }}</div>
+            </div>
+        </div>
+        <div class="doc-title">
+            <div class="doc-title__kind">{% block doc_kind %}Document{% endblock %}</div>
+            <div class="doc-title__number">{% block doc_number %}{% endblock %}</div>
+        </div>
+    </div>
+
+    {% block body %}{% endblock %}
+</body>
+</html>

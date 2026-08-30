@@ -36,6 +36,7 @@ ALLOWED_HOSTS = ['*']
 INSTALLED_APPS = [
     'accounting.apps.AccountingConfig',
     'inventory.apps.InventoryConfig',
+    'documents.apps.DocumentsConfig',
     # -- Add your app here --
 
     'django.contrib.admin',
@@ -44,6 +45,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.humanize',      # number formatting in the PDF templates
 ]
 
 MIDDLEWARE = [

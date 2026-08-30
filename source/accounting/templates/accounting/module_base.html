@@ -69,11 +69,15 @@
 
     <div class="toolbar" role="toolbar" aria-label="Accounting tools">
         {% block toolbar %}
-            <button class="tool tool--primary" type="button">
+            {% comment %} The data-doc-overlay attribute opens the document
+                 overlay. documents.js reads it (see static/documents/js). {% endcomment %}
+            <button class="tool tool--primary" type="button"
+                    data-doc-overlay="{% url 'documents:panel' 'accounting' 'quote' %}">
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
                 New Quote
             </button>
-            <button class="tool tool--primary" type="button">
+            <button class="tool tool--primary" type="button"
+                    data-doc-overlay="{% url 'documents:panel' 'accounting' 'invoice' %}">
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
                 New Invoice
             </button>

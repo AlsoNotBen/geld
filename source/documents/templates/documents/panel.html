@@ -1,0 +1,135 @@
+{% comment %}
+============================================================================
+documents/templates/documents/panel.html
+----------------------------------------------------------------------------
+The content of the document overlay. The frontend loads this fragment
+with fetch() and puts it into a <dialog>. Thus the template extends no
+base template.
+
+documents.js reads these data attributes:
+    data-doc-panel           the root of the panel
+    data-preview-url         the PDF preview endpoint
+    data-download-url        the PDF download endpoint
+    data-doc-form            the options form
+    data-doc-preview         the preview <iframe>
+    data-doc-download        the download link
+    data-doc-close           each element that closes the overlay
+============================================================================
+{% endcomment %}
+<section class="doc-panel" data-doc-panel
+         data-preview-url="{% url 'documents:preview' document.module document.key %}"
+         data-download-url="{% url 'documents:download' document.module document.key %}">
+
+    <header class="doc-panel__head">
+        <div>
+            <h2 class="doc-panel__title">{{ document.label }}</h2>
+            {% if document.description %}
+            <p class="doc-panel__sub">{{ document.description }}</p>
+            {% endif %}
+        </div>
+        <div class="doc-panel__head-actions">
+            <button class="icon-btn" type="button" data-doc-refresh aria-label="Refresh the preview" title="Refresh the preview">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M21 12a9 9 0 11-2.64-6.36" stroke-linecap="round"/>
+                    <path d="M21 3v6h-6" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+            <button class="icon-btn" type="button" data-doc-close aria-label="Close the overlay" title="Close the overlay">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/>
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <div class="doc-panel__body">
+        <form class="doc-panel__form" data-doc-form>
+            <div class="doc-panel__form-title">Render options</div>
+            {% for field in form.main_fields %}
+            <div class="doc-field">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+            </div>
+            {% endfor %}
+
+            {% if form.customize_fields %}
+            {% comment %} The section stays folded until the user opens it. {% endcomment %}
+            <details class="doc-customize">
+                <summary>Customize</summary>
+                {% for field in form.customize_fields %}
+                <div class="doc-field">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+                </div>
+                {% endfor %}
+            </details>
+            {% endif %}
+        </form>
+
+        <div class="doc-panel__preview">
+            <iframe data-doc-preview title="PDF preview"
+                    src="{% url 'documents:preview' document.module document.key %}"></iframe>
+        </div>
+    </div>
+
+    <footer class="doc-panel__foot">
+        <span class="doc-panel__hint">The preview updates after a change to an option.</span>
+
+        <div class="doc-panel__actions">
+
+            <button class="tool" type="button" data-doc-close>
+                <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M6 6l12 12M18 6L6 18"
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"/>
+                </svg>
+                Close
+            </button>
+
+            <button class="tool" type="button" data-doc-close>
+                <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M5 4h11l3 3v13H5V4z"
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"/>
+                    <path d="M8 4v6h8V4M8 20v-6h8v6"
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"/>
+                </svg>
+                Save
+            </button>
+
+            <a class="tool tool--primary" data-doc-send
+            href="#">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M21 3L10 14"
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"/>
+                    <path d="M21 3l-7 18-4-7-7-4 18-7z"
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"/>
+                </svg>
+                Send
+            </a>
+
+            <a class="tool tool--primary" data-doc-download
+            href="{% url 'documents:download' document.module document.key %}" download>
+                <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M12 3v12M8 11l4 4 4-4M4 21h16"
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"/>
+                </svg>
+                Download
+            </a>
+
+        </div>
+    </footer>
+
+</section>

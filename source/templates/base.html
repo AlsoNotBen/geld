@@ -15,6 +15,10 @@
 
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
 
+    <!-- The document overlay is shared by all modules, thus the shell
+         loads its stylesheet here. -->
+    <link rel="stylesheet" href="{% static 'documents/css/documents.css' %}">
+
     <!-- A module base template loads its own stylesheet here. The file
          comes after base.css, thus the module wins a tie. -->
     {% block module_css %}{% endblock %}
@@ -154,6 +158,11 @@
     </footer>
 
     <script src="{% static 'js/base.js' %}"></script>
+
+    <!-- The document overlay. A module opens it with a button that
+         carries the panel URL in a doc-overlay data attribute. The script
+         creates the <dialog> itself, thus this file needs no extra markup. -->
+    <script src="{% static 'documents/js/documents.js' %}"></script>
 
     <!-- This script marks the current module in the ribbon, and the current
          item in the navigation that the module builds. The second selector

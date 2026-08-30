@@ -1,0 +1,75 @@
+{% extends "documents/base_pdf.html" %}
+{% load humanize %}
+
+{% block doc_title %}Invoice {{ options.number }}{% endblock %}
+{% block doc_kind %}Invoice{% endblock %}
+{% block footer_kind %}Invoice {{ options.number }}{% endblock %}
+{% block doc_number %}{{ options.number }}{% endblock %}
+
+{% block body %}
+<div class="meta">
+    <div class="meta__block">
+        <div class="meta__label">Bill to</div>
+        <div class="meta__value"><strong>{{ customer.name }}</strong>{% if customer.details %}
+{{ customer.details }}{% endif %}</div>
+    </div>
+    <div class="meta__block">
+        <div class="meta__label">Issue date</div>
+        <div class="meta__value">{{ options.issue_date|date:"j F Y" }}</div>
+    </div>
+    <div class="meta__block">
+        <div class="meta__label">Due date</div>
+        <div class="meta__value">{{ options.due_date|date:"j F Y" }}</div>
+    </div>
+</div>
+
+<table class="items">
+    <thead>
+        <tr>
+            <th>Description</th>
+            <th class="num">Qty</th>
+            <th>Unit</th>
+            <th class="num">Unit price</th>
+            <th class="num">Amount</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for line in lines %}
+        <tr>
+            <td>{{ line.description }}</td>
+            <td class="num">{{ line.quantity|floatformat:"-2" }}</td>
+            <td>{{ line.unit }}</td>
+            <td class="num">{{ options.currency }} {{ line.unit_price|floatformat:2|intcomma }}</td>
+            <td class="num">{{ options.currency }} {{ line.total|floatformat:2|intcomma }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<table class="totals">
+    <tr>
+        <td>Subtotal</td>
+        <td class="num">{{ options.currency }} {{ subtotal|floatformat:2|intcomma }}</td>
+    </tr>
+    <tr>
+        <td>Tax ({{ options.tax_rate|floatformat:"-2" }}%)</td>
+        <td class="num">{{ options.currency }} {{ tax|floatformat:2|intcomma }}</td>
+    </tr>
+    <tr class="grand">
+        <td>Total due</td>
+        <td class="num">{{ options.currency }} {{ total|floatformat:2|intcomma }}</td>
+    </tr>
+</table>
+
+{% if options.payment_details %}
+<div class="note">
+    <div class="note__label">Payment details</div>{{ options.payment_details }}
+</div>
+{% endif %}
+
+{% if options.notes %}
+<div class="note">
+    <div class="note__label">Notes</div>{{ options.notes }}
+</div>
+{% endif %}
+{% endblock %}
