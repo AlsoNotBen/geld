@@ -1,0 +1,189 @@
+{% extends "accounting/module_base.html" %}
+{% load static %}
+
+{% block page_key %}dashboard{% endblock %}
+
+{% block title %}Journal Entries | Accounting{% endblock %}
+
+{% comment %} block.super keeps the three buttons of the module base. {% endcomment %}
+{% block toolbar %}{{ block.super }}{% endblock %}
+
+{% block content %}
+<section class="page">
+    <h1 class="page__title">Journal Entries</h1>
+
+    {% comment %}
+      ======================================================================
+      THE TAB SET
+      ----------------------------------------------------------------------
+      One table stays on the screen. Each journal is a tab.
+      journals.js makes the change and writes the key into the URL, thus a
+      link or a reload opens the same tab. Example: ?journal=sales
+
+      Markup contract of the script:
+          [data-tabset]                 the container
+          [role="tab"][data-tab=KEY]    the button
+          [data-panel=KEY]              the panel that the button shows
+      The button also points at its panel with aria-controls.
+
+      Each panel takes its own list from the view:
+          general_entries · sales_entries · purchase_entries · cash_entries
+      A list that the view does not send gives an empty table. Do not put
+      a fallback in a filter argument, for example |default:entries. A
+      variable in that position must exist, or Django stops the page with
+      VariableDoesNotExist. Keep the fallback in the view.
+
+      The four tables are equal. Thus a change to one column must go into
+      all four panels below.
+      ======================================================================
+    {% endcomment %}
+    <div class="tabset" data-tabset data-tabset-param="journal">
+
+        <div class="tabset__list" role="tablist" aria-label="Journal type">
+            <button class="tabset__tab" type="button" role="tab" data-tab="general"
+                    id="tab-general" aria-controls="panel-general"
+                    aria-selected="true" tabindex="0">
+                General Journal
+                <span class="tabset__count">{{ general_entries|length }}</span>
+            </button>
+            <button class="tabset__tab" type="button" role="tab" data-tab="sales"
+                    id="tab-sales" aria-controls="panel-sales"
+                    aria-selected="false" tabindex="-1">
+                Sales Journal
+                <span class="tabset__count">{{ sales_entries|length }}</span>
+            </button>
+            <button class="tabset__tab" type="button" role="tab" data-tab="purchases"
+                    id="tab-purchases" aria-controls="panel-purchases"
+                    aria-selected="false" tabindex="-1">
+                Purchases Journal
+                <span class="tabset__count">{{ purchase_entries|length }}</span>
+            </button>
+            <button class="tabset__tab" type="button" role="tab" data-tab="cash"
+                    id="tab-cash" aria-controls="panel-cash"
+                    aria-selected="false" tabindex="-1">
+                Cash Journal
+                <span class="tabset__count">{{ cash_entries|length }}</span>
+            </button>
+        </div>
+
+        <div class="tabset__panel" role="tabpanel" data-panel="general"
+             id="panel-general" aria-labelledby="tab-general" tabindex="0">
+            <h2 class="tabset__print-title">General Journal</h2>
+            <table class="table">
+                <thead>
+                    <tr><th>Date</th><th>Reference</th><th>Account</th><th>Amount</th></tr>
+                </thead>
+                <tbody>
+                    {% for entry in general_entries %}
+                    <tr>
+                        <td>{{ entry.date }}</td>
+                        <td>{{ entry.reference }}</td>
+                        <td>{{ entry.account }}</td>
+                        {% comment %} The view sets entry.is_debit for money that goes out. {% endcomment %}
+                        <td class="{% if entry.is_debit %}is-debit{% else %}is-credit{% endif %}">{{ entry.amount }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4">There are no entries for this period.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {# ----------------------------- SALES ----------------------------- #}
+        <div class="tabset__panel" role="tabpanel" data-panel="sales"
+             id="panel-sales" aria-labelledby="tab-sales" tabindex="0" hidden>
+            <h2 class="tabset__print-title">Sales Journal</h2>
+            <table class="table">
+                <thead>
+                    <tr><th>Date</th><th>Reference</th><th>Account</th><th>Amount</th></tr>
+                </thead>
+                <tbody>
+                    {% for entry in sales_entries %}
+                    <tr>
+                        <td>{{ entry.date }}</td>
+                        <td>{{ entry.reference }}</td>
+                        <td>{{ entry.account }}</td>
+                        <td class="{% if entry.is_debit %}is-debit{% else %}is-credit{% endif %}">{{ entry.amount }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4">There are no entries for this period.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {# --------------------------- PURCHASES --------------------------- #}
+        <div class="tabset__panel" role="tabpanel" data-panel="purchases"
+             id="panel-purchases" aria-labelledby="tab-purchases" tabindex="0" hidden>
+            <h2 class="tabset__print-title">Purchases Journal</h2>
+            <table class="table">
+                <thead>
+                    <tr><th>Date</th><th>Reference</th><th>Account</th><th>Amount</th></tr>
+                </thead>
+                <tbody>
+                    {% for entry in purchase_entries %}
+                    <tr>
+                        <td>{{ entry.date }}</td>
+                        <td>{{ entry.reference }}</td>
+                        <td>{{ entry.account }}</td>
+                        <td class="{% if entry.is_debit %}is-debit{% else %}is-credit{% endif %}">{{ entry.amount }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4">There are no entries for this period.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {# ----------------------------- CASH ------------------------------ #}
+        <div class="tabset__panel" role="tabpanel" data-panel="cash"
+             id="panel-cash" aria-labelledby="tab-cash" tabindex="0" hidden>
+            <h2 class="tabset__print-title">Cash Journal</h2>
+            <table class="table">
+                <thead>
+                    <tr><th>Date</th><th>Reference</th><th>Account</th><th>Amount</th></tr>
+                </thead>
+                <tbody>
+                    {% for entry in cash_entries %}
+                    <tr>
+                        <td>{{ entry.date }}</td>
+                        <td>{{ entry.reference }}</td>
+                        <td>{{ entry.account }}</td>
+                        <td class="{% if entry.is_debit %}is-debit{% else %}is-credit{% endif %}">{{ entry.amount }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4">There are no entries for this period.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    {% comment %}
+      The script hides three panels. Thus a browser without JavaScript must
+      open all four again. The page then reads as a column of journals, as
+      before. Delete this block if your Content Security Policy prevents an
+      inline style.
+    {% endcomment %}
+    <noscript>
+        <style>
+            .tabset__list { display: none; }
+            .tabset__panel[hidden] { display: block; }
+            .tabset__panel + .tabset__panel { margin-top: 30px; }
+            .tabset__print-title {
+                display: block;
+                margin: 0 0 14px;
+                font-size: 15px;
+                font-weight: 600;
+                color: var(--ink);
+            }
+        </style>
+    </noscript>
+</section>
+{% endblock %}
+
+
+{% block extra_js %}
+<script src="{% static 'accounting/js/journals.js' %}"></script>
+{% endblock %}

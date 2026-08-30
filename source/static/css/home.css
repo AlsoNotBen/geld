@@ -1,0 +1,81 @@
+/* ==========================================================================
+   home.css  —  the module grid of the application root
+   Place this file at: static/css/home.css
+   core/templates/core/index.html loads it through the module_css block.
+   ========================================================================== */
+
+.home {
+    width: 100%;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 44px 24px 60px;
+}
+
+.home__title { margin: 0; font-size: 24px; font-weight: 700; color: var(--ink); }
+.home__sub   { margin: 6px 0 0; font-size: 13.5px; color: var(--ink-soft); }
+
+.home__grid {
+    margin-top: 28px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 16px;
+}
+
+/* ---- One tile per module ------------------------------------------- */
+.tile {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 24px 22px;
+    background: var(--white);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    color: var(--ink);
+    text-decoration: none;
+    transition: border-color 0.15s ease, transform 0.15s ease,
+                box-shadow 0.15s ease;
+}
+a.tile:hover,
+a.tile:focus-visible {
+    border-color: var(--gold-line);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.tile__icon {
+    width: 58px;
+    height: 58px;
+    align-self: center;
+    margin-bottom: 10px;
+    border-radius: 14px;
+    background: var(--gold-soft);
+    color: var(--gold);
+    display: grid;
+    place-items: center;
+}
+.tile__icon .icon {
+    width: 30px;
+    height: 30px;
+    stroke: currentColor;
+}
+
+.tile__name { font-size: 16px; font-weight: 600; align-self: center; }
+.tile__desc { font-size: 12.5px; line-height: 1.45; color: var(--ink-soft); text-align: center;}
+
+/* ---- A planned module ----------------------------------------------
+   The tile is visible but muted, and it is not a link. */
+.tile--soon { opacity: 0.55; }
+.tile__badge {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    padding: 3px 9px;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+}

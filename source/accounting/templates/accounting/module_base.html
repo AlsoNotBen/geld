@@ -194,17 +194,18 @@
 
         <nav class="nav">
             <div class="nav__group">Analysis</div>
-            <a class="nav__item" data-nav="dashboard" href="#">Overview</a>
+            <a class="nav__item" data-nav="dashboard" href="{% url 'accounting:dashboard' %}">Overview</a>
             <a class="nav__item" data-nav="journal"   href="#">Analytics</a>
             <a class="nav__item" data-nav="accounts"  href="#">Reports</a>
 
 
             <div class="nav__group">Bookkeeping</div>
-            <a class="nav__item" data-nav="invoices" href="#">
+            <a class="nav__item" data-nav="invoices" href="{% url 'accounting:journals' %}">
                 Journal Entries <span class="nav__count">{{ open_invoices|default:"12" }}</span>
             </a>
             <a class="nav__item" data-nav="customers" href="#">Chart of Accounts</a>
             <a class="nav__item" data-nav="customers" href="#">General Ledger</a>
+            <a class="nav__item" data-nav="customers" href="#">Data Capture</a>
 
             <div class="nav__group">Cost Centre</div>
             <a class="nav__item" data-nav="bills"     href="#">Bills</a>
@@ -212,7 +213,7 @@
             <a class="nav__item" data-nav="suppliers" href="#">Claims</a>
 
             <div class="nav__group">General</div>
-            <a class="nav__item" data-nav="reports"  href="#">Module Settings</a>
+            <a class="nav__item" data-nav="reports"  href="#">Accounting Settings</a>
             <a class="nav__item" data-nav="settings" href="#">Module settings</a>
         </nav>
 

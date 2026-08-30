@@ -658,6 +658,119 @@
     color: var(--ink-soft);
 }
 .table tbody tr:hover td[colspan] { background: transparent; }
+/* ==========================================================================
+   TAB SET — add this block to the end of
+   accounting/static/accounting/css/accounting.css
+
+   One table stays on the screen. Each journal is a tab above it.
+   The active tab carries the gold spine of the module switch in the
+   ribbon, thus the page keeps the identity of the shell.
+   All colors come from the tokens of base.css and accounting.css.
+   ========================================================================== */
+
+/* ================================================================== */
+/*  TAB SET                                                           */
+/* ================================================================== */
+
+/* The row of tabs. One hairline goes below all of them. The row scrolls
+   sideways on a small screen, thus a tab never wraps. */
+.tabset__list {
+    display: flex;
+    align-items: stretch;
+    gap: 2px;
+    margin: 0 0 18px;
+    border-bottom: 1px solid var(--line);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.tabset__list::-webkit-scrollbar { display: none; }
+
+.tabset__tab {
+    position: relative;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+    padding: 0 14px;
+    border: none;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    background: transparent;
+    color: var(--ink-soft);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    transition: color 0.15s ease, background 0.15s ease;
+}
+.tabset__tab:hover { color: var(--gold); background: var(--gold-soft); }
+
+/* The gold spine. It touches the hairline of the row, thus the tab and
+   the table below it read as one panel. */
+.tabset__tab[aria-selected="true"] { color: var(--ink); }
+.tabset__tab[aria-selected="true"]::after {
+    content: "";
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: -1px;
+    height: 2px;
+    border-radius: 2px 2px 0 0;
+    background: var(--gold);
+}
+
+/* The number of entries. It uses the pill of the side panel. */
+.tabset__count {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--ink-soft);
+    background: var(--white);
+    border: 1px solid var(--line);
+    padding: 0 7px;
+    border-radius: 20px;
+}
+.tabset__tab:hover .tabset__count { border-color: var(--gold-line); }
+.tabset__tab[aria-selected="true"] .tabset__count {
+    color: var(--gold);
+    background: var(--gold-soft);
+    border-color: var(--gold-line);
+}
+
+/* journals.js closes a panel with the hidden attribute. The rule below
+   is necessary, because a class rule beats the browser default. */
+.tabset__panel[hidden] { display: none; }
+
+/* The tab holds the name of the journal on the screen. The title below
+   is for the paper only. */
+.tabset__print-title { display: none; }
+
+/* ---- Responsive ---------------------------------------------------- */
+@media (max-width: 560px) {
+    .tabset__list { margin-bottom: 14px; }
+    .tabset__tab { padding: 0 11px; font-size: 12px; }
+}
+
+/* ---- Print --------------------------------------------------------- */
+/* Paper has no tabs. Thus the page prints all four journals, and each
+   one gets its title again. */
+@media print {
+    .tabset__list { display: none !important; }
+    .tabset__panel[hidden] { display: block !important; }
+    .tabset__panel + .tabset__panel { margin-top: 24px; }
+    .tabset__print-title {
+        display: block;
+        margin: 0 0 12px;
+        font-size: 15px;
+        font-weight: 600;
+        color: #000000;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tabset__tab { transition: none !important; }
+}
 
 /* ================================================================== */
 /*  RESPONSIVE                                                        */
