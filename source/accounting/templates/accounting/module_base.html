@@ -50,8 +50,6 @@
 </button>
 {% endblock %}
 
-
-{# ===================== MODULE BAR (breadcrumb + toolbar) ===================== #}
 {% block module_bar %}
 <div class="context">
     {% comment %}
@@ -195,25 +193,28 @@
         <nav class="nav">
             <div class="nav__group">Analysis</div>
             <a class="nav__item" data-nav="dashboard" href="{% url 'accounting:dashboard' %}">Overview</a>
-            <a class="nav__item" data-nav="journal"   href="#">Analytics</a>
-            <a class="nav__item" data-nav="accounts"  href="#">Reports</a>
+            <a class="nav__item" data-nav="analytics"   href="#">Analytics</a>
+            <a class="nav__item" data-nav="reports"  href="#">Reports</a>
 
 
             <div class="nav__group">Bookkeeping</div>
-            <a class="nav__item" data-nav="invoices" href="{% url 'accounting:journals' %}">
+            <a class="nav__item" data-nav="journal" href="{% url 'accounting:journals' %}">
                 Journal Entries <span class="nav__count">{{ open_invoices|default:"12" }}</span>
             </a>
-            <a class="nav__item" data-nav="customers" href="#">Chart of Accounts</a>
-            <a class="nav__item" data-nav="customers" href="#">General Ledger</a>
-            <a class="nav__item" data-nav="customers" href="#">Data Capture</a>
+            <a class="nav__item" data-nav="accounts" href="{% url 'accounting:chartaccounts' %}">Chart of Accounts</a>
+            <a class="nav__item" data-nav="ledger" href="#">General Ledger</a>
+            <a class="nav__item" data-nav="balancesheet" href="#">Balance Sheet</a>
+            <a class="nav__item" data-nav="incomestatement" href="#">Income Statement</a>
+            <a class="nav__item" data-nav="cashflow" href="#">Cash Flow Statement</a>
+            <a class="nav__item" data-nav="equity" href="#">Equity and Notes</a>
 
             <div class="nav__group">Cost Centre</div>
             <a class="nav__item" data-nav="bills"     href="#">Bills</a>
             <a class="nav__item" data-nav="suppliers" href="#">Suppliers</a>
-            <a class="nav__item" data-nav="suppliers" href="#">Claims</a>
+            <a class="nav__item" data-nav="claims" href="#">Claims</a>
 
             <div class="nav__group">General</div>
-            <a class="nav__item" data-nav="reports"  href="#">Accounting Settings</a>
+            <a class="nav__item" data-nav="accountingsettings"  href="#">Accounting Settings</a>
             <a class="nav__item" data-nav="settings" href="#">Module settings</a>
         </nav>
 

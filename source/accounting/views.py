@@ -57,3 +57,6 @@ def journals(request):
 
 def invoices(request):
     return render(request, "accounting/invoices.html")
+
+def chartaccounts(request):
+    return render(request, "accounting/chart_of_accounts.html")

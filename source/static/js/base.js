@@ -1,6 +1,6 @@
 /* ==========================================================================
    base.js  —  shell behaviour (profile menu, mobile drawer, shortcuts)
-   Place this file at: static/js/base.js
+   static/js/base.js
    base.html loads it with the Django static tag, before the extra_js block.
    ========================================================================== */
 

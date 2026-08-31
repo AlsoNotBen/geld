@@ -1,7 +1,7 @@
 {% extends "accounting/module_base.html" %}
 {% load static %}
 
-{% block page_key %}dashboard{% endblock %}
+{% block page_key %}journal{% endblock %}
 
 {% block title %}Journal Entries | Accounting{% endblock %}
 
@@ -12,31 +12,115 @@
 <section class="page">
     <h1 class="page__title">Journal Entries</h1>
 
-    {% comment %}
-      ======================================================================
-      THE TAB SET
-      ----------------------------------------------------------------------
-      One table stays on the screen. Each journal is a tab.
-      journals.js makes the change and writes the key into the URL, thus a
-      link or a reload opens the same tab. Example: ?journal=sales
+    <section class="review" aria-labelledby="review-title">
 
-      Markup contract of the script:
-          [data-tabset]                 the container
-          [role="tab"][data-tab=KEY]    the button
-          [data-panel=KEY]              the panel that the button shows
-      The button also points at its panel with aria-controls.
+        <div class="review__head">
+            <h2 class="review__title" id="review-title">
+                New entries
+                <span class="review__count">12</span>
+            </h2>
+            <p class="review__hint">These entries have not been reviewed yet.</p>
 
-      Each panel takes its own list from the view:
-          general_entries · sales_entries · purchase_entries · cash_entries
-      A list that the view does not send gives an empty table. Do not put
-      a fallback in a filter argument, for example |default:entries. A
-      variable in that position must exist, or Django stops the page with
-      VariableDoesNotExist. Keep the fallback in the view.
+            <div class="review__actions">
+                <button class="tool tool--sm" type="button">Accept all</button>
+            </div>
+        </div>
 
-      The four tables are equal. Thus a change to one column must go into
-      all four panels below.
-      ======================================================================
-    {% endcomment %}
+        <table class="table table--review">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Reference</th>
+                    <th>Journal</th>
+                    <th>Account</th>
+                    <th>Amount</th>
+                    <th><span class="visually-hidden">Review</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>2026-02-03</td>
+                    <td>INV-2026-0114</td>
+                    <td>Sales</td>
+                    <td>Trade receivables — Grayson &amp; Co</td>
+                    <td class="is-credit">12,480.00</td>
+                    <td>
+                        <div class="review__buttons">
+                            <button class="tool tool--sm tool--accept" type="button" aria-label="Accept INV-2026-0114">
+                                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                Accept
+                            </button>
+                            <button class="tool tool--sm tool--neutral" type="button" aria-label="Edit INV-2026-0114">
+                                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 20h4L18 10l-4-4L4 16v4z" stroke-linejoin="round"/><path d="M14 6l4 4" stroke-linecap="round"/></svg>
+                                Edit
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td>2026-02-03</td>
+                    <td>BILL-4471</td>
+                    <td>Purchases</td>
+                    <td>Office consumables — Kite Supplies</td>
+                    <td class="is-debit">1,265.40</td>
+                    <td>
+                        <div class="review__buttons">
+                            <button class="tool tool--sm tool--accept" type="button" aria-label="Accept BILL-4471">
+                                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                Accept
+                            </button>
+                            <button class="tool tool--sm tool--neutral" type="button" aria-label="Edit BILL-4471">
+                                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 20h4L18 10l-4-4L4 16v4z" stroke-linejoin="round"/><path d="M14 6l4 4" stroke-linecap="round"/></svg>
+                                Edit
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td>2026-02-04</td>
+                    <td>BNK-0098</td>
+                    <td>Cash</td>
+                    <td>Bank charges — Current account</td>
+                    <td class="is-debit">312.75</td>
+                    <td>
+                        <div class="review__buttons">
+                            <button class="tool tool--sm tool--accept" type="button" aria-label="Accept BNK-0098">
+                                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                Accept
+                            </button>
+                            <button class="tool tool--sm tool--neutral" type="button" aria-label="Edit BNK-0098">
+                                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 20h4L18 10l-4-4L4 16v4z" stroke-linejoin="round"/><path d="M14 6l4 4" stroke-linecap="round"/></svg>
+                                Edit
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td>2026-02-05</td>
+                    <td>JNL-0032</td>
+                    <td>General</td>
+                    <td>Depreciation — Vehicles</td>
+                    <td class="is-debit">4,900.00</td>
+                    <td>
+                        <div class="review__buttons">
+                            <button class="tool tool--sm tool--accept" type="button" aria-label="Accept JNL-0032">
+                                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                Accept
+                            </button>
+                            <button class="tool tool--sm tool--neutral" type="button" aria-label="Edit JNL-0032">
+                                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 20h4L18 10l-4-4L4 16v4z" stroke-linejoin="round"/><path d="M14 6l4 4" stroke-linecap="round"/></svg>
+                                Edit
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
     <div class="tabset" data-tabset data-tabset-param="journal">
 
         <div class="tabset__list" role="tablist" aria-label="Journal type">
@@ -44,25 +128,21 @@
                     id="tab-general" aria-controls="panel-general"
                     aria-selected="true" tabindex="0">
                 General Journal
-                <span class="tabset__count">{{ general_entries|length }}</span>
             </button>
             <button class="tabset__tab" type="button" role="tab" data-tab="sales"
                     id="tab-sales" aria-controls="panel-sales"
                     aria-selected="false" tabindex="-1">
                 Sales Journal
-                <span class="tabset__count">{{ sales_entries|length }}</span>
             </button>
             <button class="tabset__tab" type="button" role="tab" data-tab="purchases"
                     id="tab-purchases" aria-controls="panel-purchases"
                     aria-selected="false" tabindex="-1">
                 Purchases Journal
-                <span class="tabset__count">{{ purchase_entries|length }}</span>
             </button>
             <button class="tabset__tab" type="button" role="tab" data-tab="cash"
                     id="tab-cash" aria-controls="panel-cash"
                     aria-selected="false" tabindex="-1">
                 Cash Journal
-                <span class="tabset__count">{{ cash_entries|length }}</span>
             </button>
         </div>
 

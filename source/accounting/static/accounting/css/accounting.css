@@ -26,6 +26,7 @@
     --rule:        rgba(232, 230, 222, 0.07);  /* ledger hairline */
     --gold-deep:   #C79A4E;                    /* dark gold — card labels */
     --card-line:   rgba(240, 190, 114, 0.38);  /* thin gold card border */
+    --tool-action: #808080;
     --tool-h:      34px;
     --sidebar-w:   244px;
 }
@@ -303,6 +304,16 @@
 }
 
 .tool--ghost:hover {
+    background: var(--gold-soft);
+}
+
+.tool--neutral {
+    color: var(--ink);
+    border-color: var(--ink);
+    background: transparent;
+}
+
+.tool--neutral:hover {
     background: var(--gold-soft);
 }
 
@@ -745,6 +756,298 @@
 /* The tab holds the name of the journal on the screen. The title below
    is for the paper only. */
 .tabset__print-title { display: none; }
+
+/* ================================================================== */
+/*  ACCOUNT TABLE                                                     */
+/*  Columns: Code · Account · Type · Balance                          */
+/* ================================================================== */
+
+/* Column 1 = Code. It is machine data, thus it keeps the mono face of
+   the ledger. The column stays as narrow as its content. */
+.table--coa td:first-child {
+    width: 1%;
+    color: var(--ink);
+    font-weight: 500;
+}
+
+/* Column 2 = Account. It is the name of the account, thus it takes the
+   free space and it uses the text face. */
+.table--coa th:nth-child(2),
+.table--coa td:nth-child(2) {
+    width: 100%;
+    white-space: normal;
+    font-family: var(--font-sans);
+    font-size: 10px;
+    color: var(--ink);
+}
+
+/* Column 3 = Type. Example: Current asset. It stays on one line. */
+.table--coa th:nth-child(3),
+.table--coa td:nth-child(3) {
+    width: auto;
+    white-space: nowrap;
+    color: var(--ink-soft);
+}
+
+/* A group row names a part of the chart. It carries no figures. The row
+   uses the label of the side panel, thus the two lists read the same. */
+.table--coa tbody tr.is-group td {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--gold-deep);
+    background: rgba(232, 230, 222, 0.04);
+}
+.table--coa tbody tr.is-group:hover td { background: rgba(232, 230, 222, 0.04); }
+
+.table--coa tfoot td {
+    border-top: 1px solid var(--line-strong);
+    padding: 13px 16px;
+    background: rgba(232, 230, 222, 0.03);
+}
+.table--coa tfoot td[colspan] {
+    padding: 13px 16px;
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+}
+.table--coa tfoot td:last-child { font-size: 13px; font-weight: 600; }
+
+.actionbar {
+    position: sticky;
+    bottom: 12px;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    min-height: 62px;
+    margin-top: 22px;
+    padding: 13px 16px;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+}
+
+.actionbar__group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* The hint goes to the right end of the bar. It tells the user why the
+   other buttons are not available. */
+.actionbar__hint {
+    margin: 0 0 0 auto;
+    color: var(--ink-soft);
+    font-size: 12px;
+}
+
+.tool--sm {
+    min-width: 28px;
+    height: 28px;
+    padding: 0 10px;
+    gap: 6px;
+    font-size: 12px;
+}
+.tool--sm .icon {
+    flex: 0 0 14px;
+    width: 14px;
+    height: 14px;
+}
+
+
+.tool--accept {
+    color: var(--ink);
+    border-color: var(--ink);
+    background: transparent;
+}
+
+.tool--accept:hover {
+    color: var(--credit);
+    border-color: var(--credit);
+    background: var(--credit-soft);
+}
+
+.tool--accept .icon {
+    stroke: currentColor;
+}
+
+
+
+/* ================================================================== */
+/*  REVIEW LIST                                                       */
+/* ================================================================== */
+.review { margin: 0 0 30px; }
+
+.review__head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 0 0 12px;
+}
+
+.review__title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+/* The pill uses the gold of an active item. The list thus asks for an
+   action, and the counts of the tabs below stay quiet. */
+.review__count {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--gold);
+    background: var(--gold-soft);
+    border: 1px solid var(--gold-line);
+    padding: 0 8px;
+    border-radius: 20px;
+}
+
+.review__hint {
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: 12px;
+}
+
+.review__actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+/* The two buttons of a row stay together at the right edge. */
+.review__buttons {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+/* ================================================================== */
+/*  REVIEW TABLE                                                      */
+/*  Columns: Date · Reference · Journal · Account · Amount · Review    */
+/* ================================================================== */
+
+/* The thin gold border is the border of a card. It marks the table as an
+   item that needs an action. The journals below keep the plain border. */
+.table--review { border-color: var(--line-strong); }
+
+/* Column 3 = Journal. It stays on one line. */
+.table--review th:nth-child(3),
+.table--review td:nth-child(3) {
+    width: auto;
+    white-space: nowrap;
+    color: var(--ink-soft);
+}
+
+/* Column 4 = Account. It takes the free space. */
+.table--review th:nth-child(4),
+.table--review td:nth-child(4) {
+    width: 100%;
+    white-space: normal;
+    color: var(--ink);
+}
+
+/* Column 5 = Amount. Money must align on the decimal point. */
+.table--review th:nth-child(5),
+.table--review td:nth-child(5) {
+    text-align: right;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    color: var(--ink);
+}
+/* The direction of the money keeps its color. */
+.table--review td:nth-child(5).is-debit  { color: var(--debit); }
+.table--review td:nth-child(5).is-credit { color: var(--credit); }
+
+/* Column 6 = the two buttons. The column stays as narrow as its content.
+   The cell also keeps a smaller top and bottom space, because a button is
+   higher than a line of text. */
+.table--review th:last-child,
+.table--review td:last-child { width: 1%; white-space: nowrap; }
+.table--review tbody td:last-child { padding-top: 8px; padding-bottom: 8px; }
+
+/* The head of column 6 has no text on the screen. A screen reader gets
+   the name of the column from this class. */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ---- Responsive ---------------------------------------------------- */
+@media (max-width: 900px) {
+    .review__actions { margin-left: 0; }
+}
+
+@media (max-width: 560px) {
+    /* The table scrolls sideways. Thus the account column loses the free
+       width, and each column keeps its content. */
+    .table--review th:nth-child(4),
+    .table--review td:nth-child(4) { width: auto; white-space: nowrap; }
+
+    .review__hint { width: 100%; }
+}
+
+/* ---- Print --------------------------------------------------------- */
+/* Paper holds the journals, not the queue. Thus the list goes away. */
+@media print {
+    .review { display: none !important; }
+}
+
+/* ---- Responsive ---------------------------------------------------- */
+@media (max-width: 900px) {
+    .actionbar { gap: 10px; }
+    .actionbar__hint { margin-left: 0; }
+}
+
+@media (max-width: 560px) {
+    .actionbar { padding: 11px 12px; }
+    .actionbar__group { gap: 6px; }
+
+    /* The table scrolls sideways on a small screen. Thus the name column
+       loses the free width, and the code column keeps its content. */
+    .table--coa th:nth-child(2),
+    .table--coa td:nth-child(2) { width: auto; white-space: nowrap; }
+}
+
+/* ---- Print --------------------------------------------------------- */
+/* Paper has no controls. The total row stays, because an auditor needs
+   the figure. */
+@media print {
+    .actionbar { display: none !important; }
+
+    .table--coa tbody tr.is-group td { color: #7A5B22; background: #FFFFFF; }
+    .table--coa tfoot td {
+        border-top: 1px solid #999999;
+        background: #FFFFFF;
+        color: #000000;
+    }
+    .table--coa tfoot { display: table-footer-group; }
+}
 
 /* ---- Responsive ---------------------------------------------------- */
 @media (max-width: 560px) {
