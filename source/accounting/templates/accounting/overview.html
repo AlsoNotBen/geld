@@ -1,44 +1,86 @@
 {% extends "accounting/module_base.html" %}
 
+{% comment %}
+  ============================================================================
+  accounting/templates/accounting/overview.html
+  ----------------------------------------------------------------------------
+  The first page of the module. It shows five figures and the last entries.
+
+  The page follows the pattern of the module:
+      .page__head    the title and the note
+      .actionbar     Print and Export
+      .cards         the five figures
+      .table         the last entries: Date · Reference · Account · Amount
+  ============================================================================
+{% endcomment %}
+
 {% block page_key %}dashboard{% endblock %}
 
-{% block title %}Overview | Accounting{% endblock %}
+{% block title %}Overview · Accounting · Console{% endblock %}
 
-{% comment %} block.super keeps the three buttons of the module base. {% endcomment %}
+{% comment %} block.super keeps the buttons of the module base. {% endcomment %}
 {% block toolbar %}{{ block.super }}{% endblock %}
 
 {% block content %}
 <section class="page">
-    <h1 class="page__title">Overview</h1>
+
+    <div class="page__head">
+        <h1 class="page__title">Overview</h1>
+        <p class="page__note">
+            The overview is the first page of the Accounting module. It shows
+            the position of the business today: the money that customers owe,
+            the money that is late, the money that the business owes to
+            suppliers, and the cash in the bank. The table below shows the
+            last entries in the books. Use this page to see if an item needs
+            an action before you open a report.
+        </p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Overview controls">
+        <div class="actionbar__group">
+            {% comment %} base.js must call window.print() for a button with
+                 the data-print attribute. {% endcomment %}
+            <button class="tool" type="button" data-print>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+                Print
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+        </div>
+
+        <p class="actionbar__hint">The figures show the accepted entries of {{ period|default:"FY 2026" }}.</p>
+    </div>
 
     <div class="cards">
-        {% comment %} Neutral: the reference total for the two cards that follow. {% endcomment %}
+        {% comment %} Credit tone: this money will come in. {% endcomment %}
         <div class="card">
-            <div class="card__label">Open Invoices</div>
-            <div class="card__value is-credit">{{ open_total|default:"48,120.00" }}</div>
+            <span class="card__label">Open Invoices</span>
+            <div class="card__value is-credit" data-unit="ZAR">{{ open_total|default:"48,120.00" }}</div>
         </div>
 
-        {% comment %} Debit tone on the figure: this money is late. {% endcomment %}
+        {% comment %} Overdue tone: this money is late. {% endcomment %}
         <div class="card">
-            <div class="card__label">Overdue</div>
-            <div class="card__value is-overdue">{{ overdue_total|default:"7,400.00" }}</div>
+            <span class="card__label">Overdue</span>
+            <div class="card__value is-overdue" data-unit="ZAR">{{ overdue_total|default:"7,400.00" }}</div>
         </div>
 
-        {% comment %} Debit tone on the figure: this money goes out. {% endcomment %}
+        {% comment %} Debit tone: this money goes out. {% endcomment %}
         <div class="card">
-            <div class="card__label">Payables</div>
-            <div class="card__value is-debit">{{ payable_total|default:"12,905.00" }}</div>
+            <span class="card__label">Payables</span>
+            <div class="card__value is-debit" data-unit="ZAR">{{ payable_total|default:"12,905.00" }}</div>
         </div>
 
-        {% comment %} Credit tone on the figure: this money is in the bank. {% endcomment %}
+        {% comment %} Credit tone: this money is in the bank. {% endcomment %}
         <div class="card">
-            <div class="card__label">Cash on Hand</div>
-            <div class="card__value is-credit">{{ cash_total|default:"93,517.00" }}</div>
+            <span class="card__label">Cash on Hand</span>
+            <div class="card__value is-credit" data-unit="ZAR">{{ cash_total|default:"93,517.00" }}</div>
         </div>
 
         {% comment %} Count: a quantity of invoices, not a sum of money. {% endcomment %}
         <div class="card">
-            <div class="card__label">Active Invoice Amount</div>
+            <span class="card__label">Active Invoices</span>
             <div class="card__value is-count">{{ active_invoice_count|default:"34" }}</div>
         </div>
     </div>

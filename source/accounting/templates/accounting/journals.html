@@ -1,29 +1,79 @@
 {% extends "accounting/module_base.html" %}
 {% load static %}
 
+{% comment %}
+  ============================================================================
+  accounting/templates/accounting/journals.html
+  ----------------------------------------------------------------------------
+  The journal entries. The page has two parts:
+      1. The review list.   The new entries that wait for an action.
+                            Each row keeps its own Accept and Edit button.
+      2. The tab set.       One table for each journal.
+
+  The page follows the pattern of the module:
+      .page__head    the title and the note
+      .actionbar     Accept All (primary), Print, Export
+      .review        the list of new entries
+      .tabset        the four journals
+
+  The Accept All button is in the action bar, not in the list head. Thus
+  the bar holds every action of the page, as on the other pages.
+  ============================================================================
+{% endcomment %}
+
 {% block page_key %}journal{% endblock %}
 
-{% block title %}Journal Entries | Accounting{% endblock %}
+{% block title %}Journal Entries · Accounting · Console{% endblock %}
 
-{% comment %} block.super keeps the three buttons of the module base. {% endcomment %}
+{% comment %} block.super keeps the buttons of the module base. {% endcomment %}
 {% block toolbar %}{{ block.super }}{% endblock %}
 
 {% block content %}
 <section class="page">
-    <h1 class="page__title">Journal Entries</h1>
+
+    <div class="page__head">
+        <h1 class="page__title">Journal Entries</h1>
+        <p class="page__note">
+            A journal is the first record of a transaction. Each entry names
+            the date, the reference, the account and the amount. The four
+            journals below sort the entries by type: general, sales, purchases
+            and cash. The list at the top holds the entries that a person must
+            review. Accept an entry to post it to the general ledger, or edit
+            it first. Only accepted entries go into the statements.
+        </p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Journal controls">
+        <div class="actionbar__group">
+            <button class="tool tool--primary" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Accept All
+            </button>
+
+            <span class="tool__sep" aria-hidden="true"></span>
+            {% comment %} base.js must call window.print() for a button with
+                 the data-print attribute. {% endcomment %}
+            <button class="tool" type="button" data-print>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+                Print
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+        </div>
+
+        <p class="actionbar__hint">Accept All posts the {{ pending_count|default:"12" }} new entries to the ledger.</p>
+    </div>
 
     <section class="review" aria-labelledby="review-title">
 
         <div class="review__head">
             <h2 class="review__title" id="review-title">
-                New entries
-                <span class="review__count">12</span>
+                New Entries
+                <span class="review__count">{{ pending_count|default:"4" }}</span>
             </h2>
-            <p class="review__hint">These entries have not been reviewed yet.</p>
-
-            <div class="review__actions">
-                <button class="tool tool--sm" type="button">Accept all</button>
-            </div>
+            <p class="review__hint">These entries wait for a review. Accept or edit each one.</p>
         </div>
 
         <table class="table table--review">
@@ -146,6 +196,7 @@
             </button>
         </div>
 
+        {# ---------------------------- GENERAL ---------------------------- #}
         <div class="tabset__panel" role="tabpanel" data-panel="general"
              id="panel-general" aria-labelledby="tab-general" tabindex="0">
             <h2 class="tabset__print-title">General Journal</h2>
@@ -242,8 +293,8 @@
 
     {% comment %}
       The script hides three panels. Thus a browser without JavaScript must
-      open all four again. The page then reads as a column of journals, as
-      before. Delete this block if your Content Security Policy prevents an
+      open all four again. The page then reads as a column of journals.
+      Delete this block if your Content Security Policy prevents an
       inline style.
     {% endcomment %}
     <noscript>

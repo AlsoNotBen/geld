@@ -74,10 +74,14 @@ button {
     color: inherit;
 }
 
+
+
 /* The body is a column: ribbon · module bar · layout · footer.
    Put this class on the top element of the module layout. The element
    then takes the free height, and the footer stays at the bottom. */
 .fill { flex: 1 1 auto; min-height: 0; }
+
+.ribbon, .context, .footer { flex: 0 0 auto; }
 
 /* ---- Keyboard access ---------------------------------------------- */
 :focus-visible {
@@ -110,6 +114,7 @@ button {
     top: 0;
     z-index: 40;
     height: var(--ribbon-h);
+    min-height: var(--ribbon-h);
     background: var(--navy);
     color: var(--ink);
     display: flex;
@@ -336,6 +341,7 @@ button {
 /* ================================================================== */
 .context {
     height: var(--context-h);
+    min-height: var(--context-h);
     background: var(--white);
     border-bottom: 1px solid var(--line);
     display: flex;

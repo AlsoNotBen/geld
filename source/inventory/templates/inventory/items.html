@@ -1,0 +1,515 @@
+{% extends "inventory/module_base.html" %}
+
+{% comment %}
+  ============================================================================
+  inventory/templates/inventory/items.html
+  ----------------------------------------------------------------------------
+  The generic editor of one Item. The database holds one table for every
+  kind of item: an asset, a stock item, a consumable or a component. The
+  page holds one form for the same reason, and a select sets the type.
+
+  A relationship joins two items: a parent and a child, of one of five
+  types, with a quantity. The page shows the relationships of the
+  selected item at the right, and a small form adds one more.
+
+  The three columns reuse .bom, the grid that the Bill of Materials page
+  built first:
+      left    the items. Search, filter by type, and select one.
+      middle  the form of the selected item: code, name, type,
+              description and the active flag.
+      right   the relationships of the selected item, and the form that
+              adds one. A note names the one rule that the middleware
+              checks: a relationship must not close a circle.
+
+  All items and relationships below are dummy data. The selected item is
+  Dell Latitude 7440, AST-00124, the same asset that the Assets page
+  lists.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}items{% endblock %}
+
+{% block title %}Items · Inventory · Console{% endblock %}
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title" data-period="248 items">Items</h1>
+        <p class="page__note">
+            An item is a row of one kind: an asset, a stock item, a
+            consumable or a component. The type of an item does not
+            change what an item is made of; a relationship does that. A
+            relationship joins two items, a parent and a child, with a
+            type and a quantity. A bill of materials, an accessory, a
+            replacement and a compatible part are all the same kind of
+            row, with a different type. Select an item at the left to
+            edit it, or to change what it relates to.
+        </p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Item controls">
+        <div class="actionbar__group">
+            <button class="tool tool--primary" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                New Item
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="12" height="12" rx="2"/><path d="M8 16v2a2 2 0 002 2h8a2 2 0 002-2v-8a2 2 0 00-2-2h-2"/></svg>
+                Duplicate Item
+            </button>
+            <span class="tool__sep" aria-hidden="true"></span>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+        </div>
+
+        <p class="actionbar__hint">Editing: Dell Latitude 7440 · AST-00124 · Asset</p>
+    </div>
+
+    <h2 class="page__subtitle">Item editor</h2>
+    <div class="bom">
+
+        {% comment %} ================= LEFT: the items ================= {% endcomment %}
+        <div class="card">
+            <span class="card__label">Items</span>
+
+            {% comment %} The filter does not filter yet. Refer to views.py.
+                 The search field and its button sit in one field-row, thus
+                 the button stays next to the field on a narrow column. The
+                 type sits on the row below, because two full-width fields
+                 read better stacked than squeezed onto one line. {% endcomment %}
+            <form method="get" action="" role="search" aria-label="Find an item" style="margin-top: 14px;">
+                <div class="field-row field-row--full" style="margin-top: 0;">
+                    <label class="visually-hidden" for="item-q">Find an item</label>
+                    <input class="field" id="item-q" name="q" type="search"
+                           placeholder="Name or code" autocomplete="off" style="flex: 1 1 auto;">
+
+                    <button class="tool tool--sm" type="submit" aria-label="Find" style="flex: none;">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4" stroke-linecap="round"/></svg>
+                    </button>
+                </div>
+
+                <div class="field-row field-row--full">
+                    <label class="visually-hidden" for="item-type-filter">Item type</label>
+                    <select class="field field--select" id="item-type-filter" name="item_type">
+                        <option value="">All types</option>
+                        <option value="ASSET">Asset</option>
+                        <option value="STOCK">Stock</option>
+                        <option value="CONSUMABLE">Consumable</option>
+                        <option value="COMPONENT">Component</option>
+                    </select>
+                </div>
+            </form>
+
+            <nav class="nav bom__list" aria-label="Items">
+                <a class="nav__item is-active" href="#">
+                    <span class="bom__name">Dell Latitude 7440
+                        <span class="cell-sub">AST-00124 · Asset</span>
+                    </span>
+                    <span class="status status--ok">Active</span>
+                </a>
+                <a class="nav__item" href="#">
+                    <span class="bom__name">Dell Latitude 7420
+                        <span class="cell-sub">AST-00075 · Asset</span>
+                    </span>
+                    <span class="status status--idle">Inactive</span>
+                </a>
+                <a class="nav__item" href="#">
+                    <span class="bom__name">Dell U2723QE 27"
+                        <span class="cell-sub">AST-00131 · Asset</span>
+                    </span>
+                    <span class="status status--ok">Active</span>
+                </a>
+                <a class="nav__item" href="#">
+                    <span class="bom__name">Docking Station, USB-C
+                        <span class="cell-sub">CMP-120 · Component</span>
+                    </span>
+                    <span class="status status--ok">Active</span>
+                </a>
+                <a class="nav__item" href="#">
+                    <span class="bom__name">Laptop Sleeve 14"
+                        <span class="cell-sub">CMP-118 · Component</span>
+                    </span>
+                    <span class="status status--ok">Active</span>
+                </a>
+                <a class="nav__item" href="#">
+                    <span class="bom__name">12V Battery
+                        <span class="cell-sub">BAT-001 · Stock</span>
+                    </span>
+                    <span class="status status--ok">Active</span>
+                </a>
+                <a class="nav__item" href="#">
+                    <span class="bom__name">Radio Field Kit
+                        <span class="cell-sub">KIT-004 · Stock</span>
+                    </span>
+                    <span class="status status--ok">Active</span>
+                </a>
+                <a class="nav__item" href="#">
+                    <span class="bom__name">A4 Paper, 80 gsm
+                        <span class="cell-sub">STA-010 · Consumable</span>
+                    </span>
+                    <span class="status status--ok">Active</span>
+                </a>
+                <a class="nav__item" href="#">
+                    <span class="bom__name">Toner HP 415A Black
+                        <span class="cell-sub">TON-003 · Consumable</span>
+                    </span>
+                    <span class="status status--ok">Active</span>
+                </a>
+            </nav>
+
+            <div class="bom__foot">
+                <p class="bom__total">9 of 248 items. <b>Page 1 of 28.</b></p>
+            </div>
+        </div>
+
+        {% comment %} ================= MIDDLE: the item form =================
+             The fields follow the model directly: code, name, item_type,
+             description, active. The form does not save. Refer to
+             views.py. {% endcomment %}
+        <div class="card">
+            <span class="card__label">Item Details</span>
+
+            <form method="post" action="" aria-label="Edit the selected item" style="margin-top: 14px;">
+                {% csrf_token %}
+
+                <span class="field-row__label field-row__label--first">Code</span>
+                <div class="field-row field-row--full">
+                    <label class="visually-hidden" for="item-code">Code</label>
+                    <input class="field" id="item-code" name="code" type="text" value="AST-00124">
+                </div>
+                <p class="chart-note" style="margin-top: 4px;">Must be unique across every item.</p>
+
+                <span class="field-row__label">Name</span>
+                <div class="field-row field-row--full">
+                    <label class="visually-hidden" for="item-name">Name</label>
+                    <input class="field" id="item-name" name="name" type="text" value="Dell Latitude 7440">
+                </div>
+
+                <span class="field-row__label">Item Type</span>
+                <div class="field-row field-row--full">
+                    <label class="visually-hidden" for="item-type">Item type</label>
+                    <select class="field field--select" id="item-type" name="item_type">
+                        <option value="ASSET" selected>Asset</option>
+                        <option value="STOCK">Stock</option>
+                        <option value="CONSUMABLE">Consumable</option>
+                        <option value="COMPONENT">Component</option>
+                    </select>
+                </div>
+
+                <span class="field-row__label">Manufacturer &amp; Model</span>
+                <div class="field-row">
+                    <label class="visually-hidden" for="item-manufacturer">Manufacturer</label>
+                    <input class="field" id="item-manufacturer" name="manufacturer" type="text"
+                           placeholder="Manufacturer" value="Dell">
+
+                    <label class="visually-hidden" for="item-model">Model</label>
+                    <input class="field" id="item-model" name="model" type="text"
+                           placeholder="Model" value="Latitude 7440">
+                </div>
+
+                <span class="field-row__label">Part Number &amp; Serial Number</span>
+                <div class="field-row">
+                    <label class="visually-hidden" for="item-part-number">Part number</label>
+                    <input class="field" id="item-part-number" name="part_number" type="text"
+                           placeholder="Part number" value="7440-CTO-BASE">
+
+                    <label class="visually-hidden" for="item-serial-number">Serial number</label>
+                    <input class="field" id="item-serial-number" name="serial_number" type="text"
+                           placeholder="Serial number" value="7HJ4K2Q">
+                </div>
+
+                <span class="field-row__label">Version Number &amp; Country of Origin</span>
+                <div class="field-row">
+                    <label class="visually-hidden" for="item-version">Version number</label>
+                    <input class="field" id="item-version" name="version_number" type="text"
+                           placeholder="Version number" value="Rev A">
+
+                    <label class="visually-hidden" for="item-origin">Country of origin</label>
+                    <select class="field field--select" id="item-origin" name="country_of_origin">
+                        <option value="">Country of origin</option>
+                        <option>South Africa</option>
+                        <option selected>China</option>
+                        <option>Germany</option>
+                        <option>United States</option>
+                        <option>Japan</option>
+                        <option>Other</option>
+                    </select>
+                </div>
+
+                <span class="field-row__label">Quantity</span>
+                <div class="field-row field-row--full">
+                    <label class="visually-hidden" for="item-quantity">Quantity</label>
+                    <input class="field" id="item-quantity" name="quantity" type="number"
+                           min="0" step="1" value="1">
+                </div>
+
+                <span class="field-row__label">Description</span>
+                <div class="field-row field-row--full">
+                    <label class="visually-hidden" for="item-description">Description</label>
+                    <textarea class="field field--area" id="item-description" name="description"
+                              placeholder="A short description of the item">14-inch business laptop, i7, 16GB RAM, 512GB SSD. Standard issue for the Pretoria office.</textarea>
+                </div>
+
+                <span class="field-row__label">Notes</span>
+                <div class="field-row field-row--full">
+                    <label class="visually-hidden" for="item-notes">Notes</label>
+                    <textarea class="field field--area" id="item-notes" name="notes"
+                              placeholder="Internal notes">Sent for repair once. Screen replaced under warranty in June 2026.</textarea>
+                </div>
+
+                <div class="field-row field-row--full">
+                    <label class="field-check">
+                        <input type="checkbox" name="active" checked>
+                        Active item
+                    </label>
+                </div>
+                <p class="chart-note" style="margin-top: 4px;">
+                    An inactive item stays on record but drops out of new stock
+                    counts, assignments and relationships.
+                </p>
+
+                <div class="field-row field-row--full">
+                    <label class="field-check">
+                        <input type="checkbox" name="depreciating_item" checked>
+                        Depreciating item
+                    </label>
+                </div>
+
+                {% comment %} Shown only when Depreciating item is ticked. No
+                     script does this: form:has() reads the checkbox above,
+                     because both sit inside the same form. Refer to
+                     inventory.css. {% endcomment %}
+                <span class="field-row__label">Useful Life</span>
+                <div class="field-row useful-life-row">
+                    <label class="visually-hidden" for="item-life-qty">Useful life, quantity</label>
+                    <input class="field field--sm" id="item-life-qty" name="useful_life_quantity" type="number"
+                           min="0" step="1" value="3">
+
+                    <label class="visually-hidden" for="item-life-unit">Useful life, unit</label>
+                    <select class="field field--select field--sm" id="item-life-unit" name="useful_life_unit">
+                        <option>Weeks</option>
+                        <option>Months</option>
+                        <option selected>Years</option>
+                    </select>
+                </div>
+                <p class="chart-note useful-life-hint" style="margin-top: 4px;">
+                    Sets the depreciation schedule of this asset.
+                </p>
+            </form>
+
+            <div class="bom__foot">
+                <button class="tool" type="button">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                    New Item
+                </button>
+                <button class="tool tool--primary" type="button">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Save Item
+                </button>
+                <button class="tool tool--danger" type="button">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2m-7 0v12a2 2 0 002 2h4a2 2 0 002-2V7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Delete Item
+                </button>
+            </div>
+        </div>
+
+        {% comment %} ================= RIGHT: the relationships =================
+             Every relationship of the model has a parent, a child, a
+             type and a quantity. The role select tells the form which
+             side the selected item takes. Refer to views.py. {% endcomment %}
+        <div class="card">
+            <span class="card__label">Relationships</span>
+
+            <form class="actionbar__group" method="post" action=""
+                  aria-label="Add a relationship" style="margin-top: 14px;">
+                {% csrf_token %}
+                <label class="visually-hidden" for="rel-type">Relationship type</label>
+                <select class="field field--select field--wide" id="rel-type" name="relationship_type">
+                    <option value="CONTAINS">Contains</option>
+                    <option value="REPLACEMENT">Replacement</option>
+                    <option value="ACCESSORY" selected>Accessory</option>
+                    <option value="COMPATIBLE">Compatible</option>
+                    <option value="DEPENDENCY">Dependency</option>
+                </select>
+
+                <label class="visually-hidden" for="rel-role">This item is the</label>
+                <select class="field field--select" id="rel-role" name="role">
+                    <option value="parent" selected>Parent of</option>
+                    <option value="child">Child of</option>
+                </select>
+
+                <label class="visually-hidden" for="rel-item">Related item</label>
+                <select class="field field--select field--wide" id="rel-item" name="related_item">
+                    <option value="">Select an item</option>
+                    <option>Dell U2723QE 27" · AST-00131</option>
+                    <option>Docking Station, USB-C · CMP-120</option>
+                    <option>Laptop Sleeve 14" · CMP-118</option>
+                    <option>Dell Latitude 7420 · AST-00075</option>
+                    <option>Power Lead 1.8m · CMP-215</option>
+                </select>
+
+                <label class="visually-hidden" for="rel-qty">Quantity</label>
+                <input class="field field--sm" id="rel-qty" name="quantity" type="number"
+                       min="0" step="0.001" value="1.000">
+
+                <button class="tool tool--primary" type="submit">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                    Add Relationship
+                </button>
+            </form>
+
+            <p class="chart-note" style="margin-top: 10px;">
+                Parent and child mean different things for each type. For
+                Contains, the parent holds the child. For the other four
+                types, the roles say which item the rule reads from.
+            </p>
+
+            {% comment %} The list of relationships that already exist. The
+                 arrow gives the direction: a parent row points at its
+                 child, a child row points back at its parent. Reused from
+                 the segment list of the Codes &amp; Tags page. {% endcomment %}
+            <div class="seg-list bom__list" role="list" aria-label="Relationships of this item">
+
+                <div class="tree__row" role="listitem">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="var(--ink-soft)" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <span class="bom__name">Dell U2723QE 27"
+                        <span class="cell-sub">Accessory · Parent of · AST-00131</span>
+                    </span>
+                    <span class="tree__qty">× 1.000</span>
+                    <button class="seg-row__remove" type="button" aria-label="Remove this relationship">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>
+                    </button>
+                </div>
+
+                <div class="tree__row" role="listitem">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="var(--ink-soft)" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <span class="bom__name">Laptop Sleeve 14"
+                        <span class="cell-sub">Accessory · Parent of · CMP-118</span>
+                    </span>
+                    <span class="tree__qty">× 1.000</span>
+                    <button class="seg-row__remove" type="button" aria-label="Remove this relationship">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>
+                    </button>
+                </div>
+
+                <div class="tree__row" role="listitem">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="var(--ink-soft)" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <span class="bom__name">Docking Station, USB-C
+                        <span class="cell-sub">Compatible · Parent of · CMP-120</span>
+                    </span>
+                    <span class="tree__qty">× 1.000</span>
+                    <button class="seg-row__remove" type="button" aria-label="Remove this relationship">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>
+                    </button>
+                </div>
+
+                <div class="tree__row" role="listitem">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="var(--ink-soft)" stroke-width="2" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <span class="bom__name">Dell Latitude 7420
+                        <span class="cell-sub">Replacement · Child of · AST-00075</span>
+                    </span>
+                    <span class="tree__qty">× 1.000</span>
+                    <button class="seg-row__remove" type="button" aria-label="Remove this relationship">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="bom__foot">
+                <p class="bom__total">
+                    4 relationships. The system checks for a circular
+                    relationship, such as an item that contains itself,
+                    before it saves.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <h2 class="page__subtitle">All items</h2>
+    <table class="table table--inv">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Code</th>
+                <th>Type</th>
+                <th class="is-qty">Relationships</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="is-name">Dell Latitude 7440</td>
+                <td class="is-code">AST-00124</td>
+                <td>Asset</td>
+                <td class="is-qty">4</td>
+                <td><span class="status status--ok">Active</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Dell Latitude 7420</td>
+                <td class="is-code">AST-00075</td>
+                <td>Asset</td>
+                <td class="is-qty">1</td>
+                <td><span class="status status--idle">Inactive</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Dell U2723QE 27"</td>
+                <td class="is-code">AST-00131</td>
+                <td>Asset</td>
+                <td class="is-qty">1</td>
+                <td><span class="status status--ok">Active</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Radio Field Kit</td>
+                <td class="is-code">KIT-004</td>
+                <td>Stock</td>
+                <td class="is-qty">6</td>
+                <td><span class="status status--ok">Active</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">12V Battery</td>
+                <td class="is-code">BAT-001</td>
+                <td>Stock</td>
+                <td class="is-qty">0</td>
+                <td><span class="status status--ok">Active</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Charging Dock, 6-way</td>
+                <td class="is-code">CMP-209</td>
+                <td>Component</td>
+                <td class="is-qty">2</td>
+                <td><span class="status status--ok">Active</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Docking Station, USB-C</td>
+                <td class="is-code">CMP-120</td>
+                <td>Component</td>
+                <td class="is-qty">1</td>
+                <td><span class="status status--ok">Active</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">A4 Paper, 80 gsm</td>
+                <td class="is-code">STA-010</td>
+                <td>Consumable</td>
+                <td class="is-qty">0</td>
+                <td><span class="status status--ok">Active</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Toner HP 415A Black</td>
+                <td class="is-code">TON-003</td>
+                <td>Consumable</td>
+                <td class="is-qty">0</td>
+                <td><span class="status status--busy">On order</span></td>
+            </tr>
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="4">9 of 248 items</td>
+                <td>Page 1 of 28</td>
+            </tr>
+        </tfoot>
+    </table>
+</section>
+{% endblock %}

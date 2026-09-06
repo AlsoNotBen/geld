@@ -1,0 +1,268 @@
+{% extends "accounting/module_base.html" %}
+{% load static %}
+
+{% comment %}
+  ============================================================================
+  accounting/templates/accounting/balance_sheet.html
+  ----------------------------------------------------------------------------
+  The statement of financial position. The page shows two tables:
+      1. Assets
+      2. Equity and liabilities
+  The total of table 1 must agree with the total of table 2.
+
+  The page follows the pattern of the module:
+      .page__head    the title and the note
+      .actionbar     Print, Export, Change period
+      .cards         the five results
+      .table--fin    Line · Note · This period · Last period
+
+  The last column is the last period. accounting.css makes it dim, with
+  its sums and its foot. The template needs no class for this.
+
+  Three row classes give the structure of the statement:
+      is-group   a heading row, for example "Current assets"
+      is-nest    a line that belongs to the group above it
+      is-sum     a total inside the table, for example "Total current assets"
+  The tfoot holds the total of the table.
+
+  The figures below are examples. Replace them with the values of the view.
+  A line can come from a list, for example:
+
+      {% for line in asset_lines %}
+      <tr class="{{ line.row_class }}">
+          <td>{{ line.name }}</td>
+          <td>{{ line.note }}</td>
+          <td>{{ line.this_period }}</td>
+          <td>{{ line.last_period }}</td>
+      </tr>
+      {% endfor %}
+
+  Do not put a fallback in a filter argument, for example |default:lines.
+  A variable in that position must exist, or Django stops the page.
+
+  Show a negative figure in brackets, for example (240,000). This is the
+  practice of a financial statement.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}balancesheet{% endblock %}
+
+{% block title %}Balance Sheet · Accounting · Console{% endblock %}
+
+{% comment %} block.super keeps the buttons of the module base. {% endcomment %}
+{% block toolbar %}{{ block.super }}{% endblock %}
+
+{% block content %}
+<section class="page page--statement">
+
+    <div class="page__head">
+        <h1 class="page__title">Balance Sheet</h1>
+        <p class="page__note">
+            The balance sheet is the statement of financial position. It shows
+            what the business owns (the assets), what it owes (the liabilities)
+            and what remains for the owners (the equity) on one day. The two
+            totals must agree: total assets are equal to total equity and
+            liabilities. A lender reads this statement to see if the business
+            can pay its debts. An owner reads it to see the value of the
+            business. The position is at 31 March 2026, with 31 March 2025 for
+            comparison. All figures in ZAR.
+        </p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Statement controls">
+        <div class="actionbar__group">
+            {% comment %} base.js must call window.print() for a button with
+                 the data-print attribute. {% endcomment %}
+            <button class="tool" type="button" data-print>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+                Print
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+
+            <span class="tool__sep" aria-hidden="true"></span>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18" stroke-linecap="round"/></svg>
+                Change period
+            </button>
+        </div>
+
+        <p class="actionbar__hint">Total assets agree with total equity and liabilities.</p>
+    </div>
+
+    {% comment %} The five cards give the result of the two tables below. {% endcomment %}
+    <div class="cards">
+        <div class="card">
+            <span class="card__label">Total assets</span>
+            <div class="card__value" data-unit="ZAR">11,000,000</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Total equity</span>
+            <div class="card__value is-credit" data-unit="ZAR">6,362,000</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Total liabilities</span>
+            <div class="card__value is-debit" data-unit="ZAR">4,638,000</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Working capital</span>
+            <div class="card__value" data-unit="ZAR">2,760,000</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Current ratio</span>
+            <div class="card__value is-count">2.21</div>
+        </div>
+    </div>
+
+    {# ------------------------------ ASSETS ------------------------------ #}
+    <h2 class="page__subtitle" id="assets-title">Assets</h2>
+
+    <table class="table table--fin" aria-labelledby="assets-title">
+        <thead>
+            <tr>
+                <th>Line</th>
+                <th>Note</th>
+                <th>31 Mar 2026</th>
+                <th>31 Mar 2025</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr class="is-group"><td colspan="4">Non-current assets</td></tr>
+            <tr class="is-nest">
+                <td>Property, plant and equipment</td><td>3</td>
+                <td>4,820,000</td><td>4,310,000</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Right-of-use assets</td><td>4</td>
+                <td>640,000</td><td>780,000</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Intangible assets</td><td>5</td>
+                <td>310,000</td><td>265,000</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Deferred tax asset</td><td>6</td>
+                <td>180,000</td><td>145,000</td>
+            </tr>
+            <tr class="is-sum">
+                <td>Total non-current assets</td><td></td>
+                <td>5,950,000</td><td>5,500,000</td>
+            </tr>
+
+            <tr class="is-group"><td colspan="4">Current assets</td></tr>
+            <tr class="is-nest">
+                <td>Inventories</td><td>7</td>
+                <td>1,145,000</td><td>980,000</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Trade and other receivables</td><td>8</td>
+                <td>2,380,000</td><td>2,060,000</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Prepayments</td><td></td>
+                <td>96,000</td><td>84,000</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Cash and cash equivalents</td><td>9</td>
+                <td>1,429,000</td><td>872,000</td>
+            </tr>
+            <tr class="is-sum">
+                <td>Total current assets</td><td></td>
+                <td>5,050,000</td><td>3,996,000</td>
+            </tr>
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="2">Total assets</td>
+                <td>11,000,000</td><td>9,496,000</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    {# ----------------------- EQUITY AND LIABILITIES ---------------------- #}
+    <h2 class="page__subtitle" id="equity-title">Equity and liabilities</h2>
+
+    <table class="table table--fin" aria-labelledby="equity-title">
+        <thead>
+            <tr>
+                <th>Line</th>
+                <th>Note</th>
+                <th>31 Mar 2026</th>
+                <th>31 Mar 2025</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr class="is-group"><td colspan="4">Equity</td></tr>
+            <tr class="is-nest">
+                <td>Share capital</td><td>10</td>
+                <td>1,500,000</td><td>1,200,000</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Share premium</td><td>10</td>
+                <td>850,000</td><td>610,000</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Revaluation reserve</td><td>11</td>
+                <td>420,000</td><td>300,000</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Retained earnings</td><td></td>
+                <td>3,592,000</td><td>2,690,000</td>
+            </tr>
+            <tr class="is-sum">
+                <td>Total equity</td><td></td>
+                <td>6,362,000</td><td>4,800,000</td>
+            </tr>
+
+            <tr class="is-group"><td colspan="4">Non-current liabilities</td></tr>
+            <tr class="is-nest">
+                <td>Long-term borrowings</td><td>12</td>
+                <td>1,650,000</td><td>1,980,000</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Lease liabilities</td><td>13</td>
+                <td>430,000</td><td>560,000</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Deferred tax liability</td><td>6</td>
+                <td>268,000</td><td>214,000</td>
+            </tr>
+            <tr class="is-sum">
+                <td>Total non-current liabilities</td><td></td>
+                <td>2,348,000</td><td>2,754,000</td>
+            </tr>
+
+            <tr class="is-group"><td colspan="4">Current liabilities</td></tr>
+            <tr class="is-nest">
+                <td>Trade and other payables</td><td>14</td>
+                <td>1,485,000</td><td>1,318,000</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Current portion of borrowings</td><td>12</td>
+                <td>330,000</td><td>330,000</td>
+            </tr>
+            <tr class="is-nest">
+                <td>VAT payable</td><td></td>
+                <td>187,000</td><td>154,000</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Current tax payable</td><td></td>
+                <td>288,000</td><td>140,000</td>
+            </tr>
+            <tr class="is-sum">
+                <td>Total current liabilities</td><td></td>
+                <td>2,290,000</td><td>1,942,000</td>
+            </tr>
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="2">Total equity and liabilities</td>
+                <td>11,000,000</td><td>9,496,000</td>
+            </tr>
+        </tfoot>
+    </table>
+
+</section>
+{% endblock %}

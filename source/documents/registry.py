@@ -3,19 +3,6 @@ documents/registry.py
 ------------------------------------------------------------------------
 The registry connects a (module, key) pair to a document type.
 
-A module declares its document types in a file with the name
-"documents.py", in its own package. The documents app imports these
-files at start (see apps.py). Example:
-
-    # accounting/documents.py
-    from documents.registry import DocumentType, register
-
-    @register
-    class InvoiceDocument(DocumentType):
-        module = "accounting"
-        key = "invoice"
-        ...
-
 The generic views then serve the document at these paths:
 
     /documents/<module>/<key>/panel/          overlay content
@@ -34,24 +21,12 @@ class DocumentType:
     give data to the template.
     """
 
-    #: The app label of the owner. It is the first part of the URL.
-    module = ""
-
-    #: A short slug for this document. It is the second part of the URL.
-    key = ""
-
-    #: The name that the overlay shows.
-    label = ""
-
-    #: One short sentence about the document. The overlay shows it.
-    description = ""
-
-    #: The template that the renderer turns into a PDF.
-    template_name = ""
-
-    #: The form with the render options. Subclass DocumentOptionsForm
-    #: to add fields for your document.
-    options_form_class = DocumentOptionsForm
+    module              = ""
+    key                 = ""
+    label               = ""
+    description         = ""
+    template_name       = ""
+    options_form_class  = DocumentOptionsForm
 
     def get_options_form(self, data=None):
         """Return the options form. Bind it to data when data is given."""

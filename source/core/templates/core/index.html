@@ -1,21 +1,5 @@
 {% extends "base.html" %}
 {% load static %}
-{% comment %}
-============================================================================
-core/templates/core/index.html
-----------------------------------------------------------------------------
-The application root: a grid of tiles, one per module. A tile with the
-mark "Planned" stands for a future module and opens nothing.
-
-Add a tile for a new module with this pattern:
-
-    <a class="tile" href="{% url 'yourmodule:dashboard' %}">
-        <span class="tile__icon"> …an inline SVG… </span>
-        <span class="tile__name">Your Module</span>
-        <span class="tile__desc">One short line about it.</span>
-    </a>
-============================================================================
-{% endcomment %}
 
 {% block title %}Pothos ERM{% endblock %}
 
@@ -27,7 +11,6 @@ Add a tile for a new module with this pattern:
 <div class="fill">
     <main id="main" class="home">
         <h1 class="home__title">What would you like to do?</h1>
-        <p class="home__sub">Select a module. A tile with the mark &ldquo;Planned&rdquo; is not available yet.</p>
 
         <div class="home__grid">
 
@@ -36,7 +19,7 @@ Add a tile for a new module with this pattern:
                     <svg class="icon" viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h4" stroke-linecap="round"/></svg>
                 </span>
                 <span class="tile__name">Accounting</span>
-                <span class="tile__desc">Quotes, invoices, payments and ledgers.</span>
+                <span class="tile__desc">Quotes, Invoices, Ledgers and Statements.</span>
             </a>
 
             <a class="tile" href="{% url 'inventory:dashboard' %}">
@@ -44,19 +27,16 @@ Add a tile for a new module with this pattern:
                     <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8M12 13v8"/></svg>
                 </span>
                 <span class="tile__name">Inventory</span>
-                <span class="tile__desc">Stock levels, assets and warehouses.</span>
+                <span class="tile__desc">Assets, Stock, Assemblies and Warehouses.</span>
             </a>
 
-            {% comment %} The tiles below are placeholders for future
-                 modules. Turn one into a link when the module exists. {% endcomment %}
-
             <div class="tile tile--soon" aria-disabled="true">
-                <span class="tile__badge">Planned</span>
+                <span class="tile__badge">In Dev</span>
                 <span class="tile__icon">
                     <svg class="icon" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="10" rx="1"/><rect x="17" y="4" width="4" height="13" rx="1"/></svg>
                 </span>
                 <span class="tile__name">Management</span>
-                <span class="tile__desc">Targets, approvals and team oversight.</span>
+                <span class="tile__desc">Projects, To Do lists, Assignments and Goals</span>
             </div>
 
             <div class="tile tile--soon" aria-disabled="true">
@@ -65,7 +45,7 @@ Add a tile for a new module with this pattern:
                     <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 12a8 8 0 0116 0v5a2 2 0 01-2 2h-2v-6h4M8 19H6a2 2 0 01-2-2v-5h4v7z"/></svg>
                 </span>
                 <span class="tile__name">Helpdesk</span>
-                <span class="tile__desc">Tickets, replies and service levels.</span>
+                <span class="tile__desc">Tickets, Support and Service Level Agreements</span>
             </div>
 
             <div class="tile tile--soon" aria-disabled="true">
@@ -74,7 +54,7 @@ Add a tile for a new module with this pattern:
                     <svg class="icon" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 19a6.5 6.5 0 0113 0"/><path d="M16 4.8a3.5 3.5 0 010 6.4M17.5 13.6a6.5 6.5 0 014 5.4"/></svg>
                 </span>
                 <span class="tile__name">Sales</span>
-                <span class="tile__desc">Leads, pipelines and customer contact.</span>
+                <span class="tile__desc">Leads, Pipelines and Customer Relations.</span>
             </div>
 
             <div class="tile tile--soon" aria-disabled="true">

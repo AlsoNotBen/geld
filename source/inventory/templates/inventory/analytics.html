@@ -1,0 +1,378 @@
+{% extends "inventory/module_base.html" %}
+
+{% comment %}
+  ============================================================================
+  inventory/templates/inventory/analytics.html
+  ----------------------------------------------------------------------------
+  The analytics page of the module. It holds six charts.
+
+  THE CHARTS
+  The project has no chart library, and a mockup does not need one. Each
+  chart is HTML, CSS and SVG:
+      the columns   a div for each month, with a height in a style
+                    attribute: style="height: 62%"
+      the line      an SVG polyline and one polygon below it
+      the rank      a track and a fill, with a width in a style attribute
+      the ring      an SVG circle for each part, with a length of the
+                    stroke and a start
+  All colors come from the tokens of base.css and accounting.css. The
+  classes are in inventory.css.
+
+  Each chart sits in a .card of accounting.css. Thus it keeps the frame,
+  the label and the space of a figure card.
+
+  All figures below are dummy data.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}analytics{% endblock %}
+
+{% block title %}Analytics · Inventory · Console{% endblock %}
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title" data-period="Last 12 months">Analytics</h1>
+        <p class="page__note">
+            The analytics page shows the movement of the stock over time.
+            The charts tell you what came in, what went out, what the stock
+            is worth, and which items move most. Use the page to find the
+            items that need a new minimum level, and the months in which the
+            work uses more than the business receives.
+        </p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Analytics controls">
+        <div class="actionbar__group">
+            <button class="tool" type="button" data-print>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+                Print
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+            <span class="tool__sep" aria-hidden="true"></span>
+
+            <label class="visually-hidden" for="an-range">Period</label>
+            <select class="field field--select" id="an-range" name="range">
+                <option>Last 12 months</option>
+                <option>Last 6 months</option>
+                <option>Last 90 days</option>
+                <option>Last 30 days</option>
+            </select>
+
+            <label class="visually-hidden" for="an-location">Location</label>
+            <select class="field field--select" id="an-location" name="location">
+                <option>All locations</option>
+                <option>Johannesburg Warehouse</option>
+                <option>Pretoria Office</option>
+                <option>Cape Town Branch</option>
+                <option>Durban Depot</option>
+                <option>Workshop</option>
+            </select>
+        </div>
+
+        <p class="actionbar__hint">The charts show dummy figures.</p>
+    </div>
+
+    <div class="cards">
+        <div class="card">
+            <span class="card__label">Inventory Value</span>
+            <div class="card__value" data-unit="ZAR">1,284,950.00</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Received (30 d)</span>
+            <div class="card__value is-credit" data-unit="units">1,946</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Issued (30 d)</span>
+            <div class="card__value is-debit" data-unit="units">1,512</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Net Change</span>
+            <div class="card__value is-credit" data-unit="units">434</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Stock Turns</span>
+            <div class="card__value is-count">2.4</div>
+        </div>
+    </div>
+
+    {% comment %} ---- Row 1: the two wide charts ---- {% endcomment %}
+    <h2 class="page__subtitle">Movement and value</h2>
+    <div class="panels panels--wide">
+
+        {% comment %} Chart 1. Two bars for each month: the green bar is
+             the stock that came in, the red bar is the stock that went
+             out. A month in which red is higher than green takes stock
+             from the shelf. {% endcomment %}
+        <div class="card">
+            <span class="card__label">Stock Received and Issued</span>
+            <div class="chart chart-cols" role="img"
+                 aria-label="Two bars for each of the last twelve months. The stock received stays above the stock issued in eight of the twelve months.">
+                <div class="chart-cols__col"><div class="chart-cols__pair"><span class="chart-cols__bar chart-cols__bar--in" style="height: 62%"></span><span class="chart-cols__bar chart-cols__bar--out" style="height: 54%"></span></div><div class="chart-cols__tick">Oct</div></div>
+                <div class="chart-cols__col"><div class="chart-cols__pair"><span class="chart-cols__bar chart-cols__bar--in" style="height: 71%"></span><span class="chart-cols__bar chart-cols__bar--out" style="height: 58%"></span></div><div class="chart-cols__tick">Nov</div></div>
+                <div class="chart-cols__col"><div class="chart-cols__pair"><span class="chart-cols__bar chart-cols__bar--in" style="height: 55%"></span><span class="chart-cols__bar chart-cols__bar--out" style="height: 61%"></span></div><div class="chart-cols__tick">Dec</div></div>
+                <div class="chart-cols__col"><div class="chart-cols__pair"><span class="chart-cols__bar chart-cols__bar--in" style="height: 80%"></span><span class="chart-cols__bar chart-cols__bar--out" style="height: 66%"></span></div><div class="chart-cols__tick">Jan</div></div>
+                <div class="chart-cols__col"><div class="chart-cols__pair"><span class="chart-cols__bar chart-cols__bar--in" style="height: 68%"></span><span class="chart-cols__bar chart-cols__bar--out" style="height: 59%"></span></div><div class="chart-cols__tick">Feb</div></div>
+                <div class="chart-cols__col"><div class="chart-cols__pair"><span class="chart-cols__bar chart-cols__bar--in" style="height: 74%"></span><span class="chart-cols__bar chart-cols__bar--out" style="height: 70%"></span></div><div class="chart-cols__tick">Mar</div></div>
+                <div class="chart-cols__col"><div class="chart-cols__pair"><span class="chart-cols__bar chart-cols__bar--in" style="height: 88%"></span><span class="chart-cols__bar chart-cols__bar--out" style="height: 72%"></span></div><div class="chart-cols__tick">Apr</div></div>
+                <div class="chart-cols__col"><div class="chart-cols__pair"><span class="chart-cols__bar chart-cols__bar--in" style="height: 79%"></span><span class="chart-cols__bar chart-cols__bar--out" style="height: 68%"></span></div><div class="chart-cols__tick">May</div></div>
+                <div class="chart-cols__col"><div class="chart-cols__pair"><span class="chart-cols__bar chart-cols__bar--in" style="height: 66%"></span><span class="chart-cols__bar chart-cols__bar--out" style="height: 74%"></span></div><div class="chart-cols__tick">Jun</div></div>
+                <div class="chart-cols__col"><div class="chart-cols__pair"><span class="chart-cols__bar chart-cols__bar--in" style="height: 84%"></span><span class="chart-cols__bar chart-cols__bar--out" style="height: 71%"></span></div><div class="chart-cols__tick">Jul</div></div>
+                <div class="chart-cols__col"><div class="chart-cols__pair"><span class="chart-cols__bar chart-cols__bar--in" style="height: 91%"></span><span class="chart-cols__bar chart-cols__bar--out" style="height: 80%"></span></div><div class="chart-cols__tick">Aug</div></div>
+                <div class="chart-cols__col"><div class="chart-cols__pair"><span class="chart-cols__bar chart-cols__bar--in" style="height: 76%"></span><span class="chart-cols__bar chart-cols__bar--out" style="height: 69%"></span></div><div class="chart-cols__tick">Sep</div></div>
+            </div>
+            <div class="chart-key chart-key--row">
+                <span class="chart-key__item"><span class="chart-key__dot chart-c2"></span>Received</span>
+                <span class="chart-key__item"><span class="chart-key__dot chart-c3"></span>Issued</span>
+            </div>
+            <p class="chart-note">
+                December and June took stock from the shelf. The work used
+                more than the business received in those two months.
+            </p>
+        </div>
+
+        {% comment %} Chart 2. The value of the stock at the end of each
+             month. preserveAspectRatio="none" stretches the plot to the
+             width of the card. {% endcomment %}
+        <div class="card">
+            <span class="card__label">Inventory Value over Time</span>
+            <svg class="chart chart-line" viewBox="0 0 600 160" preserveAspectRatio="none" role="img"
+                 aria-label="The value of the stock rose from 1.04 million to 1.28 million rand over twelve months.">
+                <line class="chart-line__grid" x1="0" y1="40" x2="600" y2="40"/>
+                <line class="chart-line__grid" x1="0" y1="90" x2="600" y2="90"/>
+                <line class="chart-line__grid" x1="0" y1="140" x2="600" y2="140"/>
+                <polygon class="chart-line__area"
+                         points="10,132 63,120 115,141 168,109 221,94 274,102 326,77 379,61 432,69 485,46 537,37 590,27 590,160 10,160"/>
+                <polyline class="chart-line__path"
+                          points="10,132 63,120 115,141 168,109 221,94 274,102 326,77 379,61 432,69 485,46 537,37 590,27"/>
+            </svg>
+            <div class="chart-key chart-key--row">
+                <span class="chart-key__item">Oct 2025 · 1,042,000</span>
+                <span class="chart-key__item">Sep 2026 · 1,284,950</span>
+            </div>
+            <p class="chart-note">
+                The value rose by 23 percent over the year. The fall in
+                December came from the holiday period, when the workshop
+                consumed stock and no order came in.
+            </p>
+        </div>
+    </div>
+
+    {% comment %} ---- Row 2: the three narrow charts ---- {% endcomment %}
+    <h2 class="page__subtitle">Items and assets</h2>
+    <div class="panels">
+
+        {% comment %} Chart 3. The six items that moved most. {% endcomment %}
+        <div class="card">
+            <span class="card__label">Top Items by Movement</span>
+            <div class="chart chart-rank">
+                <div class="chart-rank__row">
+                    <span class="chart-rank__name">12V Battery</span>
+                    <span class="chart-rank__track"><span class="chart-rank__fill" style="width: 100%"></span></span>
+                    <span class="chart-rank__value">412</span>
+                </div>
+                <div class="chart-rank__row">
+                    <span class="chart-rank__name">Cat6 Cable 305m</span>
+                    <span class="chart-rank__track"><span class="chart-rank__fill" style="width: 65%"></span></span>
+                    <span class="chart-rank__value">268</span>
+                </div>
+                <div class="chart-rank__row">
+                    <span class="chart-rank__name">Safety Helmet</span>
+                    <span class="chart-rank__track"><span class="chart-rank__fill" style="width: 52%"></span></span>
+                    <span class="chart-rank__value">214</span>
+                </div>
+                <div class="chart-rank__row">
+                    <span class="chart-rank__name">RJ45 Connector</span>
+                    <span class="chart-rank__track"><span class="chart-rank__fill" style="width: 45%"></span></span>
+                    <span class="chart-rank__value">186</span>
+                </div>
+                <div class="chart-rank__row">
+                    <span class="chart-rank__name">Radio Battery Pack</span>
+                    <span class="chart-rank__track"><span class="chart-rank__fill" style="width: 34%"></span></span>
+                    <span class="chart-rank__value">141</span>
+                </div>
+                <div class="chart-rank__row">
+                    <span class="chart-rank__name">Cable Ties 200mm</span>
+                    <span class="chart-rank__track"><span class="chart-rank__fill" style="width: 23%"></span></span>
+                    <span class="chart-rank__value">96</span>
+                </div>
+            </div>
+            <p class="chart-note">Units that moved in the last 30 days, in and out.</p>
+        </div>
+
+        {% comment %} Chart 4. The parts of the asset register. The ring
+             holds one circle for each type. The template gives each
+             circle the length of its part and its start. {% endcomment %}
+        <div class="card">
+            <span class="card__label">Asset Distribution</span>
+            <div class="chart chart-donut">
+                <svg class="chart-donut__svg" viewBox="0 0 136 136" role="img"
+                     aria-label="Laptops hold 38 percent of the asset register, monitors 22 percent, radios 14 percent, tools 11 percent, vehicles 9 percent and servers 6 percent.">
+                    <circle class="chart-donut__ring" cx="68" cy="68" r="54"/>
+                    <circle class="chart-donut__seg chart-c1" cx="68" cy="68" r="54"
+                            stroke-dasharray="128.93 339.29" stroke-dashoffset="0"/>
+                    <circle class="chart-donut__seg chart-c2" cx="68" cy="68" r="54"
+                            stroke-dasharray="74.64 339.29" stroke-dashoffset="-128.93"/>
+                    <circle class="chart-donut__seg chart-c3" cx="68" cy="68" r="54"
+                            stroke-dasharray="47.50 339.29" stroke-dashoffset="-203.57"/>
+                    <circle class="chart-donut__seg chart-c4" cx="68" cy="68" r="54"
+                            stroke-dasharray="37.32 339.29" stroke-dashoffset="-251.07"/>
+                    <circle class="chart-donut__seg chart-c5" cx="68" cy="68" r="54"
+                            stroke-dasharray="30.54 339.29" stroke-dashoffset="-288.39"/>
+                    <circle class="chart-donut__seg chart-c6" cx="68" cy="68" r="54"
+                            stroke-dasharray="20.36 339.29" stroke-dashoffset="-318.93"/>
+                </svg>
+                <div class="chart-key">
+                    <span class="chart-key__item"><span class="chart-key__dot chart-c1"></span>Laptops<span class="chart-key__value">121</span></span>
+                    <span class="chart-key__item"><span class="chart-key__dot chart-c2"></span>Monitors<span class="chart-key__value">70</span></span>
+                    <span class="chart-key__item"><span class="chart-key__dot chart-c3"></span>Radios<span class="chart-key__value">44</span></span>
+                    <span class="chart-key__item"><span class="chart-key__dot chart-c4"></span>Tools<span class="chart-key__value">35</span></span>
+                    <span class="chart-key__item"><span class="chart-key__dot chart-c5"></span>Vehicles<span class="chart-key__value">29</span></span>
+                    <span class="chart-key__item"><span class="chart-key__dot chart-c6"></span>Servers<span class="chart-key__value">19</span></span>
+                </div>
+            </div>
+            <p class="chart-note">318 assets in the register.</p>
+        </div>
+
+        {% comment %} Chart 5. The count of the items that stand below the
+             minimum, at the end of each month. {% endcomment %}
+        <div class="card">
+            <span class="card__label">Low-Stock Trend</span>
+            <svg class="chart chart-line chart-line--sm chart-line--low" viewBox="0 0 300 70"
+                 preserveAspectRatio="none" role="img"
+                 aria-label="The count of low-stock items moved between four and eleven, and it stands at seven now.">
+                <line class="chart-line__grid" x1="0" y1="35" x2="300" y2="35"/>
+                <polygon class="chart-line__area"
+                         points="10,43 36,35 61,39 86,31 112,23 137,27 163,14 188,23 214,31 239,27 264,35 290,31 290,70 10,70"/>
+                <polyline class="chart-line__path"
+                          points="10,43 36,35 61,39 86,31 112,23 137,27 163,14 188,23 214,31 239,27 264,35 290,31"/>
+            </svg>
+            <div class="chart-key chart-key--row">
+                <span class="chart-key__item">Highest · 11 in April</span>
+                <span class="chart-key__item">Now · 7</span>
+            </div>
+            <p class="chart-note">
+                April had eleven low items. The new minimum levels of May
+                brought the count down.
+            </p>
+        </div>
+
+        {% comment %} Chart 6. The consumables that the work used most. {% endcomment %}
+        <div class="card">
+            <span class="card__label">Consumable Usage</span>
+            <div class="chart chart-rank">
+                <div class="chart-rank__row">
+                    <span class="chart-rank__name">A4 Paper</span>
+                    <span class="chart-rank__track"><span class="chart-rank__fill chart-rank__fill--out" style="width: 96%"></span></span>
+                    <span class="chart-rank__value">64 ream</span>
+                </div>
+                <div class="chart-rank__row">
+                    <span class="chart-rank__name">Diesel</span>
+                    <span class="chart-rank__track"><span class="chart-rank__fill chart-rank__fill--out" style="width: 78%"></span></span>
+                    <span class="chart-rank__value">1,240 L</span>
+                </div>
+                <div class="chart-rank__row">
+                    <span class="chart-rank__name">Packaging Tape</span>
+                    <span class="chart-rank__track"><span class="chart-rank__fill chart-rank__fill--out" style="width: 64%"></span></span>
+                    <span class="chart-rank__value">26 roll</span>
+                </div>
+                <div class="chart-rank__row">
+                    <span class="chart-rank__name">Nitrile Gloves</span>
+                    <span class="chart-rank__track"><span class="chart-rank__fill chart-rank__fill--out" style="width: 47%"></span></span>
+                    <span class="chart-rank__value">18 box</span>
+                </div>
+                <div class="chart-rank__row">
+                    <span class="chart-rank__name">Cable Ties</span>
+                    <span class="chart-rank__track"><span class="chart-rank__fill chart-rank__fill--out" style="width: 39%"></span></span>
+                    <span class="chart-rank__value">14 bag</span>
+                </div>
+                <div class="chart-rank__row">
+                    <span class="chart-rank__name">Cleaning Cloth</span>
+                    <span class="chart-rank__track"><span class="chart-rank__fill chart-rank__fill--out" style="width: 22%"></span></span>
+                    <span class="chart-rank__value">9 pack</span>
+                </div>
+            </div>
+            <p class="chart-note">Quantity that the last 30 days consumed.</p>
+        </div>
+    </div>
+
+    {% comment %} ---- The figures below the charts ---- {% endcomment %}
+    <h2 class="page__subtitle">Movement by location</h2>
+    <table class="table table--inv">
+        <thead>
+            <tr>
+                <th>Location</th>
+                <th class="is-qty">Received</th>
+                <th class="is-qty">Issued</th>
+                <th class="is-qty">Net</th>
+                <th class="is-qty">Value</th>
+                <th>Trend</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="is-name">Johannesburg Warehouse</td>
+                <td class="is-qty">842</td>
+                <td class="is-qty">610</td>
+                <td class="is-qty">+232</td>
+                <td class="is-qty">512,400.00</td>
+                <td><span class="status status--ok">Rising</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Workshop</td>
+                <td class="is-qty">318</td>
+                <td class="is-qty">402</td>
+                <td class="is-qty is-out">−84</td>
+                <td class="is-qty">188,220.00</td>
+                <td><span class="status status--low">Falling</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Durban Depot</td>
+                <td class="is-qty">296</td>
+                <td class="is-qty">204</td>
+                <td class="is-qty">+92</td>
+                <td class="is-qty">214,660.00</td>
+                <td><span class="status status--ok">Rising</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Pretoria Office</td>
+                <td class="is-qty">274</td>
+                <td class="is-qty">188</td>
+                <td class="is-qty">+86</td>
+                <td class="is-qty">176,900.00</td>
+                <td><span class="status status--ok">Steady</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Cape Town Branch</td>
+                <td class="is-qty">146</td>
+                <td class="is-qty">78</td>
+                <td class="is-qty">+68</td>
+                <td class="is-qty">122,340.00</td>
+                <td><span class="status status--ok">Steady</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Site Store</td>
+                <td class="is-qty">70</td>
+                <td class="is-qty">30</td>
+                <td class="is-qty">+40</td>
+                <td class="is-qty">70,430.00</td>
+                <td><span class="status status--idle">Quiet</span></td>
+            </tr>
+        </tbody>
+        <tfoot>
+            <tr>
+                <td>All locations</td>
+                <td class="is-qty">1,946</td>
+                <td class="is-qty">1,512</td>
+                <td class="is-qty">+434</td>
+                <td class="is-qty">1,284,950.00</td>
+                <td></td>
+            </tr>
+        </tfoot>
+    </table>
+</section>
+{% endblock %}

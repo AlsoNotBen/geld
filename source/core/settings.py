@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'accounting.apps.AccountingConfig',
     'inventory.apps.InventoryConfig',
     'documents.apps.DocumentsConfig',
+    'shared.apps.SharedConfig',
     # -- Add your app here --
 
     'django.contrib.admin',

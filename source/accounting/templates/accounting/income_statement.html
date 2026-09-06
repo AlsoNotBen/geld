@@ -1,0 +1,230 @@
+{% extends "accounting/module_base.html" %}
+{% load static %}
+
+{% comment %}
+  ============================================================================
+  accounting/templates/accounting/income_statement.html
+  ----------------------------------------------------------------------------
+  The statement of profit or loss. The page shows two tables:
+      1. Profit or loss, from revenue to the profit for the year
+      2. Comprehensive income, which starts at the profit for the year
+
+  The page follows the pattern of the module:
+      .page__head    the title and the note
+      .actionbar     Print, Export, Change period
+      .cards         the five results
+      .table--fin    Line · Note · This period · Last period
+
+  The last column is the last period. accounting.css makes it dim, with
+  its sums and its foot. The template needs no class for this.
+
+  Three row classes give the structure of the statement:
+      is-group   a heading row, for example "Operating expenses"
+      is-nest    a line that belongs to the group above it
+      is-sum     a total inside the table, for example "Gross profit"
+  The tfoot holds the result of the table.
+
+  The figures below are examples. Replace them with the values of the view.
+  Do not put a fallback in a filter argument, for example |default:lines.
+  A variable in that position must exist, or Django stops the page.
+
+  Show a negative figure in brackets, for example (11,860,000). This is the
+  practice of a financial statement.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}incomestatement{% endblock %}
+
+{% block title %}Income Statement · Accounting · Console{% endblock %}
+
+{% comment %} block.super keeps the buttons of the module base. {% endcomment %}
+{% block toolbar %}{{ block.super }}{% endblock %}
+
+{% block content %}
+<section class="page page--statement">
+
+    <div class="page__head">
+        <h1 class="page__title">Income Statement</h1>
+        <p class="page__note">
+            The income statement is the statement of profit or loss. It shows
+            the revenue of one year, then the costs that the business paid to
+            earn it, and the profit that remains. The statement reads from top
+            to bottom: revenue, then cost of sales, then the operating
+            expenses, then finance and tax. Each subtotal answers one question,
+            for example: what is the margin on the goods, and what does the
+            business keep after tax. The second table adds the gains that do
+            not go through profit, for example a revaluation. The year is to
+            31 March 2026, with the year to 31 March 2025 for comparison. All
+            figures in ZAR.
+        </p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Statement controls">
+        <div class="actionbar__group">
+            {% comment %} base.js must call window.print() for a button with
+                 the data-print attribute. {% endcomment %}
+            <button class="tool" type="button" data-print>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+                Print
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+
+            <span class="tool__sep" aria-hidden="true"></span>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18" stroke-linecap="round"/></svg>
+                Change period
+            </button>
+        </div>
+
+        <p class="actionbar__hint">The gross margin is 35.6 percent. Last year it was 34.5 percent.</p>
+    </div>
+
+    {% comment %} The five cards give the result of the table below. {% endcomment %}
+    <div class="cards">
+        <div class="card">
+            <span class="card__label">Revenue</span>
+            <div class="card__value" data-unit="ZAR">18,420,000</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Gross profit</span>
+            <div class="card__value" data-unit="ZAR">6,560,000</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Operating profit</span>
+            <div class="card__value" data-unit="ZAR">1,913,000</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Profit before tax</span>
+            <div class="card__value" data-unit="ZAR">1,730,000</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Profit for the year</span>
+            <div class="card__value is-credit" data-unit="ZAR">1,262,000</div>
+        </div>
+    </div>
+
+    {# --------------------------- PROFIT OR LOSS -------------------------- #}
+    <h2 class="page__subtitle" id="pl-title">Profit or loss</h2>
+
+    <table class="table table--fin" aria-labelledby="pl-title">
+        <thead>
+            <tr>
+                <th>Line</th>
+                <th>Note</th>
+                <th>2026</th>
+                <th>2025</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Revenue</td><td>2</td>
+                <td>18,420,000</td><td>15,980,000</td>
+            </tr>
+            <tr>
+                <td>Cost of sales</td><td>3</td>
+                <td>(11,860,000)</td><td>(10,470,000)</td>
+            </tr>
+            <tr class="is-sum">
+                <td>Gross profit</td><td></td>
+                <td>6,560,000</td><td>5,510,000</td>
+            </tr>
+
+            <tr>
+                <td>Other income</td><td>4</td>
+                <td>145,000</td><td>98,000</td>
+            </tr>
+
+            <tr class="is-group"><td colspan="4">Operating expenses</td></tr>
+            <tr class="is-nest">
+                <td>Employee costs</td><td>5</td>
+                <td>(2,410,000)</td><td>(2,148,000)</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Selling and distribution</td><td></td>
+                <td>(742,000)</td><td>(655,000)</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Administrative expenses</td><td></td>
+                <td>(1,048,000)</td><td>(920,000)</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Depreciation and amortisation</td><td>6</td>
+                <td>(592,000)</td><td>(548,000)</td>
+            </tr>
+            <tr class="is-nest is-sum">
+                <td>Total operating expenses</td><td></td>
+                <td>(4,792,000)</td><td>(4,271,000)</td>
+            </tr>
+
+            <tr class="is-sum">
+                <td>Operating profit</td><td></td>
+                <td>1,913,000</td><td>1,337,000</td>
+            </tr>
+
+            <tr>
+                <td>Finance income</td><td>7</td>
+                <td>62,000</td><td>41,000</td>
+            </tr>
+            <tr>
+                <td>Finance costs</td><td>7</td>
+                <td>(245,000)</td><td>(296,000)</td>
+            </tr>
+            <tr class="is-sum">
+                <td>Profit before tax</td><td></td>
+                <td>1,730,000</td><td>1,082,000</td>
+            </tr>
+
+            <tr>
+                <td>Income tax expense</td><td>8</td>
+                <td>(468,000)</td><td>(292,000)</td>
+            </tr>
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="2">Profit for the year</td>
+                <td class="is-credit">1,262,000</td><td>790,000</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    {# ------------------------ COMPREHENSIVE INCOME ----------------------- #}
+    <h2 class="page__subtitle" id="oci-title">Comprehensive income</h2>
+
+    <table class="table table--fin" aria-labelledby="oci-title">
+        <thead>
+            <tr>
+                <th>Line</th>
+                <th>Note</th>
+                <th>2026</th>
+                <th>2025</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Profit for the year</td><td></td>
+                <td>1,262,000</td><td>790,000</td>
+            </tr>
+
+            <tr class="is-group"><td colspan="4">Other comprehensive income</td></tr>
+            <tr class="is-nest">
+                <td>Gain on revaluation of land and buildings, after tax</td><td>11</td>
+                <td>120,000</td><td>—</td>
+            </tr>
+            <tr class="is-nest is-sum">
+                <td>Total other comprehensive income, after tax</td><td></td>
+                <td>120,000</td><td>—</td>
+            </tr>
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="2">Total comprehensive income</td>
+                <td class="is-credit">1,382,000</td><td>790,000</td>
+            </tr>
+        </tfoot>
+    </table>
+
+</section>
+{% endblock %}

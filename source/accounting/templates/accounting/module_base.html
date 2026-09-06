@@ -199,14 +199,14 @@
 
             <div class="nav__group">Bookkeeping</div>
             <a class="nav__item" data-nav="journal" href="{% url 'accounting:journals' %}">
-                Journal Entries <span class="nav__count">{{ open_invoices|default:"12" }}</span>
+                Journal Entries <span class="nav__count">{{ open_invoices|default:"4" }}</span>
             </a>
             <a class="nav__item" data-nav="accounts" href="{% url 'accounting:chartaccounts' %}">Chart of Accounts</a>
-            <a class="nav__item" data-nav="ledger" href="#">General Ledger</a>
-            <a class="nav__item" data-nav="balancesheet" href="#">Balance Sheet</a>
-            <a class="nav__item" data-nav="incomestatement" href="#">Income Statement</a>
-            <a class="nav__item" data-nav="cashflow" href="#">Cash Flow Statement</a>
-            <a class="nav__item" data-nav="equity" href="#">Equity and Notes</a>
+            <a class="nav__item" data-nav="ledger" href="{% url 'accounting:ledger' %}">General Ledger</a>
+            <a class="nav__item" data-nav="balancesheet" href="{% url 'accounting:balancesheet' %}">Balance Sheet</a>
+            <a class="nav__item" data-nav="incomestatement" href="{% url 'accounting:incomestatement' %}">Income Statement</a>
+            <a class="nav__item" data-nav="cashflow" href="{% url 'accounting:cashflow' %}">Cash Flow Statement</a>
+            <a class="nav__item" data-nav="equity" href="{% url 'accounting:equity' %}">Equity and Notes</a>
 
             <div class="nav__group">Cost Centre</div>
             <a class="nav__item" data-nav="bills"     href="#">Bills</a>

@@ -1,0 +1,113 @@
+{% extends "inventory/module_base.html" %}
+
+{% comment %}
+  ============================================================================
+  inventory/templates/inventory/reports.html
+  ----------------------------------------------------------------------------
+  The reports page. It is empty on purpose at this stage.
+
+  The page holds the shell, the head, the action bar and two panels:
+      a table with the empty state of accounting.css
+      a .notes list that names the reports that come later
+  Both are components of the Accounting module. Thus the page needs no
+  new class.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}reports{% endblock %}
+
+{% block title %}Reports · Inventory · Console{% endblock %}
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title">Reports</h1>
+        <p class="page__note">
+            An inventory report puts the figures of the module on paper or
+            into a file. The reports come in a later phase, when the module
+            has a data model. The list below names the reports that the
+            phase will add. Use the Analytics page until then.
+        </p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Report controls">
+        <div class="actionbar__group">
+            <button class="tool" type="button" data-print disabled>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+                Print
+            </button>
+            <button class="tool" type="button" disabled>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+        </div>
+
+        <p class="actionbar__hint">No report is ready yet.</p>
+    </div>
+
+    <table class="table table--inv">
+        <thead>
+            <tr>
+                <th>Report</th>
+                <th>Period</th>
+                <th>Format</th>
+                <th>Last run</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="5">The module has no report yet. The list below names the reports of the next phase.</td></tr>
+        </tbody>
+    </table>
+
+    <h2 class="page__subtitle">Planned reports</h2>
+    <ul class="notes">
+        <li class="card">
+            <span class="card__label">Stock on Hand</span>
+            <p class="notes__text">
+                The quantity and the value of every item, by location, at a
+                date that you choose. The report is the base of the stock
+                figure in the balance sheet.
+            </p>
+        </li>
+        <li class="card">
+            <span class="card__label">Stock Movement</span>
+            <p class="notes__text">
+                Every receipt, issue, transfer and adjustment of a period,
+                with its reference and its person. The report answers the
+                question: where did the stock go?
+            </p>
+        </li>
+        <li class="card">
+            <span class="card__label">Asset Register</span>
+            <p class="notes__text">
+                Every asset with its tag, its holder, its place and its
+                state. An auditor asks for this report first.
+            </p>
+        </li>
+        <li class="card">
+            <span class="card__label">Reorder List</span>
+            <p class="notes__text">
+                The items that stand below the minimum level, with the
+                quantity that a new order needs. The list becomes an order
+                in the Accounting module.
+            </p>
+        </li>
+        <li class="card">
+            <span class="card__label">Consumable Usage</span>
+            <p class="notes__text">
+                The quantity that each cost centre consumed in a period.
+                The report shows which work uses the most material.
+            </p>
+        </li>
+        <li class="card">
+            <span class="card__label">Stock Take Difference</span>
+            <p class="notes__text">
+                The difference between the count on the shelf and the count
+                in the books, with the value of each difference.
+            </p>
+        </li>
+    </ul>
+</section>
+{% endblock %}

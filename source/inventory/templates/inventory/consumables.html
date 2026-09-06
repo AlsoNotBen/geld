@@ -1,0 +1,243 @@
+{% extends "inventory/module_base.html" %}
+
+{% comment %}
+  ============================================================================
+  inventory/templates/inventory/consumables.html
+  ----------------------------------------------------------------------------
+  The items that the work consumes: paper, batteries, fuel, cleaning
+  material, packaging and the parts that a repair uses. A consumable has
+  a unit, thus the list shows the unit next to the quantity.
+
+  The action bar holds the add form:
+      consumable · unit · quantity · reorder level · Add
+  The form does not save. Refer to views.py.
+
+  All rows below are dummy data.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}consumables{% endblock %}
+
+{% block title %}Consumables · Inventory · Console{% endblock %}
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title" data-period="Last 30 days">Consumables</h1>
+        <p class="page__note">
+            A consumable goes away when the work uses it. The list shows the
+            quantity on hand, the unit of the item, the quantity that the
+            last 30 days used, and the level at which a new order starts.
+            The usage tells you how long the quantity on hand can last.
+        </p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Consumable controls">
+        <form class="actionbar__group" method="post" action="" aria-label="Add a consumable">
+            {% csrf_token %}
+            <label class="visually-hidden" for="cons-name">Consumable</label>
+            <input class="field field--wide" id="cons-name" name="name" type="text"
+                   placeholder="Consumable" autocomplete="off">
+
+            <label class="visually-hidden" for="cons-unit">Unit</label>
+            <select class="field field--select field--sm" id="cons-unit" name="unit">
+                <option value="">Unit</option>
+                <option>each</option>
+                <option>box</option>
+                <option>pack</option>
+                <option>ream</option>
+                <option>roll</option>
+                <option>litre</option>
+                <option>kilogram</option>
+                <option>metre</option>
+            </select>
+
+            <label class="visually-hidden" for="cons-qty">Quantity</label>
+            <input class="field field--sm" id="cons-qty" name="quantity" type="number"
+                   min="0" step="1" placeholder="Quantity">
+
+            <label class="visually-hidden" for="cons-reorder">Reorder level</label>
+            <input class="field field--sm" id="cons-reorder" name="reorder" type="number"
+                   min="0" step="1" placeholder="Reorder">
+
+            <button class="tool tool--primary" type="submit">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                Add
+            </button>
+        </form>
+
+        <p class="actionbar__hint">6 items are below the reorder level.</p>
+    </div>
+
+    <div class="cards">
+        <div class="card">
+            <span class="card__label">Consumable Lines</span>
+            <div class="card__value is-count">42</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Value on Hand</span>
+            <div class="card__value" data-unit="ZAR">58,430.00</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Used (30 days)</span>
+            <div class="card__value is-debit" data-unit="ZAR">21,780.00</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Below Reorder</span>
+            <div class="card__value is-overdue is-count">6</div>
+        </div>
+        <div class="card">
+            <span class="card__label">On Order</span>
+            <div class="card__value is-count">3</div>
+        </div>
+    </div>
+
+    <h2 class="page__subtitle">Consumables on hand</h2>
+    <table class="table table--inv">
+        <thead>
+            <tr>
+                <th>Consumable</th>
+                <th>Code</th>
+                <th>Unit</th>
+                <th class="is-qty">On hand</th>
+                <th class="is-qty">Reorder at</th>
+                <th class="is-qty">Used (30 d)</th>
+                <th>Location</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="is-name">A4 Paper, 80 gsm</td>
+                <td class="is-code">STA-010</td>
+                <td>ream</td>
+                <td class="is-qty">96</td>
+                <td class="is-qty">40</td>
+                <td class="is-qty">64</td>
+                <td>Pretoria Office</td>
+                <td><span class="status status--ok">In stock</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Nitrile Gloves</td>
+                <td class="is-code">PPE-140</td>
+                <td>box</td>
+                <td class="is-qty">24</td>
+                <td class="is-qty">12</td>
+                <td class="is-qty">18</td>
+                <td>Workshop</td>
+                <td><span class="status status--ok">In stock</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">AA Battery</td>
+                <td class="is-code">BAT-200</td>
+                <td>pack</td>
+                <td class="is-qty">31</td>
+                <td class="is-qty">15</td>
+                <td class="is-qty">12</td>
+                <td>Pretoria Office</td>
+                <td><span class="status status--ok">In stock</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Packaging Tape, 48mm</td>
+                <td class="is-code">PKG-021</td>
+                <td>roll</td>
+                <td class="is-qty">40</td>
+                <td class="is-qty">20</td>
+                <td class="is-qty">26</td>
+                <td>Johannesburg Warehouse</td>
+                <td><span class="status status--ok">In stock</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Cable Ties, 200mm</td>
+                <td class="is-code">CMP-090</td>
+                <td>bag of 100</td>
+                <td class="is-qty">17</td>
+                <td class="is-qty">10</td>
+                <td class="is-qty">14</td>
+                <td>Workshop</td>
+                <td><span class="status status--ok">In stock</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Cleaning Cloth</td>
+                <td class="is-code">CLN-004</td>
+                <td>pack</td>
+                <td class="is-qty">28</td>
+                <td class="is-qty">12</td>
+                <td class="is-qty">9</td>
+                <td>Durban Depot</td>
+                <td><span class="status status--ok">In stock</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Hand Sanitiser 5L</td>
+                <td class="is-code">CLN-018</td>
+                <td>each</td>
+                <td class="is-qty is-low">3</td>
+                <td class="is-qty">6</td>
+                <td class="is-qty">5</td>
+                <td>Pretoria Office</td>
+                <td><span class="status status--low">Below reorder</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Grease Cartridge</td>
+                <td class="is-code">LUB-007</td>
+                <td>each</td>
+                <td class="is-qty is-low">8</td>
+                <td class="is-qty">15</td>
+                <td class="is-qty">11</td>
+                <td>Workshop</td>
+                <td><span class="status status--low">Below reorder</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Bubble Wrap, 500mm</td>
+                <td class="is-code">PKG-035</td>
+                <td>roll</td>
+                <td class="is-qty is-low">2</td>
+                <td class="is-qty">5</td>
+                <td class="is-qty">4</td>
+                <td>Johannesburg Warehouse</td>
+                <td><span class="status status--busy">On order</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Diesel, bulk</td>
+                <td class="is-code">FUE-001</td>
+                <td>litre</td>
+                <td class="is-qty">1,850</td>
+                <td class="is-qty">800</td>
+                <td class="is-qty">1,240</td>
+                <td>Site Store</td>
+                <td><span class="status status--ok">In stock</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Toner HP 415A Black</td>
+                <td class="is-code">TON-003</td>
+                <td>each</td>
+                <td class="is-qty is-out">0</td>
+                <td class="is-qty">3</td>
+                <td class="is-qty">2</td>
+                <td>Pretoria Office</td>
+                <td><span class="status status--busy">On order</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Welding Rod 2.5mm</td>
+                <td class="is-code">CMP-118</td>
+                <td>kilogram</td>
+                <td class="is-qty is-low">6</td>
+                <td class="is-qty">10</td>
+                <td class="is-qty">8</td>
+                <td>Workshop</td>
+                <td><span class="status status--low">Below reorder</span></td>
+            </tr>
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="3">12 of 42 lines</td>
+                <td class="is-qty">2,105</td>
+                <td class="is-qty">948</td>
+                <td class="is-qty">1,413</td>
+                <td colspan="2">Page 1 of 4</td>
+            </tr>
+        </tfoot>
+    </table>
+</section>
+{% endblock %}

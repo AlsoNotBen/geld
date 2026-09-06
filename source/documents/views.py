@@ -72,13 +72,17 @@ def download(request, module, key):
 def _pdf_response(request, module, key, inline):
     document = _get_document(module, key)
     options = _resolve_options(document, request)
+
     if options is None:
         return HttpResponseBadRequest("One or more options are not valid.")
-    context = document.get_context(request, options)
-    pdf = render_pdf(document.template_name, context)
+    
+    context     = document.get_context(request, options)
+    pdf         = render_pdf(document.template_name, context)
     disposition = "inline" if inline else "attachment"
-    filename = document.get_filename(options)
-    response = HttpResponse(pdf, content_type="application/pdf")
+    filename    = document.get_filename(options)
+    response    = HttpResponse(pdf, content_type="application/pdf")
+
     response["Content-Disposition"] = f'{disposition}; filename="{filename}"'
-    response["Cache-Control"] = "no-store"
+    response["Cache-Control"]       = "no-store"
+    
     return response

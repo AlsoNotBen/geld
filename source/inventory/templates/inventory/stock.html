@@ -1,0 +1,285 @@
+{% extends "inventory/module_base.html" %}
+
+{% comment %}
+  ============================================================================
+  inventory/templates/inventory/stock.html
+  ----------------------------------------------------------------------------
+  The stock on the shelves. A stock item is a quantity in a place, thus
+  the same item can stand in two rows for two places.
+
+  The action bar holds two forms:
+      the add form     item · SKU · location · quantity · Add Stock
+      the filter form  a text field · a location
+  Neither form saves. Refer to views.py.
+
+  All rows below are dummy data.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}stock{% endblock %}
+
+{% block title %}Stock · Inventory · Console{% endblock %}
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title" data-period="All locations">Stock</h1>
+        <p class="page__note">
+            Stock is a quantity of one item in one place. The list shows the
+            quantity on hand, the minimum quantity, and the last movement of
+            each item. An item goes yellow when the quantity falls to the
+            minimum, and red when the shelf is empty. Use the bar below to
+            add an item, or to see one location only.
+        </p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Stock controls">
+        <form class="actionbar__group" method="post" action="" aria-label="Add a stock item">
+            {% csrf_token %}
+            <label class="visually-hidden" for="stock-item">Item</label>
+            <input class="field field--wide" id="stock-item" name="item" type="text"
+                   placeholder="Item" autocomplete="off">
+
+            <label class="visually-hidden" for="stock-sku">SKU</label>
+            <input class="field field--sm" id="stock-sku" name="sku" type="text"
+                   placeholder="SKU" autocomplete="off">
+
+            <label class="visually-hidden" for="stock-location">Location</label>
+            <select class="field field--select" id="stock-location" name="location">
+                <option value="">Location</option>
+                <option>Johannesburg Warehouse</option>
+                <option>Pretoria Office</option>
+                <option>Cape Town Branch</option>
+                <option>Durban Depot</option>
+                <option>Workshop</option>
+                <option>Site Store</option>
+            </select>
+
+            <label class="visually-hidden" for="stock-qty">Quantity</label>
+            <input class="field field--sm" id="stock-qty" name="quantity" type="number"
+                   min="0" step="1" placeholder="Quantity">
+
+            <button class="tool tool--primary" type="submit">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                Add Stock
+            </button>
+        </form>
+
+        <span class="tool__sep" aria-hidden="true"></span>
+
+        <form class="actionbar__group" method="get" action="" role="search" aria-label="Find a stock item">
+            <label class="visually-hidden" for="stock-q">Find a stock item</label>
+            <input class="field" id="stock-q" name="q" type="search"
+                   placeholder="Item or SKU" autocomplete="off">
+            <button class="tool" type="submit">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4" stroke-linecap="round"/></svg>
+                Find
+            </button>
+        </form>
+    </div>
+
+    <div class="cards">
+        <div class="card">
+            <span class="card__label">Stock Items</span>
+            <div class="card__value is-count">186</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Units on Hand</span>
+            <div class="card__value" data-unit="units">4,126</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Stock Value</span>
+            <div class="card__value" data-unit="ZAR">302,810.00</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Low Stock</span>
+            <div class="card__value is-overdue is-count">6</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Out of Stock</span>
+            <div class="card__value is-debit is-count">2</div>
+        </div>
+    </div>
+
+    <h2 class="page__subtitle">Stock on hand</h2>
+    <table class="table table--inv">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>SKU</th>
+                <th>Location</th>
+                <th class="is-qty">On hand</th>
+                <th class="is-qty">Minimum</th>
+                <th>Last movement</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="is-name">12V Battery</td>
+                <td class="is-code">BAT-001</td>
+                <td>Johannesburg Warehouse</td>
+                <td class="is-qty">84</td>
+                <td class="is-qty">20</td>
+                <td class="is-code">04 Sep · −6</td>
+                <td><span class="status status--ok">In stock</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Cat6 Cable, 305m box</td>
+                <td class="is-code">CBL-014</td>
+                <td>Johannesburg Warehouse</td>
+                <td class="is-qty">12</td>
+                <td class="is-qty">6</td>
+                <td class="is-code">03 Sep · −5</td>
+                <td><span class="status status--ok">In stock</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Safety Helmet, white</td>
+                <td class="is-code">PPE-101</td>
+                <td>Durban Depot</td>
+                <td class="is-qty">46</td>
+                <td class="is-qty">25</td>
+                <td class="is-code">04 Sep · +40</td>
+                <td><span class="status status--ok">In stock</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Radio Battery Pack</td>
+                <td class="is-code">BAT-018</td>
+                <td>Pretoria Office</td>
+                <td class="is-qty">22</td>
+                <td class="is-qty">10</td>
+                <td class="is-code">02 Sep · +24</td>
+                <td><span class="status status--ok">In stock</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Mounting Bracket, steel</td>
+                <td class="is-code">BRK-060</td>
+                <td>Workshop</td>
+                <td class="is-qty">130</td>
+                <td class="is-qty">30</td>
+                <td class="is-code">28 Aug · −12</td>
+                <td><span class="status status--ok">In stock</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Hydraulic Oil 20L</td>
+                <td class="is-code">OIL-032</td>
+                <td>Workshop</td>
+                <td class="is-qty">9</td>
+                <td class="is-qty">5</td>
+                <td class="is-code">01 Sep · −2</td>
+                <td><span class="status status--ok">In stock</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Monitor Stand, 24"</td>
+                <td class="is-code">ACC-077</td>
+                <td>Pretoria Office</td>
+                <td class="is-qty">7</td>
+                <td class="is-qty">5</td>
+                <td class="is-code">26 Aug · −1</td>
+                <td><span class="status status--ok">In stock</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Work Gloves (pair)</td>
+                <td class="is-code">PPE-108</td>
+                <td>Durban Depot</td>
+                <td class="is-qty is-low">18</td>
+                <td class="is-qty">40</td>
+                <td class="is-code">30 Aug · −22</td>
+                <td><span class="status status--low">Low stock</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">RJ45 Connector (100 pack)</td>
+                <td class="is-code">CON-220</td>
+                <td>Workshop</td>
+                <td class="is-qty is-low">4</td>
+                <td class="is-qty">10</td>
+                <td class="is-code">03 Sep · −2</td>
+                <td><span class="status status--low">Low stock</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Network Switch, 8-port</td>
+                <td class="is-code">NET-045</td>
+                <td>Cape Town Branch</td>
+                <td class="is-qty is-low">2</td>
+                <td class="is-qty">4</td>
+                <td class="is-code">21 Aug · −1</td>
+                <td><span class="status status--low">Low stock</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Diesel 50L Drum</td>
+                <td class="is-code">FUE-005</td>
+                <td>Site Store</td>
+                <td class="is-qty is-out">0</td>
+                <td class="is-qty">4</td>
+                <td class="is-code">29 Aug · −4</td>
+                <td><span class="status status--out">Out of stock</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">Toner HP 415A Black</td>
+                <td class="is-code">TON-003</td>
+                <td>Pretoria Office</td>
+                <td class="is-qty is-out">0</td>
+                <td class="is-qty">3</td>
+                <td class="is-code">18 Aug · −1</td>
+                <td><span class="status status--busy">On order</span></td>
+            </tr>
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="3">12 of 186 items</td>
+                <td class="is-qty">334</td>
+                <td class="is-qty">162</td>
+                <td colspan="2">Page 1 of 16</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    {% comment %} The plain .table fits a movement list: a date, a
+         reference, a wide text and a figure at the right edge. {% endcomment %}
+    <h2 class="page__subtitle">Recent movements</h2>
+    <table class="table">
+        <thead>
+            <tr><th>Date</th><th>Reference</th><th>Movement</th><th>Change</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>04 Sep 2026</td>
+                <td>GRN-0442</td>
+                <td>Received · Safety Helmet · Durban Depot</td>
+                <td class="is-credit">+40</td>
+            </tr>
+            <tr>
+                <td>04 Sep 2026</td>
+                <td>MOV-1188</td>
+                <td>Issued · 12V Battery · Workshop</td>
+                <td class="is-debit">−6</td>
+            </tr>
+            <tr>
+                <td>03 Sep 2026</td>
+                <td>MOV-1187</td>
+                <td>Transferred · Cat6 Cable 305m · Site Store</td>
+                <td class="is-debit">−5</td>
+            </tr>
+            <tr>
+                <td>03 Sep 2026</td>
+                <td>ADJ-0091</td>
+                <td>Adjusted after stock take · RJ45 Connector · Workshop</td>
+                <td class="is-debit">−2</td>
+            </tr>
+            <tr>
+                <td>02 Sep 2026</td>
+                <td>GRN-0441</td>
+                <td>Received · Radio Battery Pack · Pretoria Office</td>
+                <td class="is-credit">+24</td>
+            </tr>
+            <tr>
+                <td>01 Sep 2026</td>
+                <td>MOV-1185</td>
+                <td>Issued · Hydraulic Oil 20L · Workshop</td>
+                <td class="is-debit">−2</td>
+            </tr>
+        </tbody>
+    </table>
+</section>
+{% endblock %}

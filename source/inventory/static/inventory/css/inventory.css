@@ -1,0 +1,1643 @@
+/* ==========================================================================
+   inventory.css  —  styles for the Inventory module (dark theme)
+   Place this file at: inventory/static/inventory/css/inventory.css
+
+   module_base.html loads this file in the module_css block of base.html,
+   thus it always comes after base.css. The file stands alone: the module
+   loads no other stylesheet.
+
+   base.css holds the chrome only: the tokens, the ribbon, the module bar
+   and the footer. This file holds everything else of the module:
+     1. the layout    (.shell, .sidebar, .main, the drawer)
+     2. the tools     (.tool, .tool__sep, .tbar-menu)
+     3. the page      (.page, .page__head, .actionbar, .cards, .card)
+     4. the tables    (.table, .table--inv)
+     5. the forms     (.field)
+     6. the states    (.status)
+     7. the charts    (.chart-*)
+     8. the notes     (.notes)
+
+   Groups 1 to 4 and 8 keep the names, the sizes and the colors of the
+   Accounting module, because the two modules are one application. Do not
+   change a value of these groups here alone. A change must go into both
+   stylesheets, or into a shared file that base.html loads.
+
+   ONE PAGE PATTERN
+   Every page of the module has the same top part, in this order:
+       .page__head     the title and one paragraph that explains the page
+       .actionbar      the controls of the page: a form, Print, Export
+       the content     cards, tables, charts
+   All pages use the full width of the content area. All tables use the
+   full width of the page.
+
+   All colors come from the tokens of base.css. The file adds the money
+   tokens that a quantity needs, and two sizes of its own.
+   ========================================================================== */
+
+/* ---- Module tokens ------------------------------------------------- */
+:root {
+    --credit:      #7FBF9A;                    /* stock that comes in */
+    --debit:       #E0785E;                    /* stock that goes out */
+    --overdue:     #fff38c;                    /* stock that asks for an order */
+    --credit-soft: rgba(127, 191, 154, 0.14);
+    --debit-soft:  rgba(224, 120, 94, 0.14);
+
+    --rule:        rgba(232, 230, 222, 0.07);  /* table hairline */
+    --gold-deep:   #C79A4E;                    /* card labels */
+    --tool-h:      36px;
+    --sidebar-w:   244px;
+
+    --field-w:     158px;                      /* one field of an action bar */
+    --chart-h:     152px;                      /* the plot of a chart */
+}
+
+/* ================================================================== */
+/*  LAYOUT  (base.css no longer supplies a shell)                     */
+/* ================================================================== */
+.shell { display: flex; min-height: 0; }
+
+.main {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+    padding: 26px 30px 44px;
+}
+.page__empty { color: var(--ink-soft); }
+/* ================================================================== */
+/*  SIDE PANEL                                                        */
+/* ================================================================== */
+/* The panel stays on the canvas color. Only a hairline divides it from
+   the content, thus the figures on the right hold the attention. */
+.sidebar {
+    width: var(--sidebar-w);
+    flex: none;
+    background: var(--cream);
+    border-right: 1px solid var(--line);
+    padding: 18px 10px 28px;
+    overflow-y: auto;
+}
+
+.sidebar__title {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: var(--gold-deep);
+    padding: 2px 12px 16px;
+}
+
+.nav { display: flex; flex-direction: column; gap: 1px; }
+
+/* The group label carries a rule to the right edge. The rule separates
+   the parts of the ledger without a heading that shouts. */
+.nav__group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 16px 0 6px;
+    padding: 0 12px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    white-space: nowrap;
+}
+.nav__group::after {
+    content: "";
+    flex: 1 1 auto;
+    height: 1px;
+    background: var(--line);
+}
+.nav__group:first-child { margin-top: 0; }
+
+.nav__item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    color: var(--ink-soft);
+    font-weight: 500;
+    transition: color 0.12s ease, background 0.12s ease;
+}
+.nav__item:hover { color: var(--ink); background: rgba(232, 230, 222, 0.05); }
+
+/* The script of base.html adds is-active to the item that matches the
+   data-page attribute of the body. */
+.nav__item.is-active {
+    color: var(--gold);
+    font-weight: 600;
+    background: transparent;
+}
+.nav__item.is-active::before {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 9px;
+    bottom: 9px;
+    width: 2px;
+    border-radius: 2px;
+    background: var(--gold);
+}
+
+.nav__count {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+    background: var(--white);
+    border: 1px solid var(--line);
+    padding: 0 7px;
+    border-radius: 20px;
+}
+.nav__item.is-active .nav__count {
+    color: var(--gold);
+    background: var(--gold-soft);
+    border-color: var(--gold-line);
+}
+
+/* The drawer button in the ribbon. It appears on a small screen only.
+   Refer to the media query at 900px. */
+.drawer-toggle { display: none; }
+.scrim { display: none; }
+/* ================================================================== */
+/*  TOOLBAR  (module_base.html fills .toolbar with .tool buttons)     */
+/* ================================================================== */
+
+/* The toolbar itself should center its controls vertically. */
+.toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: var(--tool-h);
+}
+
+/* Every tool is a self-contained, vertically and horizontally centered
+   control. Explicit line-height prevents font metrics from making the
+   label appear a few pixels too high or low. */
+.tool {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
+    gap: 7px;
+
+    flex: 0 0 auto;
+    min-width: 34px;
+    height: var(--tool-h);
+    box-sizing: border-box;
+
+    padding: 0 13px;
+    margin: 0;
+
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--white);
+    color: var(--ink-soft);
+
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+
+    text-align: center;
+    vertical-align: middle;
+    white-space: nowrap;
+
+    appearance: none;
+    -webkit-appearance: none;
+
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease,
+        color 0.15s ease;
+}
+
+/* SVGs/icons don't participate in the text baseline. */
+.tool .icon {
+    display: block;
+    flex: 0 0 16px;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    stroke: currentColor;
+    stroke-width: 1.8;
+}
+
+/* If the icon is the only content, it remains exactly centered. */
+.tool:has(.icon:only-child) {
+    padding-left: 8px;
+    padding-right: 12px;
+}
+
+/* Text inside a tool is centered independently of font rendering. */
+.tool > span,
+.tool > label {
+    display: block;
+    margin: 0;
+    padding: 0;
+    line-height: 1;
+    text-align: center;
+}
+
+/* Hover ------------------------------------------------------------- */
+.tool:hover {
+    background: var(--gold-soft);
+    border-color: var(--gold-line);
+    color: var(--gold);
+}
+
+/* Primary. One button of a bar, at most. It starts the main task of
+   the page: a new entry, a new account, or the acceptance of a list. */
+.tool--primary,
+.tool.is-primary {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: var(--navy);
+}
+.tool--primary:hover,
+.tool.is-primary:hover {
+    background: #F5CB8C;
+    border-color: #F5CB8C;
+    color: var(--navy);
+}
+.tool--primary .icon,
+.tool.is-primary .icon { stroke: var(--navy); }
+
+/* Ghost ------------------------------------------------------------- */
+.tool--ghost { background: transparent; }
+.tool--ghost:hover { background: var(--gold-soft); }
+
+.tool--neutral {
+    color: var(--ink);
+    border-color: var(--ink);
+    background: transparent;
+}
+.tool--neutral:hover { background: var(--gold-soft); }
+
+/* Accept. The green comes on hover only, thus a list of ten rows does
+   not shout. */
+.tool--accept {
+    color: var(--ink);
+    border-color: var(--ink);
+    background: transparent;
+}
+.tool--accept:hover {
+    color: var(--credit);
+    border-color: var(--credit);
+    background: var(--credit-soft);
+}
+.tool--accept .icon { stroke: currentColor; }
+
+/* Danger. The item form uses it for Delete. The color matches the
+   sign-out item of the profile menu of the ribbon (base.css). */
+.tool--danger {
+    color: var(--ink);
+    border-color: var(--ink);
+    background: transparent;
+}
+.tool--danger:hover {
+    color: var(--debit);
+    border-color: var(--debit);
+    background: var(--debit-soft);
+}
+.tool--danger .icon { stroke: currentColor; }
+
+/* Small. For a button inside a table row. */
+.tool--sm {
+    min-width: 28px;
+    height: 28px;
+    padding: 0 10px;
+    gap: 6px;
+    font-size: 12px;
+}
+.tool--sm .icon {
+    flex: 0 0 14px;
+    width: 14px;
+    height: 14px;
+}
+
+/* Disabled ---------------------------------------------------------- */
+.tool[disabled] {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+.tool[disabled]:hover {
+    background: var(--white);
+    border-color: var(--line);
+    color: var(--ink-soft);
+}
+
+/* Divider ----------------------------------------------------------- */
+.tool__sep {
+    flex: 0 0 1px;
+    width: 1px;
+    height: 20px;
+    margin: 0 4px;
+    padding: 0;
+    background: var(--line-strong);
+    align-self: center;
+}
+
+/* If the toolbar contains native buttons alongside .tool elements,
+   normalize their box model so they line up identically. */
+.toolbar > button,
+.toolbar > a {
+    box-sizing: border-box;
+    vertical-align: middle;
+}
+/* ------------------------------------------------------------------ */
+/*  TOOLBAR MENUS                                                     */
+/*                                                                    */
+/*  The prefix tbar- keeps these rules away from the .menu rules of   */
+/*  base.css, which belong to the profile drop-down of the ribbon.    */
+/* ------------------------------------------------------------------ */
+
+/* base.css makes .toolbar a scroll container. A scroll container
+   clips a panel that hangs below the bar. The module thus removes
+   the scroll. The media queries below keep the bar inside the
+   screen instead. */
+.context { overflow: visible; }
+.toolbar {
+    overflow: visible;
+    flex-wrap: nowrap;
+}
+
+.tbar-menu {
+    position: relative;
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-self: center;
+}
+
+/* The caret is smaller than a tool icon. */
+.tbar-menu__btn .icon--caret {
+    flex: 0 0 12px;
+    width: 12px;
+    height: 12px;
+    opacity: 0.75;
+}
+
+.tbar-menu__panel {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 70;
+    min-width: 196px;
+    margin-top: 6px;
+    padding: 6px;
+
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
+
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-4px);
+    transition:
+        opacity 0.12s ease,
+        transform 0.12s ease,
+        visibility 0.12s;
+}
+
+/* A gap of 6px is between the button and the panel. This bridge
+   fills the gap, thus the pointer does not lose the menu. */
+.tbar-menu::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    height: 8px;
+}
+
+.tbar-menu:hover .tbar-menu__panel,
+.tbar-menu:focus-within .tbar-menu__panel {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+/* The button keeps the hover tone while the panel is open. */
+.tbar-menu:hover .tbar-menu__btn,
+.tbar-menu:focus-within .tbar-menu__btn {
+    background: var(--gold-soft);
+    border-color: var(--gold-line);
+    color: var(--gold);
+}
+
+.tbar-menu__item {
+    display: block;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    color: var(--ink-soft);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.2;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+.tbar-menu__item:hover,
+.tbar-menu__item:focus-visible {
+    background: var(--gold-soft);
+    color: var(--gold);
+    outline: none;
+}
+
+.tbar-menu__sep {
+    display: block;
+    height: 1px;
+    margin: 6px 8px;
+    background: var(--line);
+}
+
+/* The last menu is near the right edge. Its panel opens to the left. */
+.tbar-menu__panel--right { left: auto; right: 0; }
+
+/* A device without a pointer has no hover. A touch gives focus, thus
+   focus-within opens the panel. */
+@media (hover: none) {
+    .tbar-menu:hover .tbar-menu__panel {
+        opacity: 0;
+        visibility: hidden;
+    }
+    .tbar-menu:focus-within .tbar-menu__panel {
+        opacity: 1;
+        visibility: visible;
+    }
+}
+
+/* The toolbar has no scroll. The menus therefore go away before the
+   bar becomes too wide. The side panel holds the same links. */
+@media (max-width: 1100px) {
+    .tbar-menu { display: none; }
+    .toolbar .tool__sep:first-of-type { display: none; }
+}
+/* ================================================================== */
+/*  PAGE                                                              */
+/* ================================================================== */
+/* Every page takes the full width of the content area. A statement
+   thus has the same width as the ledger and the chart of accounts. */
+.page,
+.page--statement {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+}
+
+.page__title {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin: 0;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--ink);
+}
+/* The period marker. It shows which books the numbers below belong to.
+   Set the text in the template: <h1 class="page__title" data-period="…"> */
+.page__title[data-period]::after {
+    content: attr(data-period);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--gold);
+    border: 1px solid var(--gold-line);
+    border-radius: 20px;
+    padding: 2px 10px;
+}
+
+.page__subtitle {
+    margin: 34px 0 14px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+/* ---- The page head ------------------------------------------------- */
+/* The head is the same on every page: the title, and one paragraph
+   below it. The paragraph tells the reader what the page is, what the
+   figures are for, and which period and currency they hold. */
+.page__head { margin: 0 0 20px; }
+.page__head .page__title { margin-bottom: 8px; }
+
+.page__head > .page__note {
+    margin: 0;
+    width: 100%;
+    max-width: none;
+    color: var(--ink-soft);
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.page__note {
+    margin: 0;
+    max-width: 78ch;
+    color: var(--ink-soft);
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+/* ---- The action bar ------------------------------------------------ */
+/* One bar on every page. It goes below the page head and above the
+   content, and it moves away when the user scrolls down. Its buttons
+   are in this order:
+       the primary task of the page, if the page has one
+       a separator
+       Print and Export, as plain tools
+       more tools of the page
+   The hint at the right end explains the state of the bar. */
+.actionbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    min-height: 62px;
+    margin: 0 0 22px;
+    padding: 13px 16px;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+}
+/* The old name of the bar above the content. It changes nothing now,
+   because every bar is at the top. It stays for a template that still
+   uses it. */
+.actionbar--top { position: static; }
+
+.actionbar__group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.actionbar__hint {
+    margin: 0 0 0 auto;
+    color: var(--ink-soft);
+    font-size: 12px;
+}
+/* ================================================================== */
+/*  BALANCE CARDS                                                     */
+/* ================================================================== */
+/* Five cards fill the full width of the content area. The tracks stay
+   equal, thus the row reads as one band of figures. */
+.cards {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 16px 18px 18px;
+    background: var(--white);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+}
+
+/* The label of the 5th card is long. The value keeps to the bottom
+   edge, thus all five figures stay on one line. */
+.card__label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: bold;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    line-height: 1.4;
+    color: var(--gold-deep);
+}
+
+/* Money must align on the decimal point. Tabular figures do this. */
+.card__value {
+    margin-top: auto;
+    padding-top: 10px;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: -0.4px;
+    white-space: nowrap;
+    color: var(--ink);
+}
+/* Set the currency in the template: <div class="card__value" data-unit="ZAR"> */
+.card__value[data-unit]::after {
+    content: attr(data-unit);
+    margin-left: 6px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--ink-soft);
+    vertical-align: 2px;
+}
+
+/* Direction of the money. It touches the figure only. */
+.card__value.is-debit,
+.card--debit  .card__value { color: var(--debit); }
+
+.card__value.is-credit,
+.card--credit .card__value { color: var(--credit); }
+
+/* Money at risk. It is receivable, thus it is not a debit. */
+.card__value.is-overdue { color: var(--overdue); }
+
+/* A count is not money. The figure then loses the currency spacing. */
+.card__value.is-count,
+.card--count .card__value { font-size: 26px; letter-spacing: 0; }
+/* ================================================================== */
+/*  TABLE  (the base of every table of the module)                    */
+/*  Columns: Date · Reference · Account · Amount                      */
+/* ================================================================== */
+/* Every table takes the full width of the page. The variants below
+   change the columns only, not the frame. */
+.table {
+    width: 100%;
+    font-size: 13px;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+    table-layout: auto;
+}
+.table th,
+.table td { text-align: left; white-space: nowrap; }
+
+.table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 13px 16px;
+    background: var(--white);
+    border-bottom: 1px solid var(--line-strong);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+}
+
+.table tbody td {
+    border-bottom: 1px solid var(--rule);
+    padding: 12px 16px;
+}
+.table tbody tr:last-child td { border-bottom: none; }
+.table tbody tr { transition: background 0.12s ease; }
+.table tbody tr:hover { background: var(--gold-soft); }
+
+/* Column 1 = Date, column 2 = Reference. Both are machine data. */
+.table td:first-child,
+.table td:nth-child(2) {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-soft);
+}
+.table td:nth-child(2) { color: var(--ink); }
+
+/* Column 3 = Account. It takes the free space. */
+.table th:nth-child(3),
+.table td:nth-child(3) { width: 100%; white-space: normal; }
+
+/* Column 4 = Amount. It stays on the right edge of the row. */
+.table th:last-child,
+.table td:last-child { text-align: right; }
+.table td:last-child {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    color: var(--ink);
+}
+/* Add is-debit or is-credit to the amount cell to show the direction. */
+.table td.is-debit  { color: var(--debit); }
+.table td.is-credit { color: var(--credit); }
+
+/* The empty state. It tells the user what the period holds. */
+.table td[colspan] {
+    padding: 34px 16px;
+    text-align: center;
+    color: var(--ink-soft);
+}
+.table tbody tr:hover td[colspan] { background: transparent; }
+
+/* ---- The foot of a table ------------------------------------------- */
+/* The foot holds the figure that the reader looks for first. All
+   variants use the same foot. */
+.table tfoot td {
+    border-top: 1px solid var(--line-strong);
+    padding: 13px 16px;
+    background: rgba(232, 230, 222, 0.03);
+    font-weight: 600;
+    color: var(--ink);
+}
+.table tfoot td[colspan] {
+    padding: 13px 16px;
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+}
+/* ---- Shared row states --------------------------------------------- */
+/*  is-group  a heading row inside the table: Kits, Components          */
+/*  is-nest   a line that belongs to the group above it                 */
+
+/* The group row uses the label of the side panel, thus all lists of
+   the module read the same. */
+.table tbody tr.is-group td {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--gold-deep);
+    background: rgba(232, 230, 222, 0.04);
+}
+.table tbody tr.is-group:hover td { background: rgba(232, 230, 222, 0.04); }
+
+/* A group row spans the full width. The rule below removes the large
+   space of the empty state, which uses the same colspan attribute. */
+.table tbody tr.is-group td[colspan] {
+    padding: 11px 16px;
+    text-align: left;
+}
+
+/* The space shows that the line belongs to the group above it. */
+.table tbody tr.is-nest td:first-child { padding-left: 34px; }
+/* ================================================================== */
+/*  NOTES                                                             */
+/* ================================================================== */
+/* Each note is a card of the module. The list gives the cards one
+   column, because a person reads a note as text. */
+.notes {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.notes .card { padding: 14px 16px 16px; }
+.notes .card__label { margin: 0 0 8px; }
+
+.notes__text {
+    margin: 0;
+    max-width: 74ch;
+    color: var(--ink-soft);
+    font-size: 13px;
+}
+.notes__text + .notes__text { margin-top: 8px; }
+
+/* A wide screen gets two columns. A note is short, thus two columns
+   keep the page in one screen. */
+@media (min-width: 1240px) {
+    .notes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* ================================================================== */
+/*  /*  FORM CONTROL                                                      */
+/* ================================================================== */
+/* The Accounting module has a button (.tool) but no input, because no
+   form stands in a bar there. An action bar of the Inventory module
+   holds a small form. The control below thus keeps the height, the
+   radius, the border and the colors of .tool. A field and a button in
+   the same bar then align on the same line. */
+.field {
+    box-sizing: border-box;
+    flex: 0 1 auto;
+    width: var(--field-w);
+    min-width: 0;
+    height: var(--tool-h);
+    padding: 0 11px;
+
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    color: var(--ink);
+
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1;
+
+    appearance: none;
+    -webkit-appearance: none;
+
+    /* The browser draws the list of a select with the system colors.
+       This line tells it to use the dark set. */
+    color-scheme: dark;
+
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+.field::placeholder { color: var(--ink-soft); }
+.field:hover { border-color: var(--gold-line); }
+.field:focus { border-color: var(--gold); }
+
+.field--wide { width: 214px; }
+.field--sm   { width: 98px; }
+
+/* appearance:none removes the caret of a select. The image puts it
+   back, in the color of the secondary text. */
+.field--select {
+    padding-right: 30px;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23A7ACB5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 13px;
+}
+
+/* ================================================================== */
+/*  STATUS PILL                                                       */
+/* ================================================================== */
+/* The pill has the shape of the count pill of the side panel. It takes
+   the money colors of the module tokens, because the reader of the
+   application already knows them:
+       green   the item is good
+       yellow  the item asks for an order
+       red     the item stops the work
+       gold    the item is in an operation
+       grey    the item is out of use
+   The dot carries the color a second time, for a reader who does not
+   see the difference between green and red. */
+.status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 9px;
+    border: 1px solid var(--line-strong);
+    border-radius: 20px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.6;
+    white-space: nowrap;
+    color: var(--ink-soft);
+}
+.status::before {
+    content: "";
+    flex: none;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+.status--ok   { color: var(--credit);  border-color: rgba(127, 191, 154, 0.45); background: var(--credit-soft); }
+.status--low  { color: var(--overdue); border-color: rgba(255, 243, 140, 0.40); background: rgba(255, 243, 140, 0.12); }
+.status--out  { color: var(--debit);   border-color: rgba(224, 120, 94, 0.45);  background: var(--debit-soft); }
+.status--busy { color: var(--gold);    border-color: var(--gold-line);          background: var(--gold-soft); }
+.status--idle { color: var(--ink-soft); }
+
+/* ================================================================== */
+/*  ITEM TABLE                                                        */
+/*  Columns: a name, then the facts, then a state                     */
+/* ================================================================== */
+/* .table above sets its columns for a ledger: two machine columns,
+   then a wide name, then money at the right edge. A list of things has
+   other columns. .table--inv thus makes every column as
+   narrow as its content, and it gives the cell three classes:
+       is-name   the name of the item. It takes the free space.
+       is-code   a tag, a SKU, a serial number or a date.
+       is-qty    a quantity. It aligns on the right edge.
+   These rules come after the .table rules above, thus a rule of the
+   same strength wins here. */
+.table--inv th,
+.table--inv td { width: 1%; }
+
+.table--inv td,
+.table--inv td:first-child,
+.table--inv td:nth-child(2) {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--ink-soft);
+}
+
+.table--inv th:nth-child(3),
+.table--inv td:nth-child(3) { width: 1%; white-space: nowrap; }
+
+.table--inv th:last-child,
+.table--inv td:last-child {
+    width: 1%;
+    text-align: left;
+    font-family: var(--font-sans);
+    font-weight: 400;
+    color: var(--ink-soft);
+}
+
+/* The three cell classes. They come after the column rules. */
+.table--inv td.is-name {
+    width: 100%;
+    white-space: normal;
+    font-weight: 500;
+    color: var(--ink);
+}
+.table--inv td.is-code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-soft);
+}
+.table--inv th.is-qty,
+.table--inv td.is-qty { text-align: right; }
+.table--inv td.is-qty {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    color: var(--ink);
+}
+/* A quantity that asks for an order, and a quantity that is empty. */
+.table--inv td.is-qty.is-low { color: var(--overdue); }
+.table--inv td.is-qty.is-out { color: var(--debit); }
+
+/* A cell can carry a second line: a serial number below the name of an
+   asset, or a supplier below a quantity. The line stays quiet, thus the
+   name of the item leads the row. */
+.cell-sub {
+    display: block;
+    margin-top: 3px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--ink-soft);
+}
+
+/* A label that a screen reader gets, but the screen does not show. The
+   action bars use it for the name of a field. */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ================================================================== */
+/*  PANEL GRID                                                        */
+/* ================================================================== */
+/* .cards puts five figures in one band. A chart needs
+   more width than a figure. This grid puts as many cards in a row as
+   fit, thus it needs no breakpoint of its own. */
+.panels {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+    gap: 14px;
+}
+.panels--wide { grid-template-columns: repeat(auto-fit, minmax(520px, 1fr)); }
+
+/* Two bands of figures stand above each other on the overview. */
+.cards + .cards { margin-top: 14px; }
+
+/* ================================================================== */
+/*  CHARTS                                                            */
+/* ================================================================== */
+/* The project has no chart library, and a mockup does not need one.
+   Each chart sits in a .card, thus it keeps the
+   frame, the label and the space of a figure card. The height of a bar
+   comes from the template: style="height: 62%".
+   All colors come from the tokens. */
+.chart { margin-top: 16px; }
+
+.chart-note {
+    margin: 14px 0 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+}
+
+/* ---- 1. Columns over time ------------------------------------------ */
+.chart-cols {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    height: var(--chart-h);
+}
+.chart-cols__col {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-width: 0;
+}
+/* The height is a calculation, not a flex value. A percentage height of
+   a bar then always has a definite box to measure against. */
+.chart-cols__pair {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: calc(100% - 24px);
+}
+.chart-cols__bar {
+    flex: 1 1 0;
+    min-height: 2px;
+    border-radius: 3px 3px 0 0;
+    background: var(--gold);
+}
+.chart-cols__bar--in  { background: var(--credit); }
+.chart-cols__bar--out { background: var(--debit); }
+.chart-cols__tick {
+    flex: none;
+    height: 24px;
+    padding-top: 7px;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-soft);
+}
+
+/* ---- 2. A line over time ------------------------------------------- */
+/* The SVG takes the full width. preserveAspectRatio="none" in the
+   template stretches the plot, thus the stroke needs the vector effect
+   below to keep its width. */
+.chart-line { display: block; width: 100%; height: var(--chart-h); }
+.chart-line--sm { height: 84px; }
+.chart-line__area { fill: var(--gold-soft); stroke: none; }
+.chart-line__path {
+    fill: none;
+    stroke: var(--gold);
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+}
+.chart-line__grid {
+    stroke: var(--line);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+}
+.chart-line--low .chart-line__path { stroke: var(--overdue); }
+.chart-line--low .chart-line__area { fill: rgba(255, 243, 140, 0.10); }
+
+/* ---- 3. A rank of items -------------------------------------------- */
+.chart-rank { display: grid; gap: 11px; }
+.chart-rank__row {
+    display: grid;
+    grid-template-columns: minmax(84px, 33%) 1fr auto;
+    align-items: center;
+    gap: 12px;
+}
+.chart-rank__name {
+    overflow: hidden;
+    font-size: 13px;
+    color: var(--ink);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.chart-rank__track {
+    height: 8px;
+    border-radius: 4px;
+    background: rgba(232, 230, 222, 0.06);
+    overflow: hidden;
+}
+.chart-rank__fill {
+    display: block;
+    height: 100%;
+    border-radius: 4px;
+    background: var(--gold);
+}
+.chart-rank__fill--out { background: var(--debit); }
+.chart-rank__value {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--ink-soft);
+}
+
+/* ---- 4. A ring of parts -------------------------------------------- */
+/* The template gives each part a length of the stroke and a start. The
+   rotation puts the first part at the top. */
+.chart-donut { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.chart-donut__svg { flex: none; width: 136px; height: 136px; transform: rotate(-90deg); }
+.chart-donut__ring { fill: none; stroke: rgba(232, 230, 222, 0.06); stroke-width: 14; }
+.chart-donut__seg  { fill: none; stroke-width: 14; }
+
+/* ---- The key of a chart -------------------------------------------- */
+.chart-key { display: grid; gap: 8px; flex: 1 1 150px; min-width: 0; }
+.chart-key--row { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 14px; }
+.chart-key__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--ink-soft);
+}
+.chart-key__dot { flex: none; width: 9px; height: 9px; border-radius: 3px; background: var(--ink-soft); }
+.chart-key__value {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+}
+
+/* The six colors of a part. One rule serves both shapes: a circle of
+   the ring reads the stroke, a dot of the key reads the background. */
+.chart-c1 { stroke: var(--gold);      background: var(--gold); }
+.chart-c2 { stroke: var(--credit);    background: var(--credit); }
+.chart-c3 { stroke: var(--debit);     background: var(--debit); }
+.chart-c4 { stroke: var(--overdue);   background: var(--overdue); }
+.chart-c5 { stroke: var(--gold-deep); background: var(--gold-deep); }
+.chart-c6 { stroke: var(--ink-soft);  background: var(--ink-soft); }
+/* ================================================================== */
+/*  WORKBENCH  (three columns that browse, edit and relate one record) */
+/* ================================================================== */
+/* .bom first served the bill of materials page: the kits at the left,
+   the tree of the selected kit in the middle, and its components at the
+   right. The item editor reuses the same three columns for a browse
+   list, a form and a list of relationships, thus the name stays even
+   though a second page now gives it a second meaning: three columns
+   that work on one selected record. Each column is a .card, thus it
+   keeps the frame, the label and the space of a figure card.
+   A list in a column is built from .nav__item elements of the side
+   panel, thus the hover, the active state and the spacing come from one
+   place, on every page that uses .bom. */
+/* The columns keep the height of the tallest one. The grid stretches
+   each card, and .card is a column of flex items. The list below then
+   takes the free space, and the foot of the column stays at the bottom
+   edge. All three feet thus stand on one line. */
+.bom {
+    display: grid;
+    grid-template-columns: 264px minmax(0, 1fr) 296px;
+    gap: 14px;
+    align-items: stretch;
+}
+
+.bom__list { flex: 1 1 auto; margin-top: 14px; }
+
+/* The pill of this column gives a count, not a state that needs a
+   color. The dot of .status thus goes away here: the number is the
+   whole message. */
+.bom .status::before { content: none; }
+
+/* A kit that the stock can build now stands out in the text color of
+   the page. A kit that the stock cannot build keeps the muted color of
+   .status--idle, thus it recedes without a second color of its own. */
+.status--build { color: var(--ink); font-weight: 600; }
+.bom__name { flex: 1 1 auto; min-width: 0; }
+.bom__list .status { flex: none; }
+
+/* The bar at the foot of a column. It holds the total of the column, or
+   the small form that adds a component to the tree. */
+.bom__foot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+}
+.bom__total {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+}
+.bom__total b { font-weight: 600; color: var(--ink); }
+
+/* ---- The tree of the bill of materials ----------------------------- */
+/* The tree is a list inside a list. Each level adds a space at the left,
+   a line down and an elbow to the row. The last node of a level cuts the
+   line at its elbow, thus the corner closes.
+   A node that has children is a <details> element. The browser opens and
+   closes it, thus the tree needs no script. */
+.tree,
+.tree__branch { margin: 0; padding: 0; list-style: none; }
+
+.tree__branch > .tree__node { position: relative; padding-left: 22px; }
+
+/* The line down the level. */
+.tree__branch > .tree__node::before {
+    content: "";
+    position: absolute;
+    left: 7px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--line-strong);
+}
+.tree__branch > .tree__node:last-child::before { bottom: auto; height: 18px; }
+
+/* The elbow into the row. */
+.tree__branch > .tree__node::after {
+    content: "";
+    position: absolute;
+    left: 7px;
+    top: 18px;
+    width: 13px;
+    height: 1px;
+    background: var(--line-strong);
+}
+
+/* The browser gives a summary element a marker of its own. The row
+   carries the caret, thus the marker goes away. */
+.tree__group > summary { list-style: none; }
+.tree__group > summary::-webkit-details-marker { display: none; }
+
+.tree__row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.12s ease;
+}
+.tree__row:hover { background: var(--gold-soft); }
+
+/* The node that the user works on. The gold line at the left edge is the
+   marker of an active item of the side panel. */
+.tree__row.is-active { background: var(--gold-soft); box-shadow: inset 2px 0 0 var(--gold); }
+.tree__row.is-active .tree__name { color: var(--gold); font-weight: 600; }
+
+/* The caret turns when the browser opens the node. */
+.tree__caret {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    stroke: var(--ink-soft);
+    stroke-width: 2;
+    transition: transform 0.15s ease;
+}
+.tree__group[open] > .tree__row > .tree__caret { transform: rotate(90deg); }
+
+/* A node without children keeps the space of the caret. */
+.tree__bullet {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 14px;
+    height: 14px;
+}
+.tree__bullet::before {
+    content: "";
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--ink-soft);
+}
+
+.tree__name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.tree__code {
+    flex: none;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+}
+/* The quantity that one parent needs of this node. */
+.tree__qty {
+    flex: none;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--ink);
+}
+
+/* ================================================================== */
+/*  ITEM FORM  (a textarea and a checkbox, the two controls that no      */
+/*  page has needed before this one)                                    */
+/* ================================================================== */
+
+/* .field sets a fixed height for one line of text. A description runs
+   to more than one line, thus this modifier trades the fixed height for
+   a minimum height, and it lets the person drag the corner to see more. */
+.field--area {
+    width: 100%;
+    height: auto;
+    min-height: 84px;
+    padding: 9px 11px;
+    line-height: 1.5;
+    resize: vertical;
+}
+
+/* The checkbox of a boolean field. The native box is small and it is
+   hard to see against a dark field, thus the accent color of the
+   application replaces the color that the browser would use. */
+.field-check {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    height: var(--tool-h);
+    font-size: 13px;
+    color: var(--ink);
+}
+.field-check input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--gold);
+}
+
+/* A field takes the full width of the form column that holds it. Two
+   short fields share a row; a long field, and the two controls above,
+   take the row alone. */
+.field-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.field-row > .field,
+.field-row > .field-check { flex: 1 1 140px; }
+.field-row--full > .field,
+.field-row--full > .field-check,
+.field-row--full > .field--area { flex-basis: 100%; }
+.field-row__label {
+    display: block;
+    margin: 14px 0 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-soft);
+}
+/* A hidden CSRF field is often the true first child of a form,
+   thus a modifier class sets the top label flush, rather than the
+   :first-child pseudo-class. */
+.field-row__label--first { margin-top: 0; }
+
+/* ================================================================== */
+/*  CONDITIONAL FIELD  (Useful Life shows only for a depreciating item) */
+/* ================================================================== */
+/* form:has() reads the state of the checkbox that sits earlier in the
+   same form, thus the row below needs no script to open and close.
+   Every browser that this application already assumes for :checked and
+   <details> also carries :has(). */
+.useful-life-row { display: none; }
+.useful-life-hint { display: none; }
+form:has(input[name="depreciating_item"]:checked) .useful-life-row { display: flex; }
+form:has(input[name="depreciating_item"]:checked) .useful-life-hint { display: block; }
+
+/* ================================================================== */
+/*  CODE BUILDER  (SKU, tag, QR and barcode formats)                  */
+/* ================================================================== */
+/* The builder splits a code of a fixed length into up to five parts.
+   Each part carries the color of a chart, thus the same color names the
+   part in the strip below, in the row of its field, and in the example
+   of the result. .chart-c1 to .chart-c6 already hold these colors, thus
+   the builder adds no color of its own. */
+
+/* ---- The strip: the length of the code, drawn to scale ------------ */
+.code-strip {
+    display: flex;
+    align-items: stretch;
+    height: 44px;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    margin-top: 14px;
+}
+.code-strip__seg {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    color: var(--navy);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    overflow: hidden;
+    white-space: nowrap;
+    border-right: 1px solid rgba(0, 0, 0, 0.14);
+}
+.code-strip__seg:last-child { border-right: none; }
+
+/* ---- The list of segments ------------------------------------------ */
+/* Each row reuses .tree__row for its padding, its radius and its hover
+   tint. A row here holds fields, not a branch of a tree, thus the row
+   sits in a plain list and not inside .tree. */
+.seg-list { margin-top: 4px; }
+.seg-list .tree__row { cursor: default; }
+.seg-list .tree__row + .tree__row { border-top: 1px solid var(--line); }
+
+/* The dot of .status names a state. A segment order is a position, not
+   a state, thus the dot goes away here, as it does inside .bom. */
+.seg-row__order {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    justify-content: center;
+    border-color: transparent;
+    font-family: var(--font-mono);
+}
+.seg-row__order::before { content: none; }
+.seg-row__len { flex: none; width: 74px; }
+.seg-row__cat { flex: 1 1 auto; min-width: 0; width: auto; }
+
+/* The button that takes a segment out of the format. It borrows the
+   danger color of a menu item of the ribbon (base.css .menu a.is-danger),
+   thus "remove" means the same red everywhere in the shell. */
+.seg-row__remove {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: var(--tool-h);
+    height: var(--tool-h);
+    border-radius: var(--radius-sm);
+    color: var(--ink-soft);
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.seg-row__remove:hover { background: rgba(224, 120, 94, 0.14); color: var(--debit); }
+
+/* ---- The result: the pattern and one example ------------------------ */
+.code-output {
+    margin-top: 14px;
+    font-family: var(--font-mono);
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--ink);
+}
+.code-output__part {
+    padding-bottom: 3px;
+    border-bottom: 3px solid var(--line-strong);
+}
+.code-output__sep { padding: 0 2px; color: var(--ink-soft); font-weight: 400; }
+
+/* ---- The QR code and the barcode ------------------------------------ */
+/* Both marks need a light ground to read as a real code would. The
+   swatch is the one light shape inside the dark theme, thus it stays
+   plain white with no border of its own. */
+.code-swatch {
+    display: grid;
+    place-items: center;
+    height: 148px;
+    background: #FFFFFF;
+    border-radius: var(--radius-sm);
+    padding: 12px;
+}
+.qr-mock { width: 118px; height: 118px; }
+.barcode-mock { width: 100%; height: 68px; }
+
+.code-preview { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; }
+.code-preview__cap {
+    display: block;
+    margin-top: 8px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--ink-soft);
+}
+
+/* ================================================================== */
+/*  RESPONSIVE                                                        */
+/* ================================================================== */
+@media (max-width: 1240px) {
+    .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+    /* The stock column goes below the two columns that work together. */
+    .bom { grid-template-columns: 240px minmax(0, 1fr); }
+    .bom__col--stock { grid-column: 1 / -1; }
+}
+
+@media (max-width: 900px) {
+    /* The side panel becomes a drawer. base.js sets data-drawer on the
+       body when the user operates the button or the scrim. */
+    .drawer-toggle { display: grid; }
+
+    .sidebar {
+        position: fixed;
+        top: 0; bottom: 0; left: 0;
+        z-index: 60;
+        width: 272px;
+        background: var(--white);
+        transform: translateX(-100%);
+        transition: transform 0.2s ease;
+        box-shadow: var(--shadow-md);
+    }
+    body[data-drawer="true"] .sidebar { transform: translateX(0); }
+
+    .scrim {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        background: rgba(24, 26, 31, 0.55);
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s ease, visibility 0.2s;
+    }
+    body[data-drawer="true"] .scrim { opacity: 1; visibility: visible; }
+
+    .main { padding: 20px; }
+    .page__subtitle { margin-top: 28px; }
+    .card__value { font-size: 22px; }
+
+    .actionbar { gap: 10px; }
+    .actionbar__hint { margin-left: 0; }
+
+    .bom { grid-template-columns: minmax(0, 1fr); }
+    .bom__col--stock { grid-column: auto; }
+}
+
+@media (max-width: 560px) {
+    .toolbar { gap: 6px; }
+    .tool { padding-left: 10px; padding-right: 10px; }
+    .tool:has(.icon:only-child) { padding-left: 7px; padding-right: 7px; }
+    .tool__sep { margin-left: 2px; margin-right: 2px; }
+
+    .actionbar { padding: 11px 12px; }
+    .actionbar__group { gap: 6px; }
+
+
+    /* Every table scrolls sideways. Thus each column keeps its content,
+       and no column takes the free width. The block display removes the
+       corner clip, thus the radius moves to a scroll frame that the
+       border makes. */
+    .table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .table thead th { position: static; }
+    .table th, .table td { width: auto; white-space: nowrap; }
+    .table tbody tr.is-nest td:first-child { padding-left: 26px; }
+
+
+    .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .card { padding: 13px 14px 15px; }
+    .card__value { font-size: 19px; padding-top: 8px; }
+
+    /* Each form of an action bar takes the full width. The fields then
+       share the line and they stay operable with a thumb. */
+    .actionbar__group { width: 100%; }
+    .field,
+    .field--wide,
+    .field--sm { flex: 1 1 132px; width: auto; }
+
+    .tree__branch > .tree__node { padding-left: 16px; }
+    .tree__code { display: none; }
+
+    .seg-row__len { width: 60px; }
+    .code-output { font-size: 17px; }
+
+    .chart-cols { gap: 4px; }
+    .chart-cols__tick { font-size: 9px; }
+    .chart-donut { gap: 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tool,
+    .table tbody tr,
+    .tbar-menu__panel,
+    .tbar-menu__item { transition: none !important; }
+}
+/* ================================================================== */
+/*  PRINT  (an accounting page goes into a file or to an auditor)     */
+/* ================================================================== */
+@media print {
+    .ribbon, .context, .sidebar, .footer, .scrim, .drawer-toggle,
+    .actionbar, .tbar-menu__panel { display: none !important; }
+    .shell { display: block; }
+    .main { padding: 0; overflow: visible; }
+    body { background: #FFFFFF; color: #000000; }
+
+    .page__title, .page__subtitle, .card__value { color: #000000; }
+    .page__note { color: #333333; }
+    .card__label { color: #7A5B22; }
+    .card, .table {
+        background: #FFFFFF;
+        border: 1px solid #999999;
+        box-shadow: none;
+    }
+    .table thead { display: table-header-group; }
+    .table tfoot { display: table-footer-group; }
+    .table tbody tr { page-break-inside: avoid; }
+
+    .table td { color: #000000; }
+    .table tbody tr.is-group td { color: #7A5B22; background: #FFFFFF; }
+    .table tfoot td {
+        border-top: 1px solid #999999;
+        background: #FFFFFF;
+        color: #000000;
+    }
+
+
+    .notes .card { break-inside: avoid; }
+    .notes__text { color: #000000; }
+
+    .field, .field-check, .bom__foot { display: none !important; }
+    .bom { display: block; }
+    .bom__col { break-inside: avoid; margin-bottom: 12px; }
+    .tree__row { background: #FFFFFF; }
+    .tree__name, .tree__qty { color: #000000; }
+
+    .seg-row__remove { display: none; }
+    .code-output__part { border-bottom-color: #999999; }
+    .status { color: #000000; border-color: #999999; background: #FFFFFF; }
+    .table--inv td.is-name, .table--inv td.is-qty { color: #000000; }
+    .cell-sub, .chart-note, .chart-key__item { color: #333333; }
+}

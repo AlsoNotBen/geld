@@ -1,10 +1,18 @@
 {% extends "inventory/module_base.html" %}
+
 {% comment %}
   ============================================================================
   inventory/templates/inventory/assets.html
   ----------------------------------------------------------------------------
-  Level 3 of the chain: base.html > module_base.html > this page.
-  This page replaces the toolbar of the module. It does not use block.super.
+  The register of the physical assets. An asset is one thing with a tag.
+  The page shows who holds it, where it is, and what its state is.
+
+  The action bar holds two forms:
+      the add form     name · type · serial number · Add Asset
+      the filter form  a text field · a type · a state
+  Neither form saves. The view renders the page again. Refer to views.py.
+
+  All rows below are dummy data.
   ============================================================================
 {% endcomment %}
 
@@ -12,55 +20,267 @@
 
 {% block title %}Assets · Inventory · Console{% endblock %}
 
-{% block breadcrumb %}
-<a href="/">Home</a>
-<span class="sep">/</span>
-<a href="#">Inventory</a>
-<span class="sep">/</span>
-<span class="here">Assets</span>
-{% endblock %}
-
-{% comment %} This page has its own tools. The module tools do not apply here. {% endcomment %}
-{% block toolbar %}
-<button class="tool tool--primary" type="button">
-    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
-    New asset
-</button>
-<button class="tool" type="button">Import CSV</button>
-<span class="tool__sep" aria-hidden="true"></span>
-<button class="tool" type="button">Filter</button>
-<button class="tool" type="button">Columns</button>
-{% endblock %}
-
-{% block sidebar_extra %}
-<div class="sidebar__title">Saved views</div>
-<nav class="nav" aria-label="Saved views">
-    <a class="nav__item" href="#">In use</a>
-    <a class="nav__item" href="#">In repair</a>
-    <a class="nav__item" href="#">Written off</a>
-</nav>
-{% endblock %}
-
 {% block content %}
 <section class="page">
-    <h1 class="page__title">Assets</h1>
 
-    <table class="table">
+    <div class="page__head">
+        <h1 class="page__title" data-period="318 assets">Assets</h1>
+        <p class="page__note">
+            An asset is one thing that the business keeps and tracks by a
+            tag: a laptop, a monitor, a radio, a vehicle, a tool or a
+            server. Each asset has one holder and one place. A holder is a
+            person, a place or another asset. Use the bar below to add an
+            asset, or to find an asset in the list.
+        </p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Asset controls">
+        {% comment %} The add form. It does not save yet. {% endcomment %}
+        <form class="actionbar__group" method="post" action="" aria-label="Add an asset">
+            {% csrf_token %}
+            <label class="visually-hidden" for="asset-name">Asset name</label>
+            <input class="field field--wide" id="asset-name" name="name" type="text"
+                   placeholder="Asset name" autocomplete="off">
+
+            <label class="visually-hidden" for="asset-type">Type</label>
+            <select class="field field--select" id="asset-type" name="type">
+                <option value="">Type</option>
+                <option>Laptop</option>
+                <option>Desktop</option>
+                <option>Monitor</option>
+                <option>Mobile device</option>
+                <option>Radio</option>
+                <option>Vehicle</option>
+                <option>Tool</option>
+                <option>Server</option>
+                <option>Network</option>
+                <option>Printer</option>
+                <option>Furniture</option>
+            </select>
+
+            <label class="visually-hidden" for="asset-serial">Serial number</label>
+            <input class="field" id="asset-serial" name="serial" type="text"
+                   placeholder="Serial number" autocomplete="off">
+
+            <button class="tool tool--primary" type="submit">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                Add Asset
+            </button>
+        </form>
+
+        <span class="tool__sep" aria-hidden="true"></span>
+
+        {% comment %} The filter form. It does not filter yet. {% endcomment %}
+        <form class="actionbar__group" method="get" action="" role="search" aria-label="Find an asset">
+            <label class="visually-hidden" for="asset-q">Find an asset</label>
+            <input class="field" id="asset-q" name="q" type="search"
+                   placeholder="Name, tag or holder" autocomplete="off">
+
+            <label class="visually-hidden" for="asset-state">Status</label>
+            <select class="field field--select field--sm" id="asset-state" name="status">
+                <option value="">Status</option>
+                <option>Active</option>
+                <option>In repair</option>
+                <option>In storage</option>
+                <option>Missing</option>
+                <option>Retired</option>
+            </select>
+
+            <button class="tool" type="submit">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4" stroke-linecap="round"/></svg>
+                Find
+            </button>
+        </form>
+    </div>
+
+    <div class="cards">
+        <div class="card">
+            <span class="card__label">Total Assets</span>
+            <div class="card__value is-count">318</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Assigned</span>
+            <div class="card__value is-credit is-count">241</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Unassigned</span>
+            <div class="card__value is-count">61</div>
+        </div>
+        <div class="card">
+            <span class="card__label">In Repair</span>
+            <div class="card__value is-overdue is-count">4</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Book Value</span>
+            <div class="card__value" data-unit="ZAR">982,140.00</div>
+        </div>
+    </div>
+
+    <h2 class="page__subtitle">Asset register</h2>
+    <table class="table table--inv">
         <thead>
-            <tr><th>Tag</th><th>Name</th><th>Location</th><th>Status</th></tr>
+            <tr>
+                <th>Asset</th>
+                <th>Type</th>
+                <th>Tag</th>
+                <th>Assigned to</th>
+                <th>Location</th>
+                <th>Last check</th>
+                <th>Status</th>
+            </tr>
         </thead>
         <tbody>
-            {% for asset in assets %}
             <tr>
-                <td>{{ asset.tag }}</td>
-                <td>{{ asset.name }}</td>
-                <td>{{ asset.location }}</td>
-                <td>{{ asset.get_status_display }}</td>
+                <td class="is-name">
+                    Dell Latitude 7440
+                    <span class="cell-sub">Serial 7HJ4K2Q · bought 04 Sep 2026</span>
+                </td>
+                <td>Laptop</td>
+                <td class="is-code">AST-00124</td>
+                <td>John Smith</td>
+                <td>Pretoria Office</td>
+                <td class="is-code">04 Sep 2026</td>
+                <td><span class="status status--ok">Active</span></td>
             </tr>
-            {% empty %}
-            <tr><td colspan="4">There are no assets. Select New asset to add the first one.</td></tr>
-            {% endfor %}
+            <tr>
+                <td class="is-name">
+                    Dell U2723QE 27"
+                    <span class="cell-sub">Serial CN0M4T21 · joined to AST-00124</span>
+                </td>
+                <td>Monitor</td>
+                <td class="is-code">AST-00131</td>
+                <td>Thandi Mokoena</td>
+                <td>Pretoria Office</td>
+                <td class="is-code">28 Aug 2026</td>
+                <td><span class="status status--ok">Active</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">
+                    Toyota Hilux 2.4 GD-6
+                    <span class="cell-sub">Reg. JR 84 PN GP · 96,220 km</span>
+                </td>
+                <td>Vehicle</td>
+                <td class="is-code">AST-00042</td>
+                <td>Riaan van Zyl</td>
+                <td>Johannesburg Warehouse</td>
+                <td class="is-code">30 Aug 2026</td>
+                <td><span class="status status--ok">Active</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">
+                    Ford Ranger XL
+                    <span class="cell-sub">Reg. KZ 21 DD KZN · 118,400 km</span>
+                </td>
+                <td>Vehicle</td>
+                <td class="is-code">AST-00051</td>
+                <td>Kevin Naidoo</td>
+                <td>Durban Depot</td>
+                <td class="is-code">22 Aug 2026</td>
+                <td><span class="status status--low">Service due</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">
+                    Motorola DP4400e
+                    <span class="cell-sub">Serial MT9920881 · in AST-00042</span>
+                </td>
+                <td>Radio</td>
+                <td class="is-code">AST-00208</td>
+                <td>Site Team B</td>
+                <td>Durban Depot</td>
+                <td class="is-code">01 Sep 2026</td>
+                <td><span class="status status--ok">Active</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">
+                    Dell PowerEdge R650
+                    <span class="cell-sub">Serial 4KJ7X33 · rack A2</span>
+                </td>
+                <td>Server</td>
+                <td class="is-code">AST-00007</td>
+                <td>IT Department</td>
+                <td>Pretoria Server Room</td>
+                <td class="is-code">31 Aug 2026</td>
+                <td><span class="status status--ok">Active</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">
+                    Samsung Galaxy A54
+                    <span class="cell-sub">IMEI 3556 8109 4477 210</span>
+                </td>
+                <td>Mobile device</td>
+                <td class="is-code">AST-00256</td>
+                <td>Lerato Dlamini</td>
+                <td>Cape Town Branch</td>
+                <td class="is-code">27 Aug 2026</td>
+                <td><span class="status status--ok">Active</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">
+                    Hilti TE 60-AVR
+                    <span class="cell-sub">Serial HL55712 · job 2026-118</span>
+                </td>
+                <td>Tool</td>
+                <td class="is-code">AST-00311</td>
+                <td>Workshop</td>
+                <td>Johannesburg Warehouse</td>
+                <td class="is-code">19 Aug 2026</td>
+                <td><span class="status status--busy">In repair</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">
+                    HP LaserJet M480
+                    <span class="cell-sub">Serial CNB9K12045</span>
+                </td>
+                <td>Printer</td>
+                <td class="is-code">AST-00098</td>
+                <td>Pretoria Office</td>
+                <td>Pretoria Office</td>
+                <td class="is-code">25 Aug 2026</td>
+                <td><span class="status status--ok">Active</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">
+                    Lenovo ThinkPad T14
+                    <span class="cell-sub">Serial PF3K90LM · ready to issue</span>
+                </td>
+                <td>Laptop</td>
+                <td class="is-code">AST-00119</td>
+                <td>—</td>
+                <td>Pretoria Store Room</td>
+                <td class="is-code">15 Aug 2026</td>
+                <td><span class="status status--idle">In storage</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">
+                    Bosch GSB 18V Drill
+                    <span class="cell-sub">Serial BS30991 · reported 12 Aug 2026</span>
+                </td>
+                <td>Tool</td>
+                <td class="is-code">AST-00344</td>
+                <td>Sipho Ndlovu</td>
+                <td>Site Store</td>
+                <td class="is-code">12 Aug 2026</td>
+                <td><span class="status status--out">Missing</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">
+                    Cisco Catalyst C9200
+                    <span class="cell-sub">Serial FCW2245L0GH · out of use</span>
+                </td>
+                <td>Network</td>
+                <td class="is-code">AST-00015</td>
+                <td>—</td>
+                <td>Pretoria Server Room</td>
+                <td class="is-code">06 Aug 2026</td>
+                <td><span class="status status--idle">Retired</span></td>
+            </tr>
         </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="6">12 of 318 assets</td>
+                <td>Page 1 of 27</td>
+            </tr>
+        </tfoot>
     </table>
 </section>
 {% endblock %}

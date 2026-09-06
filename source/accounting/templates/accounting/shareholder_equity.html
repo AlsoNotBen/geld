@@ -1,0 +1,275 @@
+{% extends "accounting/module_base.html" %}
+{% load static %}
+
+{% comment %}
+  ============================================================================
+  accounting/templates/accounting/shareholder_equity.html
+  ----------------------------------------------------------------------------
+  The statement of changes in equity, and the notes to that statement.
+
+  The table is a matrix. Each column is an equity account. Each row is one
+  movement. The last column is the total of the row:
+      Line · Note · Share capital · Share premium · Revaluation reserve ·
+      Retained earnings · Total equity
+
+  The last column and the last row must agree with the equity part of
+  balance_sheet.html.
+
+  The page follows the pattern of the module:
+      .page__head    the title and the note
+      .actionbar     Print, Export, New note
+      .table--soce   the matrix
+      .notes         the notes
+
+  Three row classes give the structure of the statement:
+      is-group   a heading row, for example "Year to 31 March 2026"
+      is-nest    a movement inside the year above it
+      is-sum     the balance at the end of a year
+  The tfoot holds the balance at the end of the period of the report.
+
+  This statement lists the last year as rows, not as a column. Thus each
+  row of the last year carries the class is-prior: the opening balance,
+  the group row, its movements and its closing balance. accounting.css
+  makes these rows dim.
+
+  The note number in column 2 is a link to the note below the table. Keep
+  the number, the id of the note and the text in agreement.
+
+  The figures below are examples. Replace them with the values of the view.
+  Do not put a fallback in a filter argument, for example |default:notes.
+  A variable in that position must exist, or Django stops the page.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}equity{% endblock %}
+
+{% block title %}Statement of Changes in Equity · Accounting · Console{% endblock %}
+
+{% comment %} block.super keeps the buttons of the module base. {% endcomment %}
+{% block toolbar %}{{ block.super }}{% endblock %}
+
+{% block content %}
+<section class="page page--statement">
+
+    <div class="page__head">
+        <h1 class="page__title">Statement of Changes in Equity</h1>
+        <p class="page__note">
+            This statement shows how the equity of the owners changed in one
+            year. Equity is the part of the business that belongs to the
+            owners after all debts. Each column is one equity account. Each
+            row is one movement: a profit adds to equity, a dividend takes
+            from it, and a share issue brings new capital in. The last column
+            is the total of each row, and the last row is the total equity at
+            the end of the year. That figure must agree with the balance
+            sheet. An owner reads this statement to see what the business kept
+            and what it paid out. The year is to 31 March 2026, with the year
+            to 31 March 2025 for comparison. All figures in ZAR.
+        </p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Statement controls">
+        <div class="actionbar__group">
+            {% comment %} base.js must call window.print() for a button with
+                 the data-print attribute. {% endcomment %}
+            <button class="tool" type="button" data-print>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+                Print
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+
+            <span class="tool__sep" aria-hidden="true"></span>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                New note
+            </button>
+        </div>
+
+        <p class="actionbar__hint">The last column agrees with total equity in the balance sheet.</p>
+    </div>
+
+    <table class="table table--soce" aria-label="Statement of changes in equity">
+        <thead>
+            <tr>
+                <th>Line</th>
+                <th>Note</th>
+                <th>Share capital</th>
+                <th>Share premium</th>
+                <th>Revaluation reserve</th>
+                <th>Retained earnings</th>
+                <th>Total equity</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr class="is-sum is-prior">
+                <td>Balance at 1 April 2024</td>
+                <td><a href="#note-1">1</a></td>
+                <td>1,200,000</td>
+                <td>610,000</td>
+                <td>300,000</td>
+                <td>2,140,000</td>
+                <td>4,250,000</td>
+            </tr>
+
+            <tr class="is-group is-prior"><td colspan="7">Year to 31 March 2025</td></tr>
+            <tr class="is-nest is-prior">
+                <td>Profit for the year</td>
+                <td><a href="#note-6">6</a></td>
+                <td>—</td><td>—</td><td>—</td>
+                <td>790,000</td>
+                <td>790,000</td>
+            </tr>
+            <tr class="is-nest is-prior">
+                <td>Dividends declared</td>
+                <td><a href="#note-5">5</a></td>
+                <td>—</td><td>—</td><td>—</td>
+                <td>(240,000)</td>
+                <td>(240,000)</td>
+            </tr>
+            <tr class="is-sum is-prior">
+                <td>Balance at 31 March 2025</td>
+                <td></td>
+                <td>1,200,000</td>
+                <td>610,000</td>
+                <td>300,000</td>
+                <td>2,690,000</td>
+                <td>4,800,000</td>
+            </tr>
+
+            <tr class="is-group"><td colspan="7">Year to 31 March 2026</td></tr>
+            <tr class="is-nest">
+                <td>Profit for the year</td>
+                <td><a href="#note-6">6</a></td>
+                <td>—</td><td>—</td><td>—</td>
+                <td>1,262,000</td>
+                <td>1,262,000</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Other comprehensive income</td>
+                <td><a href="#note-4">4</a></td>
+                <td>—</td><td>—</td>
+                <td>120,000</td>
+                <td>—</td>
+                <td>120,000</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Shares issued</td>
+                <td><a href="#note-2">2</a></td>
+                <td>300,000</td>
+                <td>255,000</td>
+                <td>—</td><td>—</td>
+                <td>555,000</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Share issue costs</td>
+                <td><a href="#note-3">3</a></td>
+                <td>—</td>
+                <td>(15,000)</td>
+                <td>—</td><td>—</td>
+                <td>(15,000)</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Dividends declared</td>
+                <td><a href="#note-5">5</a></td>
+                <td>—</td><td>—</td><td>—</td>
+                <td>(360,000)</td>
+                <td>(360,000)</td>
+            </tr>
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="2">Balance at 31 March 2026</td>
+                <td>1,500,000</td>
+                <td>850,000</td>
+                <td>420,000</td>
+                <td>3,592,000</td>
+                <td class="is-credit">6,362,000</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    {# ------------------------------ NOTES ------------------------------- #}
+    <h2 class="page__subtitle" id="notes-title">Notes to the statement</h2>
+
+    <ol class="notes" aria-labelledby="notes-title">
+
+        <li class="card" id="note-1">
+            <span class="card__label">1. Basis of preparation</span>
+            <p class="notes__text">
+                The company prepares the statement in agreement with IFRS for
+                SMEs. The figures show the movement of each equity account
+                for the year to 31 March 2026.
+            </p>
+            <p class="notes__text">
+                The company applied the same accounting policies in the two
+                years. Thus the reader can compare the two years.
+            </p>
+        </li>
+
+        <li class="card" id="note-2">
+            <span class="card__label">2. Share capital and share premium</span>
+            <p class="notes__text">
+                The company issued 250,000 ordinary shares on 20 February 2026.
+                The issue price was 2.22 per share.
+            </p>
+            <p class="notes__text">
+                The company put 300,000 to share capital and 255,000 to share
+                premium. The number of shares in issue increased from 1,000,000
+                to 1,250,000.
+            </p>
+        </li>
+
+        <li class="card" id="note-3">
+            <span class="card__label">3. Share issue costs</span>
+            <p class="notes__text">
+                The costs of the share issue were 15,000. These costs are the
+                fees of the transfer secretary and the legal fees. The company
+                subtracted the costs from share premium.
+            </p>
+        </li>
+
+        <li class="card" id="note-4">
+            <span class="card__label">4. Revaluation reserve</span>
+            <p class="notes__text">
+                An independent valuer examined the land and the buildings on
+                28 February 2026. The gain before tax was 164,384.
+            </p>
+            <p class="notes__text">
+                The deferred tax on the gain was 44,384. Thus the reserve
+                increased by 120,000. The company will not move this gain to
+                profit or loss.
+            </p>
+        </li>
+
+        <li class="card" id="note-5">
+            <span class="card__label">5. Dividends</span>
+            <p class="notes__text">
+                The board declared a dividend of 28.8 cents per share on
+                28 February 2026. The dividend was 360,000 on 1,250,000 shares.
+            </p>
+            <p class="notes__text">
+                The dividend of the last year was 24.0 cents per share, or
+                240,000 on 1,000,000 shares. The company paid all dividends
+                before the end of the year.
+            </p>
+        </li>
+
+        <li class="card" id="note-6">
+            <span class="card__label">6. Retained earnings</span>
+            <p class="notes__text">
+                Retained earnings include the profit for the year of 1,262,000.
+                The balance of 3,592,000 is available for distribution.
+            </p>
+            <p class="notes__text">
+                The company holds no restriction on this balance. The loan
+                agreement in note 12 of the annual statements sets a minimum
+                equity of 5,000,000.
+            </p>
+        </li>
+
+    </ol>
+
+</section>
+{% endblock %}

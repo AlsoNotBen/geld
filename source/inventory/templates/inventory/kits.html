@@ -1,0 +1,277 @@
+{% extends "inventory/module_base.html" %}
+
+{% comment %}
+  ============================================================================
+  inventory/templates/inventory/kits.html
+  ----------------------------------------------------------------------------
+  A kit is a set of components. An assembly makes a kit and it consumes
+  the components. A disassembly gives the components back.
+
+  The list holds both parts in one table. The group row (is-group of
+  accounting.css) divides the kits from the components, thus the list
+  reads like a statement of the Accounting module.
+
+  The action bar holds the add form: name · type · SKU · Add.
+  The form does not save. Refer to views.py.
+
+  All rows below are dummy data.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}kits{% endblock %}
+
+{% block title %}Kit &amp; Components · Inventory · Console{% endblock %}
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title">Kit &amp; Components</h1>
+        <p class="page__note">
+            A component is a part that the work puts into a larger item. A
+            kit is the item that the parts make. The bill of materials tells
+            you which components one kit needs, and how many of each. When
+            you assemble a kit, the stock of each component goes down and
+            the stock of the kit goes up. The list below shows the kits
+            first, then the components that the kits use.
+        </p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Kit controls">
+        <form class="actionbar__group" method="post" action="" aria-label="Add a kit or a component">
+            {% csrf_token %}
+            <label class="visually-hidden" for="kit-name">Name</label>
+            <input class="field field--wide" id="kit-name" name="name" type="text"
+                   placeholder="Name" autocomplete="off">
+
+            <label class="visually-hidden" for="kit-type">Type</label>
+            <select class="field field--select field--sm" id="kit-type" name="type">
+                <option value="">Type</option>
+                <option>Kit</option>
+                <option>Component</option>
+            </select>
+
+            <label class="visually-hidden" for="kit-sku">SKU</label>
+            <input class="field field--sm" id="kit-sku" name="sku" type="text"
+                   placeholder="SKU" autocomplete="off">
+
+            <button class="tool tool--primary" type="submit">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                Add
+            </button>
+        </form>
+
+        <span class="tool__sep" aria-hidden="true"></span>
+
+        <div class="actionbar__group">
+            <button class="tool tool--accept" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8" stroke-linejoin="round"/></svg>
+                Assemble
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v8M8 7l4 4 4-4M4 15h16M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Disassemble
+            </button>
+        </div>
+
+        <p class="actionbar__hint">9 kits use 64 components.</p>
+    </div>
+
+    <div class="cards">
+        <div class="card">
+            <span class="card__label">Kits</span>
+            <div class="card__value is-count">9</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Components</span>
+            <div class="card__value is-count">64</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Kits on Hand</span>
+            <div class="card__value" data-unit="units">37</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Assembled (30 d)</span>
+            <div class="card__value is-credit is-count">18</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Short of Parts</span>
+            <div class="card__value is-overdue is-count">2</div>
+        </div>
+    </div>
+
+    <h2 class="page__subtitle">Kits and components</h2>
+    <table class="table table--inv">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Type</th>
+                <th>SKU</th>
+                <th class="is-qty">Quantity</th>
+                <th class="is-qty">Components</th>
+                <th>Location</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr class="is-group"><td colspan="7">Kits</td></tr>
+
+            <tr>
+                <td class="is-name">
+                    Radio Field Kit
+                    <span class="cell-sub">radio · battery · antenna · clip · dock · case</span>
+                </td>
+                <td>Kit</td>
+                <td class="is-code">KIT-004</td>
+                <td class="is-qty">12</td>
+                <td class="is-qty">6</td>
+                <td>Johannesburg Warehouse</td>
+                <td><span class="status status--ok">Assembled</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">
+                    Laptop Onboarding Pack
+                    <span class="cell-sub">sleeve · dock · mouse · headset</span>
+                </td>
+                <td>Kit</td>
+                <td class="is-code">KIT-001</td>
+                <td class="is-qty is-low">3</td>
+                <td class="is-qty">4</td>
+                <td>Pretoria Office</td>
+                <td><span class="status status--low">Low stock</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">
+                    Vehicle Tool Kit
+                    <span class="cell-sub">9 hand tools in a steel case</span>
+                </td>
+                <td>Kit</td>
+                <td class="is-code">KIT-009</td>
+                <td class="is-qty">5</td>
+                <td class="is-qty">9</td>
+                <td>Workshop</td>
+                <td><span class="status status--ok">Assembled</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">
+                    Network Install Kit
+                    <span class="cell-sub">short of 40 RJ45 connectors</span>
+                </td>
+                <td>Kit</td>
+                <td class="is-code">KIT-012</td>
+                <td class="is-qty is-out">0</td>
+                <td class="is-qty">7</td>
+                <td>Workshop</td>
+                <td><span class="status status--out">Short of parts</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">
+                    First Aid Kit, site
+                    <span class="cell-sub">checked every three months</span>
+                </td>
+                <td>Kit</td>
+                <td class="is-code">KIT-002</td>
+                <td class="is-qty">14</td>
+                <td class="is-qty">11</td>
+                <td>Site Store</td>
+                <td><span class="status status--ok">Assembled</span></td>
+            </tr>
+            <tr>
+                <td class="is-name">
+                    Solar Camera Kit
+                    <span class="cell-sub">in assembly, job 2026-124</span>
+                </td>
+                <td>Kit</td>
+                <td class="is-code">KIT-017</td>
+                <td class="is-qty">3</td>
+                <td class="is-qty">8</td>
+                <td>Johannesburg Warehouse</td>
+                <td><span class="status status--busy">In assembly</span></td>
+            </tr>
+
+            <tr class="is-group"><td colspan="7">Components</td></tr>
+
+            <tr class="is-nest">
+                <td class="is-name">Radio Battery Pack</td>
+                <td>Component</td>
+                <td class="is-code">BAT-018</td>
+                <td class="is-qty">22</td>
+                <td class="is-qty">—</td>
+                <td>Pretoria Office</td>
+                <td><span class="status status--ok">In stock</span></td>
+            </tr>
+            <tr class="is-nest">
+                <td class="is-name">Radio Antenna, 400 MHz</td>
+                <td>Component</td>
+                <td class="is-code">CMP-201</td>
+                <td class="is-qty">31</td>
+                <td class="is-qty">—</td>
+                <td>Johannesburg Warehouse</td>
+                <td><span class="status status--ok">In stock</span></td>
+            </tr>
+            <tr class="is-nest">
+                <td class="is-name">Belt Clip, radio</td>
+                <td>Component</td>
+                <td class="is-code">CMP-204</td>
+                <td class="is-qty">58</td>
+                <td class="is-qty">—</td>
+                <td>Johannesburg Warehouse</td>
+                <td><span class="status status--ok">In stock</span></td>
+            </tr>
+            <tr class="is-nest">
+                <td class="is-name">Charging Dock, 6-way</td>
+                <td>Component</td>
+                <td class="is-code">CMP-209</td>
+                <td class="is-qty is-low">4</td>
+                <td class="is-qty">—</td>
+                <td>Johannesburg Warehouse</td>
+                <td><span class="status status--low">Low stock</span></td>
+            </tr>
+            <tr class="is-nest">
+                <td class="is-name">RJ45 Connector (100 pack)</td>
+                <td>Component</td>
+                <td class="is-code">CON-220</td>
+                <td class="is-qty is-low">4</td>
+                <td class="is-qty">—</td>
+                <td>Workshop</td>
+                <td><span class="status status--low">Low stock</span></td>
+            </tr>
+            <tr class="is-nest">
+                <td class="is-name">Cat6 Patch Lead 2m</td>
+                <td>Component</td>
+                <td class="is-code">CMP-311</td>
+                <td class="is-qty">120</td>
+                <td class="is-qty">—</td>
+                <td>Workshop</td>
+                <td><span class="status status--ok">In stock</span></td>
+            </tr>
+            <tr class="is-nest">
+                <td class="is-name">Laptop Sleeve 14"</td>
+                <td>Component</td>
+                <td class="is-code">CMP-118</td>
+                <td class="is-qty">16</td>
+                <td class="is-qty">—</td>
+                <td>Pretoria Office</td>
+                <td><span class="status status--ok">In stock</span></td>
+            </tr>
+            <tr class="is-nest">
+                <td class="is-name">Docking Station, USB-C</td>
+                <td>Component</td>
+                <td class="is-code">CMP-120</td>
+                <td class="is-qty is-out">0</td>
+                <td class="is-qty">—</td>
+                <td>Pretoria Office</td>
+                <td><span class="status status--out">Out of stock</span></td>
+            </tr>
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="3">6 kits and 8 components of 73 lines</td>
+                <td class="is-qty">292</td>
+                <td class="is-qty">45</td>
+                <td colspan="2">Page 1 of 7</td>
+            </tr>
+        </tfoot>
+    </table>
+</section>
+{% endblock %}

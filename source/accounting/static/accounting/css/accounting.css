@@ -1,15 +1,34 @@
 /* ==========================================================================
    accounting.css  —  styles for the Accounting module (dark theme)
-   Place this file at: static/css/accounting.css
+   Place this file at: accounting/static/accounting/css/accounting.css
 
    module_base.html loads this file in the module_css block of base.html,
    thus it always comes after base.css.
 
    base.css holds the chrome only: the ribbon, the module bar and the
    footer. This file holds everything else of the module:
-     1. the layout   (.shell, .sidebar, .main, the drawer)
-     2. the tools    (.tool, .tool__sep)
-     3. the content  (.page, .cards, .card, .table)
+     1. the layout    (.shell, .sidebar, .main, the drawer)
+     2. the tools     (.tool, .tool__sep, .tbar-menu)
+     3. the page      (.page, .page__head, .actionbar, .cards, .card)
+     4. the tables    (.table and its variants)
+     5. the tab set   (.tabset)
+     6. the notes     (.notes)
+
+   ONE PAGE PATTERN
+   Every page of the module has the same top part, in this order:
+       .page__head     the title and one paragraph that explains the page
+       .actionbar      the controls of the page: Print, Export and more
+       the content     cards, tabs, tables, notes
+   All pages use the full width of the content area. All tables use the
+   full width of the page.
+
+   THE LAST PERIOD
+   A figure of the last period is a reference only. Thus it is dimmer
+   than a figure of the period of the report. Two devices do this:
+       a column    the last column of .table--fin is always the last
+                   period, with its head, its sums and its foot
+       a row       add the class is-prior to a row of any table
+   Refer to the token --ink-dim below.
 
    All colors come from the tokens of base.css. The file adds only the
    money tokens that a ledger needs.
@@ -19,15 +38,16 @@
 :root {
     --credit:      #7FBF9A;                    /* money that comes in */
     --debit:       #E0785E;                    /* money that goes out */
-    --overdue:     #fff38c; 
+    --overdue:     #fff38c;
     --credit-soft: rgba(127, 191, 154, 0.14);
     --debit-soft:  rgba(224, 120, 94, 0.14);
 
+    --ink-dim:     rgba(232, 230, 222, 0.38);  /* the last period */
     --rule:        rgba(232, 230, 222, 0.07);  /* ledger hairline */
     --gold-deep:   #C79A4E;                    /* dark gold — card labels */
     --card-line:   rgba(240, 190, 114, 0.38);  /* thin gold card border */
     --tool-action: #808080;
-    --tool-h:      34px;
+    --tool-h:      36px;
     --sidebar-w:   244px;
 }
 
@@ -146,45 +166,6 @@
 .scrim { display: none; }
 
 /* ================================================================== */
-/*  CONTENT FURNITURE                                                 */
-/*  base.css no longer holds these classes. The module owns them now. */
-/* ================================================================== */
-.page__title    { margin: 0; font-size: 22px; font-weight: 600; color: var(--ink); }
-.page__subtitle { font-size: 15px; font-weight: 600; color: var(--ink); }
-
-.cards { display: grid; }
-
-.card {
-    background: var(--white);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-sm);
-}
-.card__label {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 1.2px;
-    text-transform: uppercase;
-}
-.card__value {
-    font-family: var(--font-mono);
-    font-weight: 500;
-    color: var(--ink);
-}
-
-.table { font-size: 13px; }
-.table th,
-.table td { text-align: left; white-space: nowrap; }
-.table th {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 1.2px;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-}
-.table tbody tr:hover { background: var(--gold-soft); }
-
-/* ================================================================== */
 /*  TOOLBAR  (module_base.html fills .toolbar with .tool buttons)     */
 /* ================================================================== */
 
@@ -204,6 +185,7 @@
     align-items: center;
     justify-content: center;
     align-self: center;
+    gap: 7px;
 
     flex: 0 0 auto;
     min-width: 34px;
@@ -236,11 +218,6 @@
         color 0.15s ease;
 }
 
-/* Icon + text combinations remain optically centered as one unit. */
-.tool {
-    gap: 7px;
-}
-
 /* SVGs/icons don't participate in the text baseline. */
 .tool .icon {
     display: block;
@@ -269,61 +246,73 @@
 }
 
 /* Hover ------------------------------------------------------------- */
-
 .tool:hover {
     background: var(--gold-soft);
     border-color: var(--gold-line);
     color: var(--gold);
 }
 
-/* Primary ----------------------------------------------------------- */
-
+/* Primary. One button of a bar, at most. It starts the main task of
+   the page: a new entry, a new account, or the acceptance of a list. */
 .tool--primary,
 .tool.is-primary {
     background: var(--gold);
     border-color: var(--gold);
     color: var(--navy);
 }
-
 .tool--primary:hover,
 .tool.is-primary:hover {
     background: #F5CB8C;
     border-color: #F5CB8C;
     color: var(--navy);
 }
-
 .tool--primary .icon,
-.tool.is-primary .icon {
-    stroke: var(--navy);
-}
+.tool.is-primary .icon { stroke: var(--navy); }
 
 /* Ghost ------------------------------------------------------------- */
-
-.tool--ghost {
-    background: transparent;
-}
-
-.tool--ghost:hover {
-    background: var(--gold-soft);
-}
+.tool--ghost { background: transparent; }
+.tool--ghost:hover { background: var(--gold-soft); }
 
 .tool--neutral {
     color: var(--ink);
     border-color: var(--ink);
     background: transparent;
 }
+.tool--neutral:hover { background: var(--gold-soft); }
 
-.tool--neutral:hover {
-    background: var(--gold-soft);
+/* Accept. The green comes on hover only, thus a list of ten rows does
+   not shout. */
+.tool--accept {
+    color: var(--ink);
+    border-color: var(--ink);
+    background: transparent;
+}
+.tool--accept:hover {
+    color: var(--credit);
+    border-color: var(--credit);
+    background: var(--credit-soft);
+}
+.tool--accept .icon { stroke: currentColor; }
+
+/* Small. For a button inside a table row. */
+.tool--sm {
+    min-width: 28px;
+    height: 28px;
+    padding: 0 10px;
+    gap: 6px;
+    font-size: 12px;
+}
+.tool--sm .icon {
+    flex: 0 0 14px;
+    width: 14px;
+    height: 14px;
 }
 
 /* Disabled ---------------------------------------------------------- */
-
 .tool[disabled] {
     opacity: 0.45;
     cursor: not-allowed;
 }
-
 .tool[disabled]:hover {
     background: var(--white);
     border-color: var(--line);
@@ -331,7 +320,6 @@
 }
 
 /* Divider ----------------------------------------------------------- */
-
 .tool__sep {
     flex: 0 0 1px;
     width: 1px;
@@ -481,44 +469,26 @@
     .toolbar .tool__sep:first-of-type { display: none; }
 }
 
-@media print {
-    .tbar-menu__panel { display: none !important; }
-}
-
-/* ------------------------------------------------------------------ */
-/*  Compact toolbar controls                                          */
-/* ------------------------------------------------------------------ */
-
-@media (max-width: 560px) {
-    .toolbar {
-        gap: 6px;
-    }
-
-    .tool {
-        padding-left: 10px;
-        padding-right: 10px;
-    }
-
-    .tool:has(.icon:only-child) {
-        padding-left: 7px;
-        padding-right: 7px;
-    }
-
-    .tool__sep {
-        margin-left: 2px;
-        margin-right: 2px;
-    }
-}
 /* ================================================================== */
 /*  PAGE                                                              */
 /* ================================================================== */
-.page { width: 100%; max-width: none; }
+/* Every page takes the full width of the content area. A statement
+   thus has the same width as the ledger and the chart of accounts. */
+.page,
+.page--statement {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+}
 
 .page__title {
     display: flex;
     align-items: baseline;
     gap: 12px;
-    margin: 0 0 22px;
+    margin: 0;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--ink);
 }
 /* The period marker. It shows which books the numbers below belong to.
    Set the text in the template: <h1 class="page__title" data-period="…"> */
@@ -535,7 +505,75 @@
     padding: 2px 10px;
 }
 
-.page__subtitle { margin: 34px 0 14px; }
+.page__subtitle {
+    margin: 34px 0 14px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+/* ---- The page head ------------------------------------------------- */
+/* The head is the same on every page: the title, and one paragraph
+   below it. The paragraph tells the reader what the page is, what the
+   figures are for, and which period and currency they hold. */
+.page__head { margin: 0 0 20px; }
+.page__head .page__title { margin-bottom: 8px; }
+
+.page__head > .page__note {
+    margin: 0;
+    width: 100%;
+    max-width: none;
+    color: var(--ink-soft);
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.page__note {
+    margin: 0;
+    max-width: 78ch;
+    color: var(--ink-soft);
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+/* ---- The action bar ------------------------------------------------ */
+/* One bar on every page. It goes below the page head and above the
+   content, and it moves away when the user scrolls down. Its buttons
+   are in this order:
+       the primary task of the page, if the page has one
+       a separator
+       Print and Export, as plain tools
+       more tools of the page
+   The hint at the right end explains the state of the bar. */
+.actionbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    min-height: 62px;
+    margin: 0 0 22px;
+    padding: 13px 16px;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+}
+/* The old name of the bar above the content. It changes nothing now,
+   because every bar is at the top. It stays for a template that still
+   uses it. */
+.actionbar--top { position: static; }
+
+.actionbar__group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.actionbar__hint {
+    margin: 0 0 0 auto;
+    color: var(--ink-soft);
+    font-size: 12px;
+}
 
 /* ================================================================== */
 /*  BALANCE CARDS                                                     */
@@ -543,39 +581,49 @@
 /* Five cards fill the full width of the content area. The tracks stay
    equal, thus the row reads as one band of figures. */
 .cards {
+    display: grid;
     width: 100%;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 14px;
 }
 
-/* A thin gold border holds each card. */
 .card {
     position: relative;
     display: flex;
     flex-direction: column;
     padding: 16px 18px 18px;
-    border: 1px solid var(--card-line);
+    background: var(--white);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
 }
 
 /* The label of the 5th card is long. The value keeps to the bottom
    edge, thus all five figures stay on one line. */
 .card__label {
     display: block;
-    color: var(--gold-deep);
-    line-height: 1.4;
+    font-family: var(--font-mono);
+    font-size: 10px;
     font-weight: bold;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    line-height: 1.4;
+    color: var(--gold-deep);
 }
 
 /* Money must align on the decimal point. Tabular figures do this. */
 .card__value {
     margin-top: auto;
     padding-top: 10px;
+    font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-size: 24px;
+    font-weight: 500;
     letter-spacing: -0.4px;
     white-space: nowrap;
+    color: var(--ink);
 }
-/* Set the currency in the template: <div class="card__value" data-unit="EUR"> */
+/* Set the currency in the template: <div class="card__value" data-unit="ZAR"> */
 .card__value[data-unit]::after {
     content: attr(data-unit);
     margin-left: 6px;
@@ -585,18 +633,14 @@
     vertical-align: 2px;
 }
 
-/* Direction of the money. It touches the figure only. The border and
-   the label keep the gold of the neutral card.
-   Put the class on the value: <div class="card__value is-debit">
-   The .card--debit form still works, for a card that a view builds. */
+/* Direction of the money. It touches the figure only. */
 .card__value.is-debit,
 .card--debit  .card__value { color: var(--debit); }
 
 .card__value.is-credit,
 .card--credit .card__value { color: var(--credit); }
 
-/* Money at risk. It is receivable, thus it is not a debit. The tone
-   stays the same, because both figures need an action. */
+/* Money at risk. It is receivable, thus it is not a debit. */
 .card__value.is-overdue { color: var(--overdue); }
 
 /* A count is not money. The figure then loses the currency spacing. */
@@ -604,12 +648,14 @@
 .card--count .card__value { font-size: 26px; letter-spacing: 0; }
 
 /* ================================================================== */
-/*  LEDGER TABLE                                                      */
+/*  TABLE  (the base of every table of the module)                    */
+/*  Columns: Date · Reference · Account · Amount                      */
 /* ================================================================== */
-/* The dashboard has no .table-wrap element. Thus the panel styles go
-   on the .table element. Use separate borders to keep the corners. */
+/* Every table takes the full width of the page. The variants below
+   change the columns only, not the frame. */
 .table {
     width: 100%;
+    font-size: 13px;
     background: var(--white);
     border: 1px solid var(--line);
     border-radius: var(--radius);
@@ -619,14 +665,22 @@
     overflow: hidden;
     table-layout: auto;
 }
+.table th,
+.table td { text-align: left; white-space: nowrap; }
 
 .table thead th {
     position: sticky;
     top: 0;
     z-index: 1;
+    padding: 13px 16px;
     background: var(--white);
     border-bottom: 1px solid var(--line-strong);
-    padding: 13px 16px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--ink-soft);
 }
 
 .table tbody td {
@@ -635,6 +689,7 @@
 }
 .table tbody tr:last-child td { border-bottom: none; }
 .table tbody tr { transition: background 0.12s ease; }
+.table tbody tr:hover { background: var(--gold-soft); }
 
 /* Column 1 = Date, column 2 = Reference. Both are machine data. */
 .table td:first-child,
@@ -669,19 +724,427 @@
     color: var(--ink-soft);
 }
 .table tbody tr:hover td[colspan] { background: transparent; }
-/* ==========================================================================
-   TAB SET — add this block to the end of
-   accounting/static/accounting/css/accounting.css
 
-   One table stays on the screen. Each journal is a tab above it.
-   The active tab carries the gold spine of the module switch in the
-   ribbon, thus the page keeps the identity of the shell.
-   All colors come from the tokens of base.css and accounting.css.
-   ========================================================================== */
+/* ---- The foot of a table ------------------------------------------- */
+/* The foot holds the figure that the reader looks for first. All
+   variants use the same foot. */
+.table tfoot td {
+    border-top: 1px solid var(--line-strong);
+    padding: 13px 16px;
+    background: rgba(232, 230, 222, 0.03);
+    font-weight: 600;
+    color: var(--ink);
+}
+.table tfoot td[colspan] {
+    padding: 13px 16px;
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+}
+
+/* ---- Shared row states --------------------------------------------- */
+/*  is-group  a heading row inside the table                            */
+/*  is-nest   a line that belongs to the group above it                 */
+/*  is-sum    a total inside the body of the table                      */
+/*  is-open   the balance brought forward (ledger)                      */
+/*  is-prior  a row of the last period                                  */
+
+/* The group row uses the label of the side panel, thus all lists of
+   the module read the same. */
+.table tbody tr.is-group td {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--gold-deep);
+    background: rgba(232, 230, 222, 0.04);
+}
+.table tbody tr.is-group:hover td { background: rgba(232, 230, 222, 0.04); }
+
+/* A group row spans the full width. The rule below removes the large
+   space of the empty state, which uses the same colspan attribute. */
+.table tbody tr.is-group td[colspan] {
+    padding: 11px 16px;
+    text-align: left;
+}
+
+/* The space shows that the line belongs to the group above it. */
+.table tbody tr.is-nest td:first-child { padding-left: 34px; }
+
+/* A sum row closes a part of the statement. Example: Gross profit. */
+.table tbody tr.is-sum td {
+    border-top: 1px solid var(--line-strong);
+    background: rgba(232, 230, 222, 0.03);
+    font-weight: 600;
+    color: var(--ink);
+}
+
+/* The first row of a ledger account carries the balance of the last
+   period. */
+.table tbody tr.is-open td {
+    background: rgba(232, 230, 222, 0.03);
+    color: var(--ink-soft);
+}
+
+/* ================================================================== */
+/*  ACCOUNT TABLE                                                     */
+/*  Columns: Code · Account · Type · Balance                          */
+/* ================================================================== */
+
+/* Column 1 = Code. It is machine data, thus it keeps the mono face of
+   the ledger. The column stays as narrow as its content. */
+.table--coa td:first-child {
+    width: 1%;
+    color: var(--ink);
+    font-weight: 500;
+}
+
+/* Column 2 = Account. It is the name of the account, thus it takes the
+   free space and it uses the text face. */
+.table--coa th:nth-child(2),
+.table--coa td:nth-child(2) {
+    width: 100%;
+    white-space: normal;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--ink);
+}
+
+/* Column 3 = Type. Example: Current asset. It stays on one line. */
+.table--coa th:nth-child(3),
+.table--coa td:nth-child(3) {
+    width: auto;
+    white-space: nowrap;
+    color: var(--ink-soft);
+}
+
+.table--coa tfoot td:last-child { font-size: 13px; }
+
+/* ================================================================== */
+/*  REVIEW TABLE                                                      */
+/*  Columns: Date · Reference · Journal · Account · Amount · Review    */
+/* ================================================================== */
+
+/* The stronger border marks the table as an item that needs an
+   action. The journals below keep the plain border. */
+.table--review { border-color: var(--line-strong); }
+
+/* Column 3 = Journal. It stays on one line. */
+.table--review th:nth-child(3),
+.table--review td:nth-child(3) {
+    width: auto;
+    white-space: nowrap;
+    color: var(--ink-soft);
+}
+
+/* Column 4 = Account. It takes the free space. */
+.table--review th:nth-child(4),
+.table--review td:nth-child(4) {
+    width: 100%;
+    white-space: normal;
+    color: var(--ink);
+}
+
+/* Column 5 = Amount. Money must align on the decimal point. */
+.table--review th:nth-child(5),
+.table--review td:nth-child(5) {
+    text-align: right;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    color: var(--ink);
+}
+.table--review td:nth-child(5).is-debit  { color: var(--debit); }
+.table--review td:nth-child(5).is-credit { color: var(--credit); }
+
+/* Column 6 = the two buttons. The column stays as narrow as its content.
+   The cell also keeps a smaller top and bottom space, because a button is
+   higher than a line of text. */
+.table--review th:last-child,
+.table--review td:last-child { width: 1%; white-space: nowrap; }
+.table--review tbody td:last-child { padding-top: 8px; padding-bottom: 8px; }
+
+/* The two buttons of a row stay together at the right edge. */
+.review__buttons {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+/* The head of column 6 has no text on the screen. A screen reader gets
+   the name of the column from this class. */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ================================================================== */
+/*  REVIEW LIST  (the head above the review table)                    */
+/* ================================================================== */
+.review { margin: 0 0 30px; }
+
+.review__head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 0 0 12px;
+}
+
+.review__title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+/* The pill uses the gold of an active item. The list thus asks for an
+   action, and the counts of the tabs below stay quiet. */
+.review__count {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--gold);
+    background: var(--gold-soft);
+    border: 1px solid var(--gold-line);
+    padding: 0 8px;
+    border-radius: 20px;
+}
+
+.review__hint {
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: 12px;
+}
+
+/* ================================================================== */
+/*  LEDGER TABLE                                                      */
+/*  Columns: Date · Reference · Details · Debit · Credit · Balance    */
+/* ================================================================== */
+
+/* Column 1 = Date. It keeps the mono face of the general table, and it
+   stays as narrow as its content. */
+.table--ledger th:first-child,
+.table--ledger td:first-child { width: 1%; }
+
+/* Column 3 = Details. It takes the free space and it uses the text
+   face, because a person reads it. */
+.table--ledger th:nth-child(3),
+.table--ledger td:nth-child(3) {
+    width: 100%;
+    white-space: normal;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--ink);
+}
+
+/* Columns 4, 5 and 6 hold money. Money must align on the decimal
+   point. Tabular figures do this. */
+.table--ledger th:nth-child(n+4),
+.table--ledger td:nth-child(n+4) {
+    width: 1%;
+    text-align: right;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+/* The direction of the money has a color. The balance keeps the text
+   color, because it is the result of the two columns before it. */
+.table--ledger td:nth-child(4) { color: var(--debit); }
+.table--ledger td:nth-child(5) { color: var(--credit); }
+.table--ledger td:nth-child(6) { color: var(--ink); font-weight: 500; }
+.table--ledger tbody tr.is-open td:nth-child(6) { color: var(--ink-soft); }
+
+/* ---- The head above one account ------------------------------------ */
+.ledger-acct { margin: 0 0 26px; }
+.ledger-acct:last-child { margin-bottom: 0; }
+
+.ledger-acct__head {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 0 0 10px;
+}
+
+.ledger-acct__code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--gold-deep);
+}
+
+.ledger-acct__name {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.ledger-acct__type { font-size: 12px; color: var(--ink-soft); }
+
+/* The closing balance goes to the right end of the head. The reader
+   thus gets the result before the rows below. */
+.ledger-acct__bal {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+}
+.ledger-acct__bal b {
+    margin-left: 6px;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+}
+.ledger-acct__bal b.is-debit  { color: var(--debit); }
+.ledger-acct__bal b.is-credit { color: var(--credit); }
+
+/* ================================================================== */
+/*  STATEMENT TABLE                                                   */
+/*  Columns: Line · Note · This period · Last period                  */
+/*  Used by: balance_sheet · income_statement · cash_flow             */
+/* ================================================================== */
+
+/* Column 1 = the name of the line. It takes the free space. */
+.table--fin th:first-child,
+.table--fin td:first-child {
+    width: 100%;
+    white-space: normal;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--ink);
+}
+
+/* Column 2 = Note. It points to the notes below the table. */
+.table--fin th:nth-child(2),
+.table--fin td:nth-child(2) {
+    width: 1%;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-soft);
+}
+.table--fin td:nth-child(2) a:hover { color: var(--gold); }
+
+/* Columns 3 and 4 hold money. */
+.table--fin th:nth-child(n+3),
+.table--fin td:nth-child(n+3) {
+    width: 1%;
+    text-align: right;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+}
+
+/* These two classes come after the column rules. A cell that needs the
+   direction of the money thus keeps its color. */
+.table--fin td.is-debit  { color: var(--debit); }
+.table--fin td.is-credit { color: var(--credit); }
+
+/* ================================================================== */
+/*  EQUITY TABLE                                                      */
+/*  Columns: Line · Note · 4 equity accounts · Total                  */
+/* ================================================================== */
+.table--soce th:first-child,
+.table--soce td:first-child {
+    width: 100%;
+    white-space: normal;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--ink);
+}
+
+.table--soce th:nth-child(2),
+.table--soce td:nth-child(2) {
+    width: 1%;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-soft);
+}
+.table--soce td:nth-child(2) a:hover { color: var(--gold); }
+
+.table--soce th:nth-child(n+3),
+.table--soce td:nth-child(n+3) {
+    width: 1%;
+    text-align: right;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+}
+
+/* The last column is the total of the row. A rule divides it from the
+   accounts, thus the reader finds it without a search. */
+.table--soce th:last-child,
+.table--soce td:last-child {
+    border-left: 1px solid var(--line);
+    font-weight: 600;
+}
+
+.table--soce td.is-debit  { color: var(--debit); }
+.table--soce td.is-credit { color: var(--credit); }
+
+/* ================================================================== */
+/*  THE LAST PERIOD                                                   */
+/*  These rules come after all column rules. Thus they win.           */
+/* ================================================================== */
+
+/* 1. The column. In a statement table the last column is always the
+   last period. Its head, its sums and its foot all go dim, and a
+   direction class does not bring the color back. */
+.table--fin th:last-child,
+.table--fin td:last-child,
+.table--fin td:last-child.is-debit,
+.table--fin td:last-child.is-credit,
+.table--fin tbody tr.is-sum td:last-child,
+.table--fin tfoot td:last-child {
+    color: var(--ink-dim);
+    font-weight: 400;
+}
+
+/* 2. The row. The equity statement lists the last year as rows. Add
+   is-prior to each of these rows, also to its group row and its sum
+   row. The ledger can use the class on the balance brought forward. */
+.table tbody tr.is-prior td,
+.table tbody tr.is-prior.is-sum td,
+.table tbody tr.is-prior.is-group td,
+.table tbody tr.is-prior td.is-debit,
+.table tbody tr.is-prior td.is-credit,
+.table--soce tbody tr.is-prior td:last-child {
+    color: var(--ink-dim);
+    font-weight: 400;
+}
+/* A dim group row keeps the gold face, but at the dim strength. */
+.table tbody tr.is-prior.is-group td { color: rgba(199, 154, 78, 0.55); }
 
 /* ================================================================== */
 /*  TAB SET                                                           */
 /* ================================================================== */
+/* One table stays on the screen. Each journal is a tab above it.
+   The active tab carries the gold spine of the module switch in the
+   ribbon, thus the page keeps the identity of the shell. */
 
 /* The row of tabs. One hairline goes below all of them. The row scrolls
    sideways on a small screen, thus a tab never wraps. */
@@ -758,321 +1221,32 @@
 .tabset__print-title { display: none; }
 
 /* ================================================================== */
-/*  ACCOUNT TABLE                                                     */
-/*  Columns: Code · Account · Type · Balance                          */
+/*  NOTES                                                             */
 /* ================================================================== */
-
-/* Column 1 = Code. It is machine data, thus it keeps the mono face of
-   the ledger. The column stays as narrow as its content. */
-.table--coa td:first-child {
-    width: 1%;
-    color: var(--ink);
-    font-weight: 500;
-}
-
-/* Column 2 = Account. It is the name of the account, thus it takes the
-   free space and it uses the text face. */
-.table--coa th:nth-child(2),
-.table--coa td:nth-child(2) {
-    width: 100%;
-    white-space: normal;
-    font-family: var(--font-sans);
-    font-size: 10px;
-    color: var(--ink);
-}
-
-/* Column 3 = Type. Example: Current asset. It stays on one line. */
-.table--coa th:nth-child(3),
-.table--coa td:nth-child(3) {
-    width: auto;
-    white-space: nowrap;
-    color: var(--ink-soft);
-}
-
-/* A group row names a part of the chart. It carries no figures. The row
-   uses the label of the side panel, thus the two lists read the same. */
-.table--coa tbody tr.is-group td {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 1.2px;
-    text-transform: uppercase;
-    color: var(--gold-deep);
-    background: rgba(232, 230, 222, 0.04);
-}
-.table--coa tbody tr.is-group:hover td { background: rgba(232, 230, 222, 0.04); }
-
-.table--coa tfoot td {
-    border-top: 1px solid var(--line-strong);
-    padding: 13px 16px;
-    background: rgba(232, 230, 222, 0.03);
-}
-.table--coa tfoot td[colspan] {
-    padding: 13px 16px;
-    text-align: left;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 1.2px;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-}
-.table--coa tfoot td:last-child { font-size: 13px; font-weight: 600; }
-
-.actionbar {
-    position: sticky;
-    bottom: 12px;
-    z-index: 3;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    flex-wrap: wrap;
-    min-height: 62px;
-    margin-top: 22px;
-    padding: 13px 16px;
-    background: var(--white);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-}
-
-.actionbar__group {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-
-/* The hint goes to the right end of the bar. It tells the user why the
-   other buttons are not available. */
-.actionbar__hint {
-    margin: 0 0 0 auto;
-    color: var(--ink-soft);
-    font-size: 12px;
-}
-
-.tool--sm {
-    min-width: 28px;
-    height: 28px;
-    padding: 0 10px;
-    gap: 6px;
-    font-size: 12px;
-}
-.tool--sm .icon {
-    flex: 0 0 14px;
-    width: 14px;
-    height: 14px;
-}
-
-
-.tool--accept {
-    color: var(--ink);
-    border-color: var(--ink);
-    background: transparent;
-}
-
-.tool--accept:hover {
-    color: var(--credit);
-    border-color: var(--credit);
-    background: var(--credit-soft);
-}
-
-.tool--accept .icon {
-    stroke: currentColor;
-}
-
-
-
-/* ================================================================== */
-/*  REVIEW LIST                                                       */
-/* ================================================================== */
-.review { margin: 0 0 30px; }
-
-.review__head {
-    display: flex;
-    align-items: center;
+/* Each note is a card of the module. The list gives the cards one
+   column, because a person reads a note as text. */
+.notes {
+    display: grid;
     gap: 12px;
-    flex-wrap: wrap;
-    margin: 0 0 12px;
-}
-
-.review__title {
-    display: flex;
-    align-items: center;
-    gap: 10px;
     margin: 0;
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--ink);
-}
-
-/* The pill uses the gold of an active item. The list thus asks for an
-   action, and the counts of the tabs below stay quiet. */
-.review__count {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--gold);
-    background: var(--gold-soft);
-    border: 1px solid var(--gold-line);
-    padding: 0 8px;
-    border-radius: 20px;
-}
-
-.review__hint {
-    margin: 0;
-    color: var(--ink-soft);
-    font-size: 12px;
-}
-
-.review__actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-left: auto;
-}
-
-/* The two buttons of a row stay together at the right edge. */
-.review__buttons {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 6px;
-}
-
-/* ================================================================== */
-/*  REVIEW TABLE                                                      */
-/*  Columns: Date · Reference · Journal · Account · Amount · Review    */
-/* ================================================================== */
-
-/* The thin gold border is the border of a card. It marks the table as an
-   item that needs an action. The journals below keep the plain border. */
-.table--review { border-color: var(--line-strong); }
-
-/* Column 3 = Journal. It stays on one line. */
-.table--review th:nth-child(3),
-.table--review td:nth-child(3) {
-    width: auto;
-    white-space: nowrap;
-    color: var(--ink-soft);
-}
-
-/* Column 4 = Account. It takes the free space. */
-.table--review th:nth-child(4),
-.table--review td:nth-child(4) {
-    width: 100%;
-    white-space: normal;
-    color: var(--ink);
-}
-
-/* Column 5 = Amount. Money must align on the decimal point. */
-.table--review th:nth-child(5),
-.table--review td:nth-child(5) {
-    text-align: right;
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    font-weight: 500;
-    color: var(--ink);
-}
-/* The direction of the money keeps its color. */
-.table--review td:nth-child(5).is-debit  { color: var(--debit); }
-.table--review td:nth-child(5).is-credit { color: var(--credit); }
-
-/* Column 6 = the two buttons. The column stays as narrow as its content.
-   The cell also keeps a smaller top and bottom space, because a button is
-   higher than a line of text. */
-.table--review th:last-child,
-.table--review td:last-child { width: 1%; white-space: nowrap; }
-.table--review tbody td:last-child { padding-top: 8px; padding-bottom: 8px; }
-
-/* The head of column 6 has no text on the screen. A screen reader gets
-   the name of the column from this class. */
-.visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
     padding: 0;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-    border: 0;
+    list-style: none;
 }
+.notes .card { padding: 14px 16px 16px; }
+.notes .card__label { margin: 0 0 8px; }
 
-/* ---- Responsive ---------------------------------------------------- */
-@media (max-width: 900px) {
-    .review__actions { margin-left: 0; }
+.notes__text {
+    margin: 0;
+    max-width: 74ch;
+    color: var(--ink-soft);
+    font-size: 13px;
 }
+.notes__text + .notes__text { margin-top: 8px; }
 
-@media (max-width: 560px) {
-    /* The table scrolls sideways. Thus the account column loses the free
-       width, and each column keeps its content. */
-    .table--review th:nth-child(4),
-    .table--review td:nth-child(4) { width: auto; white-space: nowrap; }
-
-    .review__hint { width: 100%; }
-}
-
-/* ---- Print --------------------------------------------------------- */
-/* Paper holds the journals, not the queue. Thus the list goes away. */
-@media print {
-    .review { display: none !important; }
-}
-
-/* ---- Responsive ---------------------------------------------------- */
-@media (max-width: 900px) {
-    .actionbar { gap: 10px; }
-    .actionbar__hint { margin-left: 0; }
-}
-
-@media (max-width: 560px) {
-    .actionbar { padding: 11px 12px; }
-    .actionbar__group { gap: 6px; }
-
-    /* The table scrolls sideways on a small screen. Thus the name column
-       loses the free width, and the code column keeps its content. */
-    .table--coa th:nth-child(2),
-    .table--coa td:nth-child(2) { width: auto; white-space: nowrap; }
-}
-
-/* ---- Print --------------------------------------------------------- */
-/* Paper has no controls. The total row stays, because an auditor needs
-   the figure. */
-@media print {
-    .actionbar { display: none !important; }
-
-    .table--coa tbody tr.is-group td { color: #7A5B22; background: #FFFFFF; }
-    .table--coa tfoot td {
-        border-top: 1px solid #999999;
-        background: #FFFFFF;
-        color: #000000;
-    }
-    .table--coa tfoot { display: table-footer-group; }
-}
-
-/* ---- Responsive ---------------------------------------------------- */
-@media (max-width: 560px) {
-    .tabset__list { margin-bottom: 14px; }
-    .tabset__tab { padding: 0 11px; font-size: 12px; }
-}
-
-/* ---- Print --------------------------------------------------------- */
-/* Paper has no tabs. Thus the page prints all four journals, and each
-   one gets its title again. */
-@media print {
-    .tabset__list { display: none !important; }
-    .tabset__panel[hidden] { display: block !important; }
-    .tabset__panel + .tabset__panel { margin-top: 24px; }
-    .tabset__print-title {
-        display: block;
-        margin: 0 0 12px;
-        font-size: 15px;
-        font-weight: 600;
-        color: #000000;
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .tabset__tab { transition: none !important; }
+/* A wide screen gets two columns. A note is short, thus two columns
+   keep the page in one screen. */
+@media (min-width: 1240px) {
+    .notes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* ================================================================== */
@@ -1114,36 +1288,64 @@
     .main { padding: 20px; }
     .page__subtitle { margin-top: 28px; }
     .card__value { font-size: 22px; }
+
+    .actionbar { gap: 10px; }
+    .actionbar__hint { margin-left: 0; }
+    .ledger-acct__bal { margin-left: 0; width: 100%; }
 }
 
 @media (max-width: 560px) {
-    /* A ledger keeps its columns. Let the table scroll sideways.
-       The block display removes the corner clip, thus the radius
-       moves to a scroll frame that the border makes. */
+    .toolbar { gap: 6px; }
+    .tool { padding-left: 10px; padding-right: 10px; }
+    .tool:has(.icon:only-child) { padding-left: 7px; padding-right: 7px; }
+    .tool__sep { margin-left: 2px; margin-right: 2px; }
+
+    .actionbar { padding: 11px 12px; }
+    .actionbar__group { gap: 6px; }
+
+    .tabset__list { margin-bottom: 14px; }
+    .tabset__tab { padding: 0 11px; font-size: 12px; }
+
+    /* Every table scrolls sideways. Thus each column keeps its content,
+       and no column takes the free width. The block display removes the
+       corner clip, thus the radius moves to a scroll frame that the
+       border makes. */
     .table {
         display: block;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
     }
     .table thead th { position: static; }
-    .table th, .table td { white-space: nowrap; }
-    .table th:nth-child(3), .table td:nth-child(3) { width: auto; }
+    .table th, .table td { width: auto; white-space: nowrap; }
+    .table tbody tr.is-nest td:first-child { padding-left: 26px; }
+
+    .review__hint { width: 100%; }
 
     .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     .card { padding: 13px 14px 15px; }
     .card__value { font-size: 19px; padding-top: 8px; }
 }
 
+@media (prefers-reduced-motion: reduce) {
+    .tool,
+    .tabset__tab,
+    .table tbody tr,
+    .tbar-menu__panel,
+    .tbar-menu__item { transition: none !important; }
+}
+
 /* ================================================================== */
 /*  PRINT  (an accounting page goes into a file or to an auditor)     */
 /* ================================================================== */
 @media print {
-    .ribbon, .context, .sidebar, .footer, .scrim, .drawer-toggle { display: none !important; }
+    .ribbon, .context, .sidebar, .footer, .scrim, .drawer-toggle,
+    .actionbar, .review, .tbar-menu__panel { display: none !important; }
     .shell { display: block; }
     .main { padding: 0; overflow: visible; }
     body { background: #FFFFFF; color: #000000; }
 
     .page__title, .page__subtitle, .card__value { color: #000000; }
+    .page__note { color: #333333; }
     .card__label { color: #7A5B22; }
     .card, .table {
         background: #FFFFFF;
@@ -1151,12 +1353,43 @@
         box-shadow: none;
     }
     .table thead { display: table-header-group; }
+    .table tfoot { display: table-footer-group; }
     .table tbody tr { page-break-inside: avoid; }
-}
 
-@media (prefers-reduced-motion: reduce) {
-    .tool,
-    .table tbody tr,
-    .tbar-menu__panel,
-    .tbar-menu__item { transition: none !important; }
+    .table td { color: #000000; }
+    .table tbody tr.is-group td { color: #7A5B22; background: #FFFFFF; }
+    .table tbody tr.is-sum td,
+    .table tfoot td {
+        border-top: 1px solid #999999;
+        background: #FFFFFF;
+        color: #000000;
+    }
+    .table tbody tr.is-open td { background: #FFFFFF; }
+
+    /* The last period stays dim on paper, but it stays readable. */
+    .table--fin th:last-child,
+    .table--fin td:last-child,
+    .table--fin tbody tr.is-sum td:last-child,
+    .table--fin tfoot td:last-child,
+    .table tbody tr.is-prior td { color: #777777; }
+
+    .ledger-acct { page-break-inside: avoid; }
+    .ledger-acct__name, .ledger-acct__bal b { color: #000000; }
+    .ledger-acct__code { color: #7A5B22; }
+
+    .notes .card { break-inside: avoid; }
+    .notes__text { color: #000000; }
+
+    /* Paper has no tabs. Thus the page prints all panels, and each
+       one gets its title again. */
+    .tabset__list { display: none !important; }
+    .tabset__panel[hidden] { display: block !important; }
+    .tabset__panel + .tabset__panel { margin-top: 24px; }
+    .tabset__print-title {
+        display: block;
+        margin: 0 0 12px;
+        font-size: 15px;
+        font-weight: 600;
+        color: #000000;
+    }
 }

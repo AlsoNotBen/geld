@@ -60,3 +60,19 @@ def invoices(request):
 
 def chartaccounts(request):
     return render(request, "accounting/chart_of_accounts.html")
+
+def ledger(request):
+    return render(request, "accounting/ledger.html")
+
+def balancesheet(request):
+    return render(request,"accounting/balance_sheet.html")
+
+def incomestatement(request):
+    return render(request,"accounting/income_statement.html")
+
+def cashflow(request):
+    return render(request,"accounting/cash_flow.html")
+
+def equity(request):
+    return render(request,"accounting/shareholder_equity.html")
+

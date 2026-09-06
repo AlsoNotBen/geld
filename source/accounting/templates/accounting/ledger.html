@@ -1,0 +1,689 @@
+{% extends "accounting/module_base.html" %}
+{% load static %}
+
+{% comment %}
+  ============================================================================
+  accounting/templates/accounting/ledger.html
+  ----------------------------------------------------------------------------
+  The general ledger. Each account type is a tab. Each account inside a tab
+  is one block: a head with the closing balance, and a table below it.
+
+  The page follows the pattern of the module:
+      .page__head      the title and the note
+      .actionbar       New journal entry (primary), Print, Export
+      .tabset          the five account types
+      .table--ledger   Date · Reference · Details · Debit · Credit · Balance
+
+  The balance column holds the running balance of the account. The head of
+  that column tells the reader the side of the account: Dr or Cr.
+
+  The first row of each account is the balance brought forward. It is a
+  figure of the last period, thus it carries the classes is-open and
+  is-prior. accounting.css makes the row dim.
+
+  The rows below are examples. Replace them with the lists of the view:
+      asset_accounts · liability_accounts · equity_accounts
+      income_accounts · expense_accounts
+  Each account in a list can have these fields:
+      code · name · type · side ("Dr" or "Cr")
+      opening_balance · closing_balance
+      debit_total · credit_total
+      lines            the rows of the table
+  Each line can have these fields:
+      date · reference · details · debit · credit · balance
+
+  Do not put a fallback in a filter argument, for example |default:accounts.
+  A variable in that position must exist, or Django stops the page.
+
+  The five panels are equal. Thus a change to one column must go into all
+  five panels below.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}ledger{% endblock %}
+
+{% block title %}General Ledger · Accounting · Console{% endblock %}
+
+{% comment %} block.super keeps the buttons of the module base. {% endcomment %}
+{% block toolbar %}{{ block.super }}{% endblock %}
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title">General Ledger</h1>
+        <p class="page__note">
+            The general ledger is the full record of the books. It holds one
+            account for each line of the chart of accounts, and it lists every
+            accepted journal entry under the account that it touched. Each
+            table starts with the balance brought forward from the last
+            period, shows each debit and credit of this period, and keeps a
+            running balance. The closing balance of each account goes into
+            the balance sheet or the income statement. An auditor reads the
+            ledger to trace a figure in a statement back to its entry. The
+            period is 1 February 2026 to 28 February 2026. All figures in ZAR.
+        </p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Ledger controls">
+        <div class="actionbar__group">
+            <button class="tool tool--primary" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                New journal entry
+            </button>
+
+            <span class="tool__sep" aria-hidden="true"></span>
+            {% comment %} base.js must call window.print() for a button with
+                 the data-print attribute. {% endcomment %}
+            <button class="tool" type="button" data-print>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+                Print
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+        </div>
+
+        <p class="actionbar__hint">The ledger shows the accounts with a movement in this period.</p>
+    </div>
+
+    <div class="tabset" data-tabset data-tabset-param="type">
+
+        <div class="tabset__list" role="tablist" aria-label="Account type">
+            <button class="tabset__tab" type="button" role="tab" data-tab="assets"
+                    id="tab-assets" aria-controls="panel-assets"
+                    aria-selected="true" tabindex="0">
+                Assets
+                <span class="tabset__count">3</span>
+            </button>
+            <button class="tabset__tab" type="button" role="tab" data-tab="liabilities"
+                    id="tab-liabilities" aria-controls="panel-liabilities"
+                    aria-selected="false" tabindex="-1">
+                Liabilities
+                <span class="tabset__count">2</span>
+            </button>
+            <button class="tabset__tab" type="button" role="tab" data-tab="equity"
+                    id="tab-equity" aria-controls="panel-equity"
+                    aria-selected="false" tabindex="-1">
+                Equity
+                <span class="tabset__count">3</span>
+            </button>
+            <button class="tabset__tab" type="button" role="tab" data-tab="income"
+                    id="tab-income" aria-controls="panel-income"
+                    aria-selected="false" tabindex="-1">
+                Income
+                <span class="tabset__count">2</span>
+            </button>
+            <button class="tabset__tab" type="button" role="tab" data-tab="expenses"
+                    id="tab-expenses" aria-controls="panel-expenses"
+                    aria-selected="false" tabindex="-1">
+                Expenses
+                <span class="tabset__count">3</span>
+            </button>
+        </div>
+
+        {# ---------------------------- ASSETS ---------------------------- #}
+        <div class="tabset__panel" role="tabpanel" data-panel="assets"
+             id="panel-assets" aria-labelledby="tab-assets" tabindex="0">
+            <h2 class="tabset__print-title">Assets</h2>
+
+            <section class="ledger-acct" aria-labelledby="acct-1010">
+                <div class="ledger-acct__head">
+                    <span class="ledger-acct__code">1010</span>
+                    <h3 class="ledger-acct__name" id="acct-1010">Bank — Current account</h3>
+                    <span class="ledger-acct__type">Current asset</span>
+                    <span class="ledger-acct__bal">Closing balance <b class="is-debit">731,751.85 Dr</b></span>
+                </div>
+
+                <table class="table table--ledger">
+                    <thead>
+                        <tr>
+                            <th>Date</th><th>Reference</th><th>Details</th>
+                            <th>Debit</th><th>Credit</th><th>Balance (Dr)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="is-open is-prior">
+                            <td>2026-02-01</td><td>—</td><td>Balance brought forward</td>
+                            <td></td><td></td><td>872,400.00</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-03</td><td>RCT-0771</td><td>Receipt — Grayson &amp; Co</td>
+                            <td>12,480.00</td><td></td><td>884,880.00</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-04</td><td>BNK-0098</td><td>Bank charges — current account</td>
+                            <td></td><td>312.75</td><td>884,567.25</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-11</td><td>PAY-0208</td><td>Payment — Kite Supplies</td>
+                            <td></td><td>1,265.40</td><td>883,301.85</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-18</td><td>RCT-0774</td><td>Receipt — Halden Retail</td>
+                            <td>46,900.00</td><td></td><td>930,201.85</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-25</td><td>PAY-0210</td><td>Salaries — February</td>
+                            <td></td><td>198,450.00</td><td>731,751.85</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3">Totals for the period</td>
+                            <td>59,380.00</td><td>200,028.15</td><td>731,751.85</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </section>
+
+            <section class="ledger-acct" aria-labelledby="acct-1200">
+                <div class="ledger-acct__head">
+                    <span class="ledger-acct__code">1200</span>
+                    <h3 class="ledger-acct__name" id="acct-1200">Trade receivables</h3>
+                    <span class="ledger-acct__type">Current asset</span>
+                    <span class="ledger-acct__bal">Closing balance <b class="is-debit">2,303,075.50 Dr</b></span>
+                </div>
+
+                <table class="table table--ledger">
+                    <thead>
+                        <tr>
+                            <th>Date</th><th>Reference</th><th>Details</th>
+                            <th>Debit</th><th>Credit</th><th>Balance (Dr)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="is-open is-prior">
+                            <td>2026-02-01</td><td>—</td><td>Balance brought forward</td>
+                            <td></td><td></td><td>2,214,860.00</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-03</td><td>INV-2026-0114</td><td>Grayson &amp; Co — invoice</td>
+                            <td>12,480.00</td><td></td><td>2,227,340.00</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-03</td><td>RCT-0771</td><td>Grayson &amp; Co — receipt</td>
+                            <td></td><td>12,480.00</td><td>2,214,860.00</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-14</td><td>INV-2026-0118</td><td>Merrow Logistics — invoice</td>
+                            <td>88,215.50</td><td></td><td>2,303,075.50</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-18</td><td>INV-2026-0119</td><td>Halden Retail — invoice</td>
+                            <td>46,900.00</td><td></td><td>2,349,975.50</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-18</td><td>RCT-0774</td><td>Halden Retail — receipt</td>
+                            <td></td><td>46,900.00</td><td>2,303,075.50</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3">Totals for the period</td>
+                            <td>147,595.50</td><td>59,380.00</td><td>2,303,075.50</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </section>
+
+            <section class="ledger-acct" aria-labelledby="acct-1610">
+                <div class="ledger-acct__head">
+                    <span class="ledger-acct__code">1610</span>
+                    <h3 class="ledger-acct__name" id="acct-1610">Vehicles — accumulated depreciation</h3>
+                    <span class="ledger-acct__type">Contra asset</span>
+                    <span class="ledger-acct__bal">Closing balance <b class="is-credit">273,300.00 Cr</b></span>
+                </div>
+
+                <table class="table table--ledger">
+                    <thead>
+                        <tr>
+                            <th>Date</th><th>Reference</th><th>Details</th>
+                            <th>Debit</th><th>Credit</th><th>Balance (Cr)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="is-open is-prior">
+                            <td>2026-02-01</td><td>—</td><td>Balance brought forward</td>
+                            <td></td><td></td><td>268,400.00</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-05</td><td>JNL-0032</td><td>Depreciation — vehicles</td>
+                            <td></td><td>4,900.00</td><td>273,300.00</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3">Totals for the period</td>
+                            <td>0.00</td><td>4,900.00</td><td>273,300.00</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </section>
+        </div>
+
+        {# ------------------------- LIABILITIES ------------------------- #}
+        <div class="tabset__panel" role="tabpanel" data-panel="liabilities"
+             id="panel-liabilities" aria-labelledby="tab-liabilities" tabindex="0" hidden>
+            <h2 class="tabset__print-title">Liabilities</h2>
+
+            <section class="ledger-acct" aria-labelledby="acct-2100">
+                <div class="ledger-acct__head">
+                    <span class="ledger-acct__code">2100</span>
+                    <h3 class="ledger-acct__name" id="acct-2100">Trade payables</h3>
+                    <span class="ledger-acct__type">Current liability</span>
+                    <span class="ledger-acct__bal">Closing balance <b class="is-credit">1,351,420.00 Cr</b></span>
+                </div>
+
+                <table class="table table--ledger">
+                    <thead>
+                        <tr>
+                            <th>Date</th><th>Reference</th><th>Details</th>
+                            <th>Debit</th><th>Credit</th><th>Balance (Cr)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="is-open is-prior">
+                            <td>2026-02-01</td><td>—</td><td>Balance brought forward</td>
+                            <td></td><td></td><td>1,318,940.00</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-03</td><td>BILL-4471</td><td>Kite Supplies — office consumables</td>
+                            <td></td><td>1,265.40</td><td>1,320,205.40</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-11</td><td>PAY-0208</td><td>Kite Supplies — payment</td>
+                            <td>1,265.40</td><td></td><td>1,318,940.00</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-16</td><td>BILL-4483</td><td>Norrland Freight — delivery</td>
+                            <td></td><td>32,480.00</td><td>1,351,420.00</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3">Totals for the period</td>
+                            <td>1,265.40</td><td>33,745.40</td><td>1,351,420.00</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </section>
+
+            <section class="ledger-acct" aria-labelledby="acct-2300">
+                <div class="ledger-acct__head">
+                    <span class="ledger-acct__code">2300</span>
+                    <h3 class="ledger-acct__name" id="acct-2300">VAT control</h3>
+                    <span class="ledger-acct__type">Current liability</span>
+                    <span class="ledger-acct__bal">Closing balance <b class="is-credit">65,089.85 Cr</b></span>
+                </div>
+
+                <table class="table table--ledger">
+                    <thead>
+                        <tr>
+                            <th>Date</th><th>Reference</th><th>Details</th>
+                            <th>Debit</th><th>Credit</th><th>Balance (Cr)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="is-open is-prior">
+                            <td>2026-02-01</td><td>—</td><td>Balance brought forward</td>
+                            <td></td><td></td><td>154,220.00</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-14</td><td>INV-2026-0118</td><td>Output VAT — Merrow Logistics</td>
+                            <td></td><td>11,506.37</td><td>165,726.37</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-16</td><td>BILL-4483</td><td>Input VAT — Norrland Freight</td>
+                            <td>4,236.52</td><td></td><td>161,489.85</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-25</td><td>VAT-2026-01</td><td>Payment to the revenue service</td>
+                            <td>96,400.00</td><td></td><td>65,089.85</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3">Totals for the period</td>
+                            <td>100,636.52</td><td>11,506.37</td><td>65,089.85</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </section>
+        </div>
+
+        {# ---------------------------- EQUITY ---------------------------- #}
+        <div class="tabset__panel" role="tabpanel" data-panel="equity"
+             id="panel-equity" aria-labelledby="tab-equity" tabindex="0" hidden>
+            <h2 class="tabset__print-title">Equity</h2>
+
+            <section class="ledger-acct" aria-labelledby="acct-3100">
+                <div class="ledger-acct__head">
+                    <span class="ledger-acct__code">3100</span>
+                    <h3 class="ledger-acct__name" id="acct-3100">Share capital</h3>
+                    <span class="ledger-acct__type">Equity</span>
+                    <span class="ledger-acct__bal">Closing balance <b class="is-credit">1,500,000.00 Cr</b></span>
+                </div>
+
+                <table class="table table--ledger">
+                    <thead>
+                        <tr>
+                            <th>Date</th><th>Reference</th><th>Details</th>
+                            <th>Debit</th><th>Credit</th><th>Balance (Cr)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="is-open is-prior">
+                            <td>2026-02-01</td><td>—</td><td>Balance brought forward</td>
+                            <td></td><td></td><td>1,200,000.00</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-20</td><td>JNL-0041</td><td>Issue of 250,000 ordinary shares</td>
+                            <td></td><td>300,000.00</td><td>1,500,000.00</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3">Totals for the period</td>
+                            <td>0.00</td><td>300,000.00</td><td>1,500,000.00</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </section>
+
+            <section class="ledger-acct" aria-labelledby="acct-3200">
+                <div class="ledger-acct__head">
+                    <span class="ledger-acct__code">3200</span>
+                    <h3 class="ledger-acct__name" id="acct-3200">Share premium</h3>
+                    <span class="ledger-acct__type">Equity</span>
+                    <span class="ledger-acct__bal">Closing balance <b class="is-credit">850,000.00 Cr</b></span>
+                </div>
+
+                <table class="table table--ledger">
+                    <thead>
+                        <tr>
+                            <th>Date</th><th>Reference</th><th>Details</th>
+                            <th>Debit</th><th>Credit</th><th>Balance (Cr)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="is-open is-prior">
+                            <td>2026-02-01</td><td>—</td><td>Balance brought forward</td>
+                            <td></td><td></td><td>610,000.00</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-20</td><td>JNL-0041</td><td>Premium on 250,000 shares</td>
+                            <td></td><td>255,000.00</td><td>865,000.00</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-20</td><td>JNL-0042</td><td>Share issue costs</td>
+                            <td>15,000.00</td><td></td><td>850,000.00</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3">Totals for the period</td>
+                            <td>15,000.00</td><td>255,000.00</td><td>850,000.00</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </section>
+
+            <section class="ledger-acct" aria-labelledby="acct-3300">
+                <div class="ledger-acct__head">
+                    <span class="ledger-acct__code">3300</span>
+                    <h3 class="ledger-acct__name" id="acct-3300">Retained earnings</h3>
+                    <span class="ledger-acct__type">Equity</span>
+                    <span class="ledger-acct__bal">Closing balance <b class="is-credit">2,330,000.00 Cr</b></span>
+                </div>
+
+                <table class="table table--ledger">
+                    <thead>
+                        <tr>
+                            <th>Date</th><th>Reference</th><th>Details</th>
+                            <th>Debit</th><th>Credit</th><th>Balance (Cr)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="is-open is-prior">
+                            <td>2026-02-01</td><td>—</td><td>Balance brought forward</td>
+                            <td></td><td></td><td>2,690,000.00</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-28</td><td>JNL-0044</td><td>Dividend declared</td>
+                            <td>360,000.00</td><td></td><td>2,330,000.00</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3">Totals for the period</td>
+                            <td>360,000.00</td><td>0.00</td><td>2,330,000.00</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </section>
+        </div>
+
+        {# ---------------------------- INCOME ---------------------------- #}
+        <div class="tabset__panel" role="tabpanel" data-panel="income"
+             id="panel-income" aria-labelledby="tab-income" tabindex="0" hidden>
+            <h2 class="tabset__print-title">Income</h2>
+
+            <section class="ledger-acct" aria-labelledby="acct-4000">
+                <div class="ledger-acct__head">
+                    <span class="ledger-acct__code">4000</span>
+                    <h3 class="ledger-acct__name" id="acct-4000">Sales — goods</h3>
+                    <span class="ledger-acct__type">Income</span>
+                    <span class="ledger-acct__bal">Closing balance <b class="is-credit">16,968,463.91 Cr</b></span>
+                </div>
+
+                <table class="table table--ledger">
+                    <thead>
+                        <tr>
+                            <th>Date</th><th>Reference</th><th>Details</th>
+                            <th>Debit</th><th>Credit</th><th>Balance (Cr)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="is-open is-prior">
+                            <td>2026-02-01</td><td>—</td><td>Balance brought forward</td>
+                            <td></td><td></td><td>16,842,300.00</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-03</td><td>INV-2026-0114</td><td>Grayson &amp; Co</td>
+                            <td></td><td>10,852.17</td><td>16,853,152.17</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-14</td><td>INV-2026-0118</td><td>Merrow Logistics</td>
+                            <td></td><td>76,709.13</td><td>16,929,861.30</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-18</td><td>INV-2026-0119</td><td>Halden Retail</td>
+                            <td></td><td>40,782.61</td><td>16,970,643.91</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-22</td><td>CRN-0044</td><td>Credit note — Halden Retail</td>
+                            <td>2,180.00</td><td></td><td>16,968,463.91</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3">Totals for the period</td>
+                            <td>2,180.00</td><td>128,343.91</td><td>16,968,463.91</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </section>
+
+            <section class="ledger-acct" aria-labelledby="acct-4300">
+                <div class="ledger-acct__head">
+                    <span class="ledger-acct__code">4300</span>
+                    <h3 class="ledger-acct__name" id="acct-4300">Other income</h3>
+                    <span class="ledger-acct__type">Income</span>
+                    <span class="ledger-acct__bal">Closing balance <b class="is-credit">145,000.00 Cr</b></span>
+                </div>
+
+                <table class="table table--ledger">
+                    <thead>
+                        <tr>
+                            <th>Date</th><th>Reference</th><th>Details</th>
+                            <th>Debit</th><th>Credit</th><th>Balance (Cr)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="is-open is-prior">
+                            <td>2026-02-01</td><td>—</td><td>Balance brought forward</td>
+                            <td></td><td></td><td>132,000.00</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-09</td><td>JNL-0036</td><td>Rent received — unit 3</td>
+                            <td></td><td>13,000.00</td><td>145,000.00</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3">Totals for the period</td>
+                            <td>0.00</td><td>13,000.00</td><td>145,000.00</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </section>
+        </div>
+
+        {# --------------------------- EXPENSES --------------------------- #}
+        <div class="tabset__panel" role="tabpanel" data-panel="expenses"
+             id="panel-expenses" aria-labelledby="tab-expenses" tabindex="0" hidden>
+            <h2 class="tabset__print-title">Expenses</h2>
+
+            <section class="ledger-acct" aria-labelledby="acct-6100">
+                <div class="ledger-acct__head">
+                    <span class="ledger-acct__code">6100</span>
+                    <h3 class="ledger-acct__name" id="acct-6100">Employee costs</h3>
+                    <span class="ledger-acct__type">Operating expense</span>
+                    <span class="ledger-acct__bal">Closing balance <b class="is-debit">2,410,000.00 Dr</b></span>
+                </div>
+
+                <table class="table table--ledger">
+                    <thead>
+                        <tr>
+                            <th>Date</th><th>Reference</th><th>Details</th>
+                            <th>Debit</th><th>Credit</th><th>Balance (Dr)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="is-open is-prior">
+                            <td>2026-02-01</td><td>—</td><td>Balance brought forward</td>
+                            <td></td><td></td><td>2,211,550.00</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-25</td><td>PAY-0210</td><td>Salaries — February</td>
+                            <td>198,450.00</td><td></td><td>2,410,000.00</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3">Totals for the period</td>
+                            <td>198,450.00</td><td>0.00</td><td>2,410,000.00</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </section>
+
+            <section class="ledger-acct" aria-labelledby="acct-6400">
+                <div class="ledger-acct__head">
+                    <span class="ledger-acct__code">6400</span>
+                    <h3 class="ledger-acct__name" id="acct-6400">Bank charges</h3>
+                    <span class="ledger-acct__type">Operating expense</span>
+                    <span class="ledger-acct__bal">Closing balance <b class="is-debit">4,155.35 Dr</b></span>
+                </div>
+
+                <table class="table table--ledger">
+                    <thead>
+                        <tr>
+                            <th>Date</th><th>Reference</th><th>Details</th>
+                            <th>Debit</th><th>Credit</th><th>Balance (Dr)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="is-open is-prior">
+                            <td>2026-02-01</td><td>—</td><td>Balance brought forward</td>
+                            <td></td><td></td><td>3,842.60</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-04</td><td>BNK-0098</td><td>Bank charges — current account</td>
+                            <td>312.75</td><td></td><td>4,155.35</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3">Totals for the period</td>
+                            <td>312.75</td><td>0.00</td><td>4,155.35</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </section>
+
+            <section class="ledger-acct" aria-labelledby="acct-6600">
+                <div class="ledger-acct__head">
+                    <span class="ledger-acct__code">6600</span>
+                    <h3 class="ledger-acct__name" id="acct-6600">Depreciation and amortisation</h3>
+                    <span class="ledger-acct__type">Operating expense</span>
+                    <span class="ledger-acct__bal">Closing balance <b class="is-debit">592,000.00 Dr</b></span>
+                </div>
+
+                <table class="table table--ledger">
+                    <thead>
+                        <tr>
+                            <th>Date</th><th>Reference</th><th>Details</th>
+                            <th>Debit</th><th>Credit</th><th>Balance (Dr)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="is-open is-prior">
+                            <td>2026-02-01</td><td>—</td><td>Balance brought forward</td>
+                            <td></td><td></td><td>587,100.00</td>
+                        </tr>
+                        <tr>
+                            <td>2026-02-05</td><td>JNL-0032</td><td>Depreciation — vehicles</td>
+                            <td>4,900.00</td><td></td><td>592,000.00</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3">Totals for the period</td>
+                            <td>4,900.00</td><td>0.00</td><td>592,000.00</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </section>
+        </div>
+
+    </div>
+
+    {% comment %}
+      The script hides four panels. Thus a browser without JavaScript must
+      open all five again. The page then reads as a column of account
+      types. Delete this block if your Content Security Policy prevents an
+      inline style.
+    {% endcomment %}
+    <noscript>
+        <style>
+            .tabset__list { display: none; }
+            .tabset__panel[hidden] { display: block; }
+            .tabset__panel + .tabset__panel { margin-top: 30px; }
+            .tabset__print-title {
+                display: block;
+                margin: 0 0 14px;
+                font-size: 15px;
+                font-weight: 600;
+                color: var(--ink);
+            }
+        </style>
+    </noscript>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'accounting/js/journals.js' %}"></script>
+{% endblock %}

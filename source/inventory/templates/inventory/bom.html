@@ -1,0 +1,365 @@
+{% extends "inventory/module_base.html" %}
+
+{% comment %}
+  ============================================================================
+  inventory/templates/inventory/bom.html
+  ----------------------------------------------------------------------------
+  The bill of materials of one kit. The page has three columns that work
+  together:
+
+      left    the kits. The pill gives the number of kits that the stock
+              on hand can build now. The recipe of the kit and the stock
+              of each component give this number. The component with the
+              smallest number sets it.
+      middle  the tree of the kit that the user selected. A node holds a
+              sub-assembly or a component. A node with children is a
+              <details> element, thus the browser opens and closes it and
+              the page needs no script. The form at the foot adds a node.
+      right   the components of the same kit, with the quantity in stock.
+
+  The columns are .card elements. The two lists are .nav__item elements of
+  the side panel. The pills are .status elements. Only the tree and the
+  grid of the three columns are new. Refer to inventory.css.
+
+  All figures below are dummy data. The selected kit is Radio Field Kit.
+  Its charging dock has four units in stock, thus the kit can build four.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}bom{% endblock %}
+
+{% block title %}Bill of Materials · Inventory · Console{% endblock %}
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title" data-period="9 kits">Bill of Materials</h1>
+        <p class="page__note">
+            A bill of materials tells you which components one kit needs,
+            and how many of each. A component can hold components of its
+            own, thus the tree has more than one level. Select a kit at the
+            left to see its tree. The pill of a kit gives the number that
+            the stock can build now. The component with the smallest number
+            sets that figure, thus the pill falls when one shelf is empty.
+        </p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Bill of materials controls">
+        <div class="actionbar__group">
+            <button class="tool tool--primary" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                New Kit
+            </button>
+            <button class="tool tool--accept" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8" stroke-linejoin="round"/></svg>
+                Assemble
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v8M8 7l4 4 4-4M4 15h16M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Disassemble
+            </button>
+            <span class="tool__sep" aria-hidden="true"></span>
+            <button class="tool" type="button" data-print>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+                Print
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+        </div>
+
+        <p class="actionbar__hint">Radio Field Kit can build 4. The charging dock sets the limit.</p>
+    </div>
+
+    <div class="bom">
+
+        {% comment %} ================= LEFT: the kits ================= {% endcomment %}
+        <div class="card bom__col">
+            <span class="card__label">Kits &amp; Availability</span>
+
+            <nav class="nav bom__list" aria-label="Kits">
+                <a class="nav__item is-active" href="#">
+                    <span class="bom__name status--build">Radio Field Kit
+                        <span class="cell-sub">KIT-004 · 8 components</span>
+                    </span>
+                    <span class="status status--build">4</span>
+                </a>
+                <a class="nav__item" href="#">
+                    <span class="bom__name status--build">Vehicle Tool Kit
+                        <span class="cell-sub">KIT-009 · 9 components</span>
+                    </span>
+                    <span class="status status--build">6</span>
+                </a>
+                <a class="nav__item" href="#">
+                    <span class="bom__name status--build">First Aid Kit, site
+                        <span class="cell-sub">KIT-002 · 11 components</span>
+                    </span>
+                    <span class="status status--build">22</span>
+                </a>
+                <a class="nav__item" href="#">
+                    <span class="bom__name status--build">Site Safety Pack
+                        <span class="cell-sub">KIT-006 · 5 components</span>
+                    </span>
+                    <span class="status status--build">14</span>
+                </a>
+                <a class="nav__item" href="#">
+                    <span class="bom__name status--build">Server Rack Kit
+                        <span class="cell-sub">KIT-021 · 12 components</span>
+                    </span>
+                    <span class="status status--build">7</span>
+                </a>
+                <a class="nav__item" href="#">
+                    <span class="bom__name status--build">Solar Camera Kit
+                        <span class="cell-sub">KIT-017 · 8 components</span>
+                    </span>
+                    <span class="status status--build">3</span>
+                </a>
+                <a class="nav__item" href="#">
+                    <span class="bom__name status--build">Camera Mast Kit
+                        <span class="cell-sub">KIT-030 · 6 components</span>
+                    </span>
+                    <span class="status status--build">1</span>
+                </a>
+                <a class="nav__item" href="#">
+                    <span class="bom__name status--idle">Laptop Onboarding Pack
+                        <span class="cell-sub">KIT-001 · 4 components</span>
+                    </span>
+                    <span class="status status--idle">0</span>
+                </a>
+                <a class="nav__item" href="#">
+                    <span class="bom__name status--idle">Network Install Kit
+                        <span class="cell-sub">KIT-012 · 7 components</span>
+                    </span>
+                    <span class="status status--idle">0</span>
+                </a>
+            </nav>
+
+            <div class="bom__foot">
+                <p class="bom__total">The pill gives the number that the stock can build.
+                    <b>2 kits</b> have no parts.</p>
+            </div>
+        </div>
+
+        {% comment %} ================= MIDDLE: the tree =================
+             A node with children is a details element. The open attribute
+             holds the level open when the page loads. {% endcomment %}
+        <div class="card bom__col">
+            <span class="card__label">Assembly Map</span>
+
+            <ul class="tree bom__list">
+                <li class="tree__node">
+                    <details class="tree__group" open>
+                        <summary class="tree__row is-active">
+                            <svg class="icon tree__caret" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            <span class="tree__name">Radio Field Kit</span>
+                            <span class="tree__code">KIT-004</span>
+                            <span class="tree__qty">× 1</span>
+                            <span class="status status--build">4 buildable</span>
+                        </summary>
+
+                        <ul class="tree__branch">
+
+                            {% comment %} Level 2, with a level 3 below it. {% endcomment %}
+                            <li class="tree__node">
+                                <details class="tree__group" open>
+                                    <summary class="tree__row">
+                                        <svg class="icon tree__caret" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                        <span class="tree__name">Radio Handset Assembly</span>
+                                        <span class="tree__code">SUB-021</span>
+                                        <span class="tree__qty">× 1</span>
+                                        <span class="status status--ok">11</span>
+                                    </summary>
+                                    <ul class="tree__branch">
+                                        <li class="tree__node">
+                                            <div class="tree__row">
+                                                <span class="tree__bullet" aria-hidden="true"></span>
+                                                <span class="tree__name">Motorola DP4400e body</span>
+                                                <span class="tree__code">CMP-450</span>
+                                                <span class="tree__qty">× 1</span>
+                                                <span class="status status--ok">18</span>
+                                            </div>
+                                        </li>
+                                        <li class="tree__node">
+                                            <div class="tree__row">
+                                                <span class="tree__bullet" aria-hidden="true"></span>
+                                                <span class="tree__name">Radio Battery Pack</span>
+                                                <span class="tree__code">BAT-018</span>
+                                                <span class="tree__qty">× 2</span>
+                                                <span class="status status--ok">22</span>
+                                            </div>
+                                        </li>
+                                        <li class="tree__node">
+                                            <div class="tree__row">
+                                                <span class="tree__bullet" aria-hidden="true"></span>
+                                                <span class="tree__name">Belt Clip, radio</span>
+                                                <span class="tree__code">CMP-204</span>
+                                                <span class="tree__qty">× 1</span>
+                                                <span class="status status--ok">58</span>
+                                            </div>
+                                        </li>
+                                    </ul>
+                                </details>
+                            </li>
+
+                            {% comment %} The sub-assembly that sets the limit. {% endcomment %}
+                            <li class="tree__node">
+                                <details class="tree__group" open>
+                                    <summary class="tree__row">
+                                        <svg class="icon tree__caret" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                        <span class="tree__name">Charging Sub-assembly</span>
+                                        <span class="tree__code">SUB-024</span>
+                                        <span class="tree__qty">× 1</span>
+                                        <span class="status status--low">4</span>
+                                    </summary>
+                                    <ul class="tree__branch">
+                                        <li class="tree__node">
+                                            <div class="tree__row">
+                                                <span class="tree__bullet" aria-hidden="true"></span>
+                                                <span class="tree__name">Charging Dock, 6-way</span>
+                                                <span class="tree__code">CMP-209</span>
+                                                <span class="tree__qty">× 1</span>
+                                                <span class="status status--low">4</span>
+                                            </div>
+                                        </li>
+                                        <li class="tree__node">
+                                            <div class="tree__row">
+                                                <span class="tree__bullet" aria-hidden="true"></span>
+                                                <span class="tree__name">Power Lead 1.8m</span>
+                                                <span class="tree__code">CMP-215</span>
+                                                <span class="tree__qty">× 1</span>
+                                                <span class="status status--ok">26</span>
+                                            </div>
+                                        </li>
+                                    </ul>
+                                </details>
+                            </li>
+
+                            {% comment %} Level 2 leaves. {% endcomment %}
+                            <li class="tree__node">
+                                <div class="tree__row">
+                                    <span class="tree__bullet" aria-hidden="true"></span>
+                                    <span class="tree__name">Radio Antenna, 400 MHz</span>
+                                    <span class="tree__code">CMP-201</span>
+                                    <span class="tree__qty">× 1</span>
+                                    <span class="status status--ok">31</span>
+                                </div>
+                            </li>
+                            <li class="tree__node">
+                                <div class="tree__row">
+                                    <span class="tree__bullet" aria-hidden="true"></span>
+                                    <span class="tree__name">Carry Case, hard</span>
+                                    <span class="tree__code">CMP-260</span>
+                                    <span class="tree__qty">× 1</span>
+                                    <span class="status status--ok">15</span>
+                                </div>
+                            </li>
+                            <li class="tree__node">
+                                <div class="tree__row">
+                                    <span class="tree__bullet" aria-hidden="true"></span>
+                                    <span class="tree__name">Quick Guide, printed</span>
+                                    <span class="tree__code">STA-044</span>
+                                    <span class="tree__qty">× 1</span>
+                                    <span class="status status--ok">90</span>
+                                </div>
+                            </li>
+                        </ul>
+                    </details>
+                </li>
+            </ul>
+
+            {% comment %} The form that adds a node below the selected one.
+                 It does not save. Refer to views.py. {% endcomment %}
+            <form class="bom__foot" method="post" action="" aria-label="Add a component to the kit">
+                {% csrf_token %}
+                <label class="visually-hidden" for="bom-part">Component</label>
+                <select class="field field--wide field--select" id="bom-part" name="part">
+                    <option value="">Component or sub-assembly</option>
+                    <option>Radio Handset Assembly · SUB-021</option>
+                    <option>Charging Sub-assembly · SUB-024</option>
+                    <option>Radio Battery Pack · BAT-018</option>
+                    <option>Charging Dock, 6-way · CMP-209</option>
+                    <option>Radio Antenna, 400 MHz · CMP-201</option>
+                    <option>Belt Clip, radio · CMP-204</option>
+                    <option>Carry Case, hard · CMP-260</option>
+                    <option>Quick Guide, printed · STA-044</option>
+                </select>
+
+                <label class="visually-hidden" for="bom-qty">Quantity for each parent</label>
+                <input class="field field--sm" id="bom-qty" name="quantity" type="number"
+                       min="1" step="1" placeholder="Quantity">
+
+                <button class="tool tool--primary" type="submit">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                    Add to Node
+                </button>
+            </form>
+        </div>
+
+        {% comment %} ================= RIGHT: the stock ================= {% endcomment %}
+        <div class="card bom__col bom__col--stock">
+            <span class="card__label">Components</span>
+
+            <nav class="nav bom__list" aria-label="Components of this kit that are in stock">
+                <a class="nav__item" href="{% url 'inventory:stock' %}">
+                    <span class="bom__name">Quick Guide, printed
+                        <span class="cell-sub">STA-044 · 1 for each kit</span>
+                    </span>
+                    <span class="status status--ok">90</span>
+                </a>
+                <a class="nav__item" href="{% url 'inventory:stock' %}">
+                    <span class="bom__name">Belt Clip, radio
+                        <span class="cell-sub">CMP-204 · 1 for each kit</span>
+                    </span>
+                    <span class="status status--ok">58</span>
+                </a>
+                <a class="nav__item" href="{% url 'inventory:stock' %}">
+                    <span class="bom__name">Radio Antenna, 400 MHz
+                        <span class="cell-sub">CMP-201 · 1 for each kit</span>
+                    </span>
+                    <span class="status status--ok">31</span>
+                </a>
+                <a class="nav__item" href="{% url 'inventory:stock' %}">
+                    <span class="bom__name">Power Lead 1.8m
+                        <span class="cell-sub">CMP-215 · 1 for each kit</span>
+                    </span>
+                    <span class="status status--ok">26</span>
+                </a>
+                <a class="nav__item" href="{% url 'inventory:stock' %}">
+                    <span class="bom__name">Radio Battery Pack
+                        <span class="cell-sub">BAT-018 · 2 for each kit</span>
+                    </span>
+                    <span class="status status--ok">22</span>
+                </a>
+                <a class="nav__item" href="{% url 'inventory:stock' %}">
+                    <span class="bom__name">Motorola DP4400e body
+                        <span class="cell-sub">CMP-450 · 1 for each kit</span>
+                    </span>
+                    <span class="status status--ok">18</span>
+                </a>
+                <a class="nav__item" href="{% url 'inventory:stock' %}">
+                    <span class="bom__name">Carry Case, hard
+                        <span class="cell-sub">CMP-260 · 1 for each kit</span>
+                    </span>
+                    <span class="status status--ok">15</span>
+                </a>
+                <a class="nav__item" href="{% url 'inventory:stock' %}">
+                    <span class="bom__name">Charging Dock, 6-way
+                        <span class="cell-sub">CMP-209 · 1 for each kit</span>
+                    </span>
+                    <span class="status status--low">4</span>
+                </a>
+            </nav>
+
+            <div class="bom__foot">
+                <p class="bom__total">
+                    The charging dock has the smallest quantity, thus the kit
+                    can build <b>4</b>. An order of 20 docks lifts the figure
+                    to <b>11</b>, and the battery pack becomes the limit.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

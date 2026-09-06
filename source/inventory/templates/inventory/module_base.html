@@ -1,16 +1,33 @@
 {% extends "base.html" %}
 {% load static %}
+
 {% comment %}
   ============================================================================
   inventory/templates/inventory/module_base.html
   ----------------------------------------------------------------------------
-  This template is the base of the Inventory module. It has the same structure
-  as the base of the Accounting module. Only the toolbar, the side panel and
-  the module key are different.
+  This template is the base of the Inventory module. It is the twin of
+  accounting/templates/accounting/module_base.html, and it keeps the same
+  three parts:
+      - the module bar (toolbar) below the ribbon
+      - the layout: the shell, the side panel and the content area
+      - the drawer button in the ribbon, for a small screen
+
+  base.html holds the ribbon and the footer only. Thus this file owns
+  everything between them. It also declares the content block, because a
+  block that no parent declares prints nothing.
+
+  All Inventory pages extend this file.
 
   Blocks that a page can override:
-    title, page_key, breadcrumb, toolbar, context_actions, sidebar_extra,
-    content, extra_head, extra_js.
+    title            Text for the browser tab.
+    page_key         The key of the side panel item: dashboard, analytics,
+                     reports, assets, stock, consumables or kits.
+    toolbar          The tool buttons. Use block.super to keep the
+                     default buttons and to add more.
+    context_actions  The buttons at the right side of the module bar.
+    sidebar          The side panel. Use block.super to keep the navigation.
+    sidebar_extra    An extra area below the navigation, e.g. a filter.
+    content          The page content.
   ============================================================================
 {% endcomment %}
 
@@ -19,47 +36,137 @@
 {% block title %}{{ page_title|default:"Overview" }} · Inventory · Console{% endblock %}
 
 {% comment %}
-  The folder inventory/static/inventory/css/ is already in the project.
-  Remove the comment marks when the file exists.
+  The module loads one stylesheet, as the Accounting module does. The
+  file holds the furniture of the module and the parts that only
+  Inventory has. It comes after base.css, thus the module wins a tie.
 {% endcomment %}
 {% block module_css %}
-{# <link rel="stylesheet" href="{% static 'inventory/css/inventory.css' %}"> #}
+<link rel="stylesheet" href="{% static 'inventory/css/inventory.css' %}">
 {% endblock %}
 
 
-{# ===================== MODULE BAR (breadcrumb + toolbar) ===================== #}
+{# ===================== DRAWER BUTTON (small screens only) ===================== #}
+{% block ribbon_lead %}
+<button class="icon-btn drawer-toggle" type="button" aria-label="Open the menu"
+        aria-controls="inventory-sidebar" aria-expanded="false" data-drawer-toggle>
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 6h18M3 12h18M3 18h18" stroke-linecap="round"/></svg>
+</button>
+{% endblock %}
+
 {% block module_bar %}
 <div class="context">
-    <nav class="crumbs" aria-label="Breadcrumb">
-        {% block breadcrumb %}
-        <a href="/">Home</a>
-        <span class="sep">/</span>
-        <a href="#">Inventory</a>
-        <span class="sep">/</span>
-        <span class="here">{{ page_title|default:"Overview" }}</span>
-        {% endblock %}
-    </nav>
 
     <div class="toolbar" role="toolbar" aria-label="Inventory tools">
         {% block toolbar %}
-        <button class="tool tool--primary" type="button">
-            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
-            New asset
-        </button>
-        <button class="tool" type="button">Receive stock</button>
-        <button class="tool" type="button">Move stock</button>
-        <span class="tool__sep" aria-hidden="true"></span>
-        <button class="tool" type="button">
-            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 9V3h12v6M6 18H4v-6h16v6h-2M8 14h8v7H8z"/></svg>
-            Print labels
-        </button>
+            {% comment %}
+              The Accounting module opens the document overlay from a tool,
+              with a data-doc-overlay attribute. The Inventory module has no
+              document type yet. Give a button this attribute when the
+              documents app knows an inventory panel:
+                  data-doc-overlay="{% verbatim %}{% url 'documents:panel' 'inventory' 'grn' %}{% endverbatim %}"
+            {% endcomment %}
+            <button class="tool tool--primary" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                Purchase Order
+            </button>
+            <button class="tool tool--primary" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                Goods Receipt
+            </button>
+            <span class="tool__sep" aria-hidden="true"></span>
+
+            <div class="tbar-menu">
+                <button class="tool tbar-menu__btn" type="button" aria-haspopup="true" aria-expanded="false">
+                    Assets
+                    <svg class="icon icon--caret" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 10l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <div class="tbar-menu__panel" role="menu" aria-label="Assets">
+                    <a class="tbar-menu__item" role="menuitem" href="{% url 'inventory:assets' %}">All Assets</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">New Asset</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Assignments</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Asset Register</a>
+                    <span class="tbar-menu__sep" role="separator" aria-hidden="true"></span>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Asset Dashboard</a>
+                </div>
+            </div>
+
+            <div class="tbar-menu">
+                <button class="tool tbar-menu__btn" type="button" aria-haspopup="true" aria-expanded="false">
+                    Stock
+                    <svg class="icon icon--caret" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 10l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <div class="tbar-menu__panel" role="menu" aria-label="Stock">
+                    <a class="tbar-menu__item" role="menuitem" href="{% url 'inventory:stock' %}">All Stock</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">New Stock Item</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Receive Stock</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Issue Stock</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Adjust Stock</a>
+                    <span class="tbar-menu__sep" role="separator" aria-hidden="true"></span>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Stock Dashboard</a>
+                </div>
+            </div>
+
+            <div class="tbar-menu">
+                <button class="tool tbar-menu__btn" type="button" aria-haspopup="true" aria-expanded="false">
+                    Consumables
+                    <svg class="icon icon--caret" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 10l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <div class="tbar-menu__panel" role="menu" aria-label="Consumables">
+                    <a class="tbar-menu__item" role="menuitem" href="{% url 'inventory:consumables' %}">All Consumables</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">New Consumable</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Usage</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Reorder List</a>
+                    <span class="tbar-menu__sep" role="separator" aria-hidden="true"></span>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Consumable Dashboard</a>
+                </div>
+            </div>
+
+            <div class="tbar-menu">
+                <button class="tool tbar-menu__btn" type="button" aria-haspopup="true" aria-expanded="false">
+                    Kits
+                    <svg class="icon icon--caret" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 10l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <div class="tbar-menu__panel" role="menu" aria-label="Kits">
+                    <a class="tbar-menu__item" role="menuitem" href="{% url 'inventory:kits' %}">Kits and Components</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">New Kit</a>
+                    <a class="tbar-menu__item" role="menuitem" href="{% url 'inventory:bom' %}">Bill of Materials</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Assemble</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Disassemble</a>
+                    <span class="tbar-menu__sep" role="separator" aria-hidden="true"></span>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Kit Dashboard</a>
+                </div>
+            </div>
+
+            <div class="tbar-menu">
+                <button class="tool tbar-menu__btn" type="button" aria-haspopup="true" aria-expanded="false">
+                    Movement
+                    <svg class="icon icon--caret" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 10l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <div class="tbar-menu__panel tbar-menu__panel--right" role="menu" aria-label="Movement">
+                    <a class="tbar-menu__item" role="menuitem" href="#">Recent Movements</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Transfers</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Stock Take</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Write-offs</a>
+                    <span class="tbar-menu__sep" role="separator" aria-hidden="true"></span>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Movement Dashboard</a>
+                </div>
+            </div>
+
+            <span class="tool__sep" aria-hidden="true"></span>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
         {% endblock %}
     </div>
 
     <div class="context__actions">
         {% block context_actions %}
+        {% comment %} The Accounting module shows the period here. The
+             Inventory module shows the place, because a quantity always
+             belongs to a place. {% endcomment %}
         <button class="tool tool--ghost" type="button">
-            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 5h16l-6 7v6l-4 2v-8L4 5z" stroke-linejoin="round"/></svg>
+            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 21s7-5.2 7-11a7 7 0 10-14 0c0 5.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
             {{ location|default:"All locations" }}
         </button>
         {% endblock %}
@@ -67,29 +174,53 @@
 </div>
 {% endblock %}
 
+{% block layout %}
+<div class="shell fill">
 
-{# ===================== SIDE PANEL ===================== #}
-{% block sidebar %}
-<div class="sidebar__title">Inventory</div>
+    <aside class="sidebar" id="inventory-sidebar" aria-label="Inventory sections">
+        {% block sidebar %}
+        <div class="sidebar__title">Inventory</div>
 
-<nav class="nav" aria-label="Inventory sections">
-    <div class="nav__group">Stock</div>
-    <a class="nav__item" data-nav="overview" href="#">Overview</a>
-    <a class="nav__item" data-nav="assets"   href="#">
-        Assets <span class="nav__count">{{ asset_count|default:"318" }}</span>
-    </a>
-    <a class="nav__item" data-nav="items"     href="#">Items</a>
-    <a class="nav__item" data-nav="movements" href="#">Movements</a>
+        <nav class="nav">
+            <div class="nav__group">Analysis</div>
+            <a class="nav__item" data-nav="dashboard" href="{% url 'inventory:dashboard' %}">Overview</a>
+            <a class="nav__item" data-nav="analytics" href="{% url 'inventory:analytics' %}">Analytics</a>
+            <a class="nav__item" data-nav="reports"   href="{% url 'inventory:reports' %}">Reports</a>
 
-    <div class="nav__group">Structure</div>
-    <a class="nav__item" data-nav="locations"  href="#">Locations</a>
-    <a class="nav__item" data-nav="categories" href="#">Categories</a>
-    <a class="nav__item" data-nav="suppliers"  href="#">Suppliers</a>
+            <div class="nav__group">Stock Control</div>
+            <a class="nav__item" data-nav="bom" href="{% url 'inventory:bom' %}">Bill of Materials</a>
+            <a class="nav__item" data-nav="kits" href="{% url 'inventory:codes' %}">Codes Management</a>
+            <a class="nav__item" data-nav="assets" href="{% url 'inventory:items' %}">Item Management</a>
+            <a class="nav__item" data-nav="stock" href="#">Locations</a>
+            <a class="nav__item" data-nav="consumables" href="#">Suppliers</a>
 
-    <div class="nav__group">Analysis</div>
-    <a class="nav__item" data-nav="reports"  href="#">Reports</a>
-    <a class="nav__item" data-nav="settings" href="#">Module settings</a>
-</nav>
+            <div class="nav__group">Movement</div>
+            <a class="nav__item" data-nav="receive"   href="#">Receive</a>
+            <a class="nav__item" data-nav="issue"     href="#">Issue</a>
+            <a class="nav__item" data-nav="transfers" href="#">Transfers</a>
+            <a class="nav__item" data-nav="stocktake" href="#">Stock Take</a>
 
-{% block sidebar_extra %}{% endblock %}
+            <div class="nav__group">General</div>
+            <a class="nav__item" data-nav="locations"         href="#">Locations</a>
+            <a class="nav__item" data-nav="inventorysettings" href="#">Inventory Settings</a>
+            <a class="nav__item" data-nav="settings"          href="#">Module settings</a>
+        </nav>
+
+        {% block sidebar_extra %}{% endblock %}
+        {% endblock %}
+    </aside>
+
+    <main class="main" id="main">
+        {% block content %}
+        <section class="page">
+            <h1 class="page__title">{{ page_title|default:"Overview" }}</h1>
+            <p class="page__empty">This page has no content block yet.</p>
+        </section>
+        {% endblock %}
+    </main>
+
+</div>
+
+{% comment %} The scrim closes the drawer. base.js reads data-drawer-close. {% endcomment %}
+<div class="scrim" data-drawer-close></div>
 {% endblock %}

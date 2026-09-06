@@ -1,0 +1,352 @@
+{% extends "accounting/module_base.html" %}
+{% load static %}
+
+{% comment %}
+  ============================================================================
+  accounting/templates/accounting/cash_flow.html
+  ----------------------------------------------------------------------------
+  The page shows the movement of cash in one period. It has four parts:
+
+      1. The page head.    The title and the note below it.
+      2. The card band.    Cash at the start, the three activity groups
+                           and cash at the end. The band reads from left
+                           to right as a sum.
+      3. The statement.    The same three groups, with their lines and
+                           their subtotals. The last column shows the
+                           period before.
+      4. The notes.        One card for each group, in plain words.
+
+  The page follows the pattern of the module:
+      .page__head    the title and the note
+      .actionbar     Print, Export, New note
+      .cards         the band
+      .table--fin    Line · Note · This period · Last period
+      .notes         the notes
+
+  The last column is the last period. accounting.css makes it dim, with
+  its sums and its foot. The template needs no class for this.
+
+  ----------------------------------------------------------------------------
+  THE DATA
+
+  All amounts below are examples in the HTML. Put them in a context
+  dictionary when the view is ready. The structure stays the same:
+
+      row 1 of a group    <tr class="is-group">     the name of the group
+      the lines           <tr class="is-nest">      one line of the group
+      the last row        <tr class="is-sum">       the subtotal
+
+  Column 1 = the name of the line.
+  Column 2 = the number of the note below the table.
+  Column 3 = this period. Column 4 = the period before.
+
+  Add is-debit to a cell of column 3 for money that goes out. Add
+  is-credit for money that comes in. Column 4 needs no class.
+
+  Show a negative figure in brackets, for example (46,900). This is the
+  practice of the other statements of the module.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}cashflow{% endblock %}
+
+{% block title %}Cash Flow Statement · Accounting · Console{% endblock %}
+
+{% comment %} block.super keeps the buttons of the module base. {% endcomment %}
+{% block toolbar %}{{ block.super }}{% endblock %}
+
+
+{% block content %}
+<section class="page page--statement">
+
+    <div class="page__head">
+        <h1 class="page__title">Cash Flow Statement</h1>
+        <p class="page__note">
+            The cash flow statement shows where the cash came from and where it
+            went in one year. A profit is not the same as cash: a customer can
+            owe money, and a machine can lose value without a payment. Thus
+            the statement starts at the profit and corrects it, until it gets
+            to the change in the bank. It sorts the movements into three
+            groups: the daily work of the business, the purchase and sale of
+            long-term items, and the money between the business, its lenders
+            and its owners. A manager reads this statement to see if the
+            business makes enough cash to pay its bills. The year is to
+            31 December 2026, with the year to 31 December 2025 for
+            comparison. All figures in ZAR. A figure in brackets is money that
+            went out.
+        </p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Statement controls">
+        <div class="actionbar__group">
+            {% comment %} base.js must call window.print() for a button with
+                 the data-print attribute. {% endcomment %}
+            <button class="tool" type="button" data-print>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+                Print
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+
+            <span class="tool__sep" aria-hidden="true"></span>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                New note
+            </button>
+        </div>
+
+        <p class="actionbar__hint">The statement uses the accepted journal entries of FY 2026.</p>
+    </div>
+
+    <div class="cards">
+        <div class="card">
+            <span class="card__label">Cash at the start</span>
+            <div class="card__value" data-unit="ZAR">128,940</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Operating activities</span>
+            <div class="card__value is-credit" data-unit="ZAR">175,420</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Investing activities</span>
+            <div class="card__value is-debit" data-unit="ZAR">(70,440)</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Financing activities</span>
+            <div class="card__value is-debit" data-unit="ZAR">(34,600)</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Cash at the end</span>
+            <div class="card__value" data-unit="ZAR">199,320</div>
+        </div>
+    </div>
+
+    <h2 class="page__subtitle" id="cf-title">Statement</h2>
+
+    {# ============================= STATEMENT ============================ #}
+    <table class="table table--fin" aria-labelledby="cf-title">
+        <thead>
+            <tr>
+                <th>Line</th>
+                <th>Note</th>
+                <th>FY 2026</th>
+                <th>FY 2025</th>
+            </tr>
+        </thead>
+
+        {# --------------------------- OPERATING --------------------------- #}
+        <tbody>
+            <tr class="is-group">
+                <td colspan="4">Cash from operating activities</td>
+            </tr>
+
+            <tr class="is-nest">
+                <td>Profit before tax</td>
+                <td></td>
+                <td class="is-credit">214,600.00</td>
+                <td>186,200.00</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Depreciation and amortisation</td>
+                <td></td>
+                <td class="is-credit">38,250.00</td>
+                <td>34,900.00</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Movement in trade receivables</td>
+                <td></td>
+                <td class="is-debit">(46,900.00)</td>
+                <td>(31,450.00)</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Movement in inventory</td>
+                <td></td>
+                <td class="is-credit">12,300.00</td>
+                <td>(8,640.00)</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Movement in trade payables</td>
+                <td></td>
+                <td class="is-credit">18,750.00</td>
+                <td>9,380.00</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Interest paid</td>
+                <td></td>
+                <td class="is-debit">(9,480.00)</td>
+                <td>(8,120.00)</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Income tax paid</td>
+                <td></td>
+                <td class="is-debit">(52,100.00)</td>
+                <td>(44,300.00)</td>
+            </tr>
+
+            <tr class="is-sum">
+                <td>Net cash from operating activities</td>
+                <td><a href="#note-1">1</a></td>
+                <td class="is-credit">175,420.00</td>
+                <td>137,970.00</td>
+            </tr>
+        </tbody>
+
+        {# --------------------------- INVESTING --------------------------- #}
+        <tbody>
+            <tr class="is-group">
+                <td colspan="4">Cash from investing activities</td>
+            </tr>
+
+            <tr class="is-nest">
+                <td>Purchase of office equipment</td>
+                <td></td>
+                <td class="is-debit">(84,000.00)</td>
+                <td>(52,300.00)</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Purchase of software licences</td>
+                <td></td>
+                <td class="is-debit">(12,500.00)</td>
+                <td>(6,800.00)</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Sale of vehicles</td>
+                <td></td>
+                <td class="is-credit">21,800.00</td>
+                <td>4,500.00</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Interest received</td>
+                <td></td>
+                <td class="is-credit">4,260.00</td>
+                <td>3,110.00</td>
+            </tr>
+
+            <tr class="is-sum">
+                <td>Net cash used in investing activities</td>
+                <td><a href="#note-2">2</a></td>
+                <td class="is-debit">(70,440.00)</td>
+                <td>(51,490.00)</td>
+            </tr>
+        </tbody>
+
+        {# --------------------------- FINANCING --------------------------- #}
+        <tbody>
+            <tr class="is-group">
+                <td colspan="4">Cash from financing activities</td>
+            </tr>
+
+            <tr class="is-nest">
+                <td>New long-term loan</td>
+                <td></td>
+                <td class="is-credit">60,000.00</td>
+                <td>25,000.00</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Repayment of the long-term loan</td>
+                <td></td>
+                <td class="is-debit">(35,000.00)</td>
+                <td>(30,000.00)</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Lease payments</td>
+                <td></td>
+                <td class="is-debit">(14,600.00)</td>
+                <td>(12,400.00)</td>
+            </tr>
+            <tr class="is-nest">
+                <td>Dividends paid to the owners</td>
+                <td></td>
+                <td class="is-debit">(45,000.00)</td>
+                <td>(35,000.00)</td>
+            </tr>
+
+            <tr class="is-sum">
+                <td>Net cash used in financing activities</td>
+                <td><a href="#note-3">3</a></td>
+                <td class="is-debit">(34,600.00)</td>
+                <td>(52,400.00)</td>
+            </tr>
+        </tbody>
+
+        {# ------------------------- THE THREE SUMS ------------------------ #}
+        <tbody>
+            <tr class="is-sum">
+                <td>Change of cash in the period</td>
+                <td><a href="#note-4">4</a></td>
+                <td class="is-credit">70,380.00</td>
+                <td>34,080.00</td>
+            </tr>
+        </tbody>
+
+        <tfoot>
+            <tr>
+                <td colspan="2">Cash at the start of the period</td>
+                <td>128,940.00</td>
+                <td>94,860.00</td>
+            </tr>
+            <tr>
+                <td colspan="2">Cash at the end of the period</td>
+                <td>199,320.00</td>
+                <td>128,940.00</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    {# =============================== NOTES ============================== #}
+    <h2 class="page__subtitle" id="notes-title">Notes to the statement</h2>
+
+    <ol class="notes" aria-labelledby="notes-title">
+        <li class="card" id="note-1">
+            <span class="card__label">1. Operating activities</span>
+            <p class="notes__text">
+                This group holds the cash from the daily work of the business.
+                The first line is the profit before tax. The statement then adds
+                the costs that took no cash, for example the depreciation.
+            </p>
+            <p class="notes__text">
+                The three movement lines correct the profit. A customer who did
+                not pay yet increases the profit, but not the cash. A supplier
+                who is not paid yet has the opposite effect.
+            </p>
+        </li>
+
+        <li class="card" id="note-2">
+            <span class="card__label">2. Investing activities</span>
+            <p class="notes__text">
+                This group holds the cash for the items that the business keeps
+                and uses for many years, for example equipment and vehicles.
+            </p>
+            <p class="notes__text">
+                A purchase takes cash out. A sale brings cash in. A large
+                negative total is normal for a business that grows.
+            </p>
+        </li>
+
+        <li class="card" id="note-3">
+            <span class="card__label">3. Financing activities</span>
+            <p class="notes__text">
+                This group holds the cash between the business, its lenders and
+                its owners. A new loan brings cash in. A repayment, a lease
+                payment and a dividend take cash out.
+            </p>
+        </li>
+
+        <li class="card" id="note-4">
+            <span class="card__label">4. Change of cash</span>
+            <p class="notes__text">
+                The three group totals give the change of cash:
+                175,420.00 minus 70,440.00 minus 34,600.00 is 70,380.00.
+            </p>
+            <p class="notes__text">
+                The change plus the cash at the start gives the cash at the end.
+                This figure must agree with the cash and the bank accounts in the
+                balance sheet on 31 December 2026.
+            </p>
+        </li>
+    </ol>
+
+</section>
+{% endblock %}
