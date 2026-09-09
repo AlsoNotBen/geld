@@ -41,6 +41,12 @@
     --overdue:     #fff38c;
     --credit-soft: rgba(127, 191, 154, 0.14);
     --debit-soft:  rgba(224, 120, 94, 0.14);
+    --accept:      #2E8B57;                  /* the green of the text and the icon */
+    --accept-soft: rgba(46, 139, 87, 0.14);  /* the background */
+    --accept-mid:  rgba(46, 139, 87, 0.24);  /* the background on hover */
+    --danger:      #C0392B;                  /* the red of the text and the icon */
+    --danger-soft: rgba(192, 57, 43, 0.14);  /* the background */
+    --danger-mid:  rgba(192, 57, 43, 0.24);  /* the background on hover */    
 
     --ink-dim:     rgba(232, 230, 222, 0.38);  /* the last period */
     --rule:        rgba(232, 230, 222, 0.07);  /* ledger hairline */
@@ -235,6 +241,11 @@
     padding-right: 12px;
 }
 
+/* The display value above is stronger than the default rule of the hidden
+   attribute. This rule gives the attribute its effect again. journals.js
+   closes the Void and Post buttons of the entry overlay with it. */
+.tool[hidden] { display: none; }
+
 /* Text inside a tool is centered independently of font rendering. */
 .tool > span,
 .tool > label {
@@ -250,6 +261,37 @@
     background: var(--gold-soft);
     border-color: var(--gold-line);
     color: var(--gold);
+}
+
+.tool--danger,
+.tool.is-danger {
+    background: var(--danger-soft);
+    /* The border stays, but it is not visible. Thus the button keeps the
+       height and the width of the other buttons of the bar. */
+    border-color: transparent;
+    color: var(--danger);
+}
+
+.tool--danger:hover,
+.tool.is-danger:hover {
+    background: var(--danger-mid);
+    border-color: transparent;
+    color: var(--danger);
+}
+
+.tool--danger .icon,
+.tool.is-danger .icon { stroke: currentColor; }
+
+.tool--danger:focus-visible,
+.tool.is-danger:focus-visible {
+    outline: 2px solid var(--danger);
+    outline-offset: 2px;
+}
+
+.tool--danger:disabled,
+.tool.is-danger:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 /* Primary. One button of a bar, at most. It starts the main task of
@@ -280,19 +322,34 @@
 }
 .tool--neutral:hover { background: var(--gold-soft); }
 
-/* Accept. The green comes on hover only, thus a list of ten rows does
-   not shout. */
-.tool--accept {
-    color: var(--ink);
-    border-color: var(--ink);
-    background: transparent;
+/* Accept. The same shape as .tool--danger: a semi-transparent green
+   background and no visible border. */
+.tool--accept,
+.tool.is-accept {
+    background: var(--accept-soft);
+    /* The border stays, but it is not visible. Thus the button keeps the
+       height and the width of the other buttons of the bar. */
+    border-color: transparent;
+    color: var(--accept);
 }
-.tool--accept:hover {
-    color: var(--credit);
-    border-color: var(--credit);
-    background: var(--credit-soft);
+.tool--accept:hover,
+.tool.is-accept:hover {
+    background: var(--accept-mid);
+    border-color: transparent;
+    color: var(--accept);
 }
-.tool--accept .icon { stroke: currentColor; }
+.tool--accept .icon,
+.tool.is-accept .icon { stroke: currentColor; }
+.tool--accept:focus-visible,
+.tool.is-accept:focus-visible {
+    outline: 2px solid var(--accept);
+    outline-offset: 2px;
+}
+.tool--accept:disabled,
+.tool.is-accept:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
 
 /* Small. For a button inside a table row. */
 .tool--sm {
@@ -468,6 +525,63 @@
     .tbar-menu { display: none; }
     .toolbar .tool__sep:first-of-type { display: none; }
 }
+
+/* ================================================================== */
+/*  SHEET  (a dialog that holds a form, e.g. a new account)           */
+/* ================================================================== */
+.sheet {
+    width: min(440px, calc(100vw - 32px));
+    padding: 0;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    background: var(--white);
+    color: var(--ink);
+    box-shadow: var(--shadow-md);
+}
+.sheet::backdrop { 
+    background: rgba(24, 26, 31, 0.55); 
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+.sheet__head { padding: 16px 18px; border-bottom: 1px solid var(--line); }
+.sheet__title { margin: 0; font-size: 15px; font-weight: 600; color: var(--ink); }
+.sheet__body { display: grid; gap: 14px; padding: 18px; }
+.sheet__foot {
+    display: flex;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 14px 18px;
+    border-top: 1px solid var(--line);
+}
+
+.sheet__foot [data-dialog-cancel] { order: 1; }
+.sheet__foot .tool--primary       { order: 2; }
+.sheet__foot [data-entry-void]    { order: 3; margin-left: auto; }
+.sheet__foot [data-entry-post]    { order: 4; }
+
+
+/* ---- Form field --------------------------------------------------- */
+.field { display: grid; gap: 6px; }
+.field__label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: bold;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--gold-deep);
+}
+.field__control {
+    height: var(--tool-h);
+    padding: 0 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--cream);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 13px;
+}
+.field__control:focus { outline: none; border-color: var(--gold-line); }
 
 /* ================================================================== */
 /*  PAGE                                                              */
@@ -1279,6 +1393,8 @@
         inset: 0;
         z-index: 50;
         background: rgba(24, 26, 31, 0.55);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
         opacity: 0;
         visibility: hidden;
         transition: opacity 0.2s ease, visibility 0.2s;
@@ -1393,3 +1509,66 @@
         color: #000000;
     }
 }
+/* ---- Wide sheet: two columns of fields ---------------------------- */
+/* Put sheet--wide on the dialog and sheet__body--split on the body.
+   A field with the class field--wide takes both columns. */
+.sheet--wide { width: min(60vw, calc(100vw - 32px)); }
+.sheet__body--split {
+    grid-template-columns: 1fr 1fr;
+    column-gap: 18px;
+}
+.sheet__body--split .field--wide { grid-column: 1 / -1; }
+
+@media (max-width: 900px) {
+    .sheet--wide { width: calc(100vw - 32px); }
+    .sheet__body--split { grid-template-columns: 1fr; }
+}
+
+.switch {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: var(--tool-h);
+    cursor: pointer;
+}
+.switch input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+.switch__track {
+    position: relative;
+    flex: none;
+    width: 38px;
+    height: 20px;
+    border-radius: 999px;
+    background: var(--cream);
+    border: 1px solid var(--line-strong);
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.switch__track::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--ink-soft);
+    transition: transform 0.15s ease, background 0.15s ease;
+}
+.switch input:checked + .switch__track {
+    background: var(--gold-soft);
+    border-color: var(--gold-line);
+}
+.switch input:checked + .switch__track::after {
+    transform: translateX(18px);
+    background: var(--gold);
+}
+.switch input:focus-visible + .switch__track {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+}
+.switch__text { font-size: 13px; color: var(--ink-soft); }
+.switch input:checked ~ .switch__text { color: var(--ink); }

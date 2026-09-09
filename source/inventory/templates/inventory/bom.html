@@ -1,4 +1,5 @@
 {% extends "inventory/module_base.html" %}
+{% load static %}
 
 {% comment %}
   ============================================================================
@@ -11,15 +12,21 @@
               on hand can build now. The recipe of the kit and the stock
               of each component give this number. The component with the
               smallest number sets it.
-      middle  the tree of the kit that the user selected. A node holds a
-              sub-assembly or a component. A node with children is a
-              <details> element, thus the browser opens and closes it and
-              the page needs no script. The form at the foot adds a node.
+      middle  the assembly map of the kit that the user selected. It is
+              a graph: a node is a component, and an edge goes from a
+              parent to a child with the quantity on it. dagre gives the
+              layout, and bom-graph.js puts the nodes on the canvas. The
+              form at the foot adds a node.
       right   the components of the same kit, with the quantity in stock.
 
   The columns are .card elements. The two lists are .nav__item elements of
-  the side panel. The pills are .status elements. Only the tree and the
+  the side panel. The pills are .status elements. Only the map and the
   grid of the three columns are new. Refer to inventory.css.
+
+  The map needs two files:
+      inventory/static/inventory/vendor/dagre.min.js
+      inventory/static/inventory/js/bom-graph.js
+  Both come from the static directory. The page loads no CDN.
 
   All figures below are dummy data. The selected kit is Radio Field Kit.
   Its charging dock has four units in stock, thus the kit can build four.
@@ -142,132 +149,80 @@
             </div>
         </div>
 
-        {% comment %} ================= MIDDLE: the tree =================
-             A node with children is a details element. The open attribute
-             holds the level open when the page loads. {% endcomment %}
+        {% comment %} ================= MIDDLE: the assembly map =========
+             The map is a graph of dependencies. A node is a component.
+             An edge goes from a parent to a child and it carries the
+             quantity that one parent needs.
+
+             bom-graph.js reads the JSON below, gives the layout to
+             dagre, and puts each node on the canvas. A node stays an
+             HTML element, thus it keeps the colors of the stylesheet.
+
+             With real data, give the view a dict and print it here:
+                 {% verbatim %}{{ graph|json_script:"bom-graph-data" }}{% endverbatim %}
+             A component that two parents hold needs two edges only.
+             dagre draws the node one time. {% endcomment %}
         <div class="card bom__col">
             <span class="card__label">Assembly Map</span>
 
-            <ul class="tree bom__list">
-                <li class="tree__node">
-                    <details class="tree__group" open>
-                        <summary class="tree__row is-active">
-                            <svg class="icon tree__caret" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                            <span class="tree__name">Radio Field Kit</span>
-                            <span class="tree__code">KIT-004</span>
-                            <span class="tree__qty">× 1</span>
-                            <span class="status status--build">4 buildable</span>
-                        </summary>
+            <div class="graph" data-graph>
+                <div class="graph__bar">
+                    <button class="tool tool--sm" type="button" data-graph-zoom="-0.15" aria-label="Zoom out">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 12h14" stroke-linecap="round"/></svg>
+                    </button>
+                    <button class="tool tool--sm" type="button" data-graph-zoom="0.15" aria-label="Zoom in">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                    </button>
+                    <button class="tool tool--sm" type="button" data-graph-zoom="fit" aria-label="Fit the map to the frame">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
+                </div>
 
-                        <ul class="tree__branch">
+                <div class="graph__view">
+                    <div class="graph__canvas">
+                        <svg class="graph__edges" xmlns="http://www.w3.org/2000/svg"></svg>
+                    </div>
+                </div>
 
-                            {% comment %} Level 2, with a level 3 below it. {% endcomment %}
-                            <li class="tree__node">
-                                <details class="tree__group" open>
-                                    <summary class="tree__row">
-                                        <svg class="icon tree__caret" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                        <span class="tree__name">Radio Handset Assembly</span>
-                                        <span class="tree__code">SUB-021</span>
-                                        <span class="tree__qty">× 1</span>
-                                        <span class="status status--ok">11</span>
-                                    </summary>
-                                    <ul class="tree__branch">
-                                        <li class="tree__node">
-                                            <div class="tree__row">
-                                                <span class="tree__bullet" aria-hidden="true"></span>
-                                                <span class="tree__name">Motorola DP4400e body</span>
-                                                <span class="tree__code">CMP-450</span>
-                                                <span class="tree__qty">× 1</span>
-                                                <span class="status status--ok">18</span>
-                                            </div>
-                                        </li>
-                                        <li class="tree__node">
-                                            <div class="tree__row">
-                                                <span class="tree__bullet" aria-hidden="true"></span>
-                                                <span class="tree__name">Radio Battery Pack</span>
-                                                <span class="tree__code">BAT-018</span>
-                                                <span class="tree__qty">× 2</span>
-                                                <span class="status status--ok">22</span>
-                                            </div>
-                                        </li>
-                                        <li class="tree__node">
-                                            <div class="tree__row">
-                                                <span class="tree__bullet" aria-hidden="true"></span>
-                                                <span class="tree__name">Belt Clip, radio</span>
-                                                <span class="tree__code">CMP-204</span>
-                                                <span class="tree__qty">× 1</span>
-                                                <span class="status status--ok">58</span>
-                                            </div>
-                                        </li>
-                                    </ul>
-                                </details>
-                            </li>
+                <div class="graph__key" aria-hidden="true">
+                    <span class="is-kit"><i></i>Kit</span>
+                    <span class="is-sub"><i></i>Sub-assembly</span>
+                    <span class="is-part"><i></i>Component</span>
+                </div>
+            </div>
 
-                            {% comment %} The sub-assembly that sets the limit. {% endcomment %}
-                            <li class="tree__node">
-                                <details class="tree__group" open>
-                                    <summary class="tree__row">
-                                        <svg class="icon tree__caret" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                        <span class="tree__name">Charging Sub-assembly</span>
-                                        <span class="tree__code">SUB-024</span>
-                                        <span class="tree__qty">× 1</span>
-                                        <span class="status status--low">4</span>
-                                    </summary>
-                                    <ul class="tree__branch">
-                                        <li class="tree__node">
-                                            <div class="tree__row">
-                                                <span class="tree__bullet" aria-hidden="true"></span>
-                                                <span class="tree__name">Charging Dock, 6-way</span>
-                                                <span class="tree__code">CMP-209</span>
-                                                <span class="tree__qty">× 1</span>
-                                                <span class="status status--low">4</span>
-                                            </div>
-                                        </li>
-                                        <li class="tree__node">
-                                            <div class="tree__row">
-                                                <span class="tree__bullet" aria-hidden="true"></span>
-                                                <span class="tree__name">Power Lead 1.8m</span>
-                                                <span class="tree__code">CMP-215</span>
-                                                <span class="tree__qty">× 1</span>
-                                                <span class="status status--ok">26</span>
-                                            </div>
-                                        </li>
-                                    </ul>
-                                </details>
-                            </li>
-
-                            {% comment %} Level 2 leaves. {% endcomment %}
-                            <li class="tree__node">
-                                <div class="tree__row">
-                                    <span class="tree__bullet" aria-hidden="true"></span>
-                                    <span class="tree__name">Radio Antenna, 400 MHz</span>
-                                    <span class="tree__code">CMP-201</span>
-                                    <span class="tree__qty">× 1</span>
-                                    <span class="status status--ok">31</span>
-                                </div>
-                            </li>
-                            <li class="tree__node">
-                                <div class="tree__row">
-                                    <span class="tree__bullet" aria-hidden="true"></span>
-                                    <span class="tree__name">Carry Case, hard</span>
-                                    <span class="tree__code">CMP-260</span>
-                                    <span class="tree__qty">× 1</span>
-                                    <span class="status status--ok">15</span>
-                                </div>
-                            </li>
-                            <li class="tree__node">
-                                <div class="tree__row">
-                                    <span class="tree__bullet" aria-hidden="true"></span>
-                                    <span class="tree__name">Quick Guide, printed</span>
-                                    <span class="tree__code">STA-044</span>
-                                    <span class="tree__qty">× 1</span>
-                                    <span class="status status--ok">90</span>
-                                </div>
-                            </li>
-                        </ul>
-                    </details>
-                </li>
-            </ul>
+            {% comment %} Dummy data. Replace the tag below with
+                 json_script when the view supplies the graph. {% endcomment %}
+            <script type="application/json" id="bom-graph-data">
+            {
+              "direction": "LR",
+              "nodes": [
+                {"id": "KIT-004", "name": "Radio Field Kit",        "code": "KIT-004", "kind": "kit",  "status": "build", "count": "4 buildable"},
+                {"id": "SUB-021", "name": "Radio Handset Assembly", "code": "SUB-021", "kind": "sub",  "status": "ok",    "count": "11"},
+                {"id": "SUB-024", "name": "Charging Sub-assembly",  "code": "SUB-024", "kind": "sub",  "status": "low",   "count": "4"},
+                {"id": "CMP-450", "name": "Motorola DP4400e body",  "code": "CMP-450", "kind": "part", "status": "ok",    "count": "18"},
+                {"id": "BAT-018", "name": "Radio Battery Pack",     "code": "BAT-018", "kind": "part", "status": "ok",    "count": "22"},
+                {"id": "CMP-204", "name": "Belt Clip, radio",       "code": "CMP-204", "kind": "part", "status": "ok",    "count": "58"},
+                {"id": "CMP-209", "name": "Charging Dock, 6-way",   "code": "CMP-209", "kind": "part", "status": "low",   "count": "4"},
+                {"id": "CMP-215", "name": "Power Lead 1.8m",        "code": "CMP-215", "kind": "part", "status": "ok",    "count": "26"},
+                {"id": "CMP-201", "name": "Radio Antenna, 400 MHz", "code": "CMP-201", "kind": "part", "status": "ok",    "count": "31"},
+                {"id": "CMP-260", "name": "Carry Case, hard",       "code": "CMP-260", "kind": "part", "status": "ok",    "count": "15"},
+                {"id": "STA-044", "name": "Quick Guide, printed",   "code": "STA-044", "kind": "part", "status": "ok",    "count": "90"}
+              ],
+              "edges": [
+                {"from": "KIT-004", "to": "SUB-021", "qty": "× 1"},
+                {"from": "KIT-004", "to": "SUB-024", "qty": "× 1", "limit": true},
+                {"from": "KIT-004", "to": "CMP-201", "qty": "× 1"},
+                {"from": "KIT-004", "to": "CMP-260", "qty": "× 1"},
+                {"from": "KIT-004", "to": "STA-044", "qty": "× 1"},
+                {"from": "SUB-021", "to": "CMP-450", "qty": "× 1"},
+                {"from": "SUB-021", "to": "BAT-018", "qty": "× 2"},
+                {"from": "SUB-021", "to": "CMP-204", "qty": "× 1"},
+                {"from": "SUB-024", "to": "CMP-209", "qty": "× 1", "limit": true},
+                {"from": "SUB-024", "to": "CMP-215", "qty": "× 1"}
+              ]
+            }
+            </script>
 
             {% comment %} The form that adds a node below the selected one.
                  It does not save. Refer to views.py. {% endcomment %}
@@ -362,4 +317,9 @@
         </div>
     </div>
 </section>
+
+{% comment %} The map needs dagre for the layout. The file is in the
+     static directory of the module, thus the page loads no CDN. {% endcomment %}
+<script src="{% static 'inventory/js/dagre.min.js' %}"></script>
+<script src="{% static 'inventory/js/bom-graph.js' %}"></script>
 {% endblock %}

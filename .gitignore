@@ -32,6 +32,13 @@ MANIFEST
 *.manifest
 *.spec
 
+.psql_history
+.bash_history
+
+.gunicorn/
+
+./logs/
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt

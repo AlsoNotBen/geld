@@ -1,3 +1,25 @@
 from django.contrib import admin
+from accounting.models import *
 
-# Register your models here.
+admin.site.register(FiscalYear)
+admin.site.register(Period)
+admin.site.register(NumberSequence)
+admin.site.register(Attachment)
+admin.site.register(CostCentre)
+admin.site.register(TaxCode)
+admin.site.register(Account)
+admin.site.register(JournalEntry)
+admin.site.register(JournalLine)
+admin.site.register(Service)
+admin.site.register(Document)
+admin.site.register(DocumentLine)
+admin.site.register(BankAccount)
+admin.site.register(Payment)
+admin.site.register(PaymentAllocation)
+admin.site.register(BankTransaction)
+admin.site.register(FixedAsset)
+admin.site.register(DepreciationSchedule)
+admin.site.register(StockMovement)
+admin.site.register(Budget)
+admin.site.register(BudgetLine)
+admin.site.register(RecurringInvoice)

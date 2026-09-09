@@ -1,0 +1,93 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign in · CRM</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{% static 'css/login.css' %}">
+</head>
+<body class="login-page">
+
+    <!-- Background layer. Put your image at static/img/login-bg.jpg -->
+    <div class="backdrop" style="--login-image: url('{% static background %}');" aria-hidden="true"></div>
+
+    <main class="login">
+        <div class="login__card">
+
+            <div class="login__brand">
+                <span class="brand__mark" aria-hidden="true">◆</span>
+                <span class="brand__text">
+                    Pothos
+                    <small>Enterprise Resource Management</small>
+                </span>
+            </div>
+
+            <h1 class="login__title">Sign in</h1>
+            <p class="login__note">Use your work account to continue.</p>
+
+            <form class="login__form" method="post" novalidate>
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                    <div class="alert" role="alert">
+                        {% for error in form.non_field_errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                {% for field in form %}
+                    <div class="field">
+                        <label class="field__label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+
+                        {% if field.name == "password" %}
+                            <div class="field__input field__input--toggle">
+                                {{ field }}
+                                <button type="button" class="field__toggle"
+                                        data-toggle-for="{{ field.id_for_label }}"
+                                        aria-label="Show password" aria-pressed="false">
+                                    <svg class="icon eye-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/>
+                                        <circle cx="12" cy="12" r="3"/>
+                                    </svg>
+                                    <svg class="icon eye-hide is-hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/>
+                                        <circle cx="12" cy="12" r="3"/>
+                                        <path d="M4 4l16 16"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        {% else %}
+                            <div class="field__input">{{ field }}</div>
+                        {% endif %}
+
+                        {% for error in field.errors %}
+                            <p class="field__error">{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+
+                <button class="login__submit" type="submit" data-busy-text="Signing in…">
+                    <span class="login__submit-text">Sign in</span>
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M5 12h13M12 6l6 6-6 6"/>
+                    </svg>
+                </button>
+            </form>
+
+            <p class="login__foot">
+                <a href="{% url 'password_reset' %}">Forgot your password?</a>
+            </p>
+
+        </div>
+    </main>
+
+    <script src="{% static 'js/login.js' %}"></script>
+</body>
+</html>

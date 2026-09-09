@@ -198,8 +198,11 @@
 
 
             <div class="nav__group">Bookkeeping</div>
+            {% comment %} The journals view puts pending_count in the context.
+                 A page without that value shows no pill. {% endcomment %}
             <a class="nav__item" data-nav="journal" href="{% url 'accounting:journals' %}">
-                Journal Entries <span class="nav__count">{{ open_invoices|default:"4" }}</span>
+                Journal Entries
+                {% if pending_count %}<span class="nav__count">{{ pending_count }}</span>{% endif %}
             </a>
             <a class="nav__item" data-nav="accounts" href="{% url 'accounting:chartaccounts' %}">Chart of Accounts</a>
             <a class="nav__item" data-nav="ledger" href="{% url 'accounting:ledger' %}">General Ledger</a>

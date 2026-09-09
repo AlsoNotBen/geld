@@ -110,10 +110,13 @@
                         Settings
                     </a>
                     <div class="menu__sep"></div>
-                    <a href="#" role="menuitem" class="is-danger">
-                        <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M15 4h3a2 2 0 012 2v12a2 2 0 01-2 2h-3M10 17l-5-5 5-5M5 12h11" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        Sign out
-                    </a>
+                    <form method="post" action="{% url 'logout' %}">
+                        {% csrf_token %}
+                        <button type="submit" role="menuitem" class="is-danger">
+                            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M15 4h3a2 2 0 012 2v12a2 2 0 01-2 2h-3M10 17l-5-5 5-5M5 12h11" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            Sign out
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>

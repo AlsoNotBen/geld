@@ -1,31 +1,10 @@
 {% extends "accounting/module_base.html" %}
 {% load static %}
 
-{% comment %}
-  ============================================================================
-  accounting/templates/accounting/journals.html
-  ----------------------------------------------------------------------------
-  The journal entries. The page has two parts:
-      1. The review list.   The new entries that wait for an action.
-                            Each row keeps its own Accept and Edit button.
-      2. The tab set.       One table for each journal.
-
-  The page follows the pattern of the module:
-      .page__head    the title and the note
-      .actionbar     Accept All (primary), Print, Export
-      .review        the list of new entries
-      .tabset        the four journals
-
-  The Accept All button is in the action bar, not in the list head. Thus
-  the bar holds every action of the page, as on the other pages.
-  ============================================================================
-{% endcomment %}
-
 {% block page_key %}journal{% endblock %}
 
-{% block title %}Journal Entries · Accounting · Console{% endblock %}
+{% block title %}Journal{% endblock %}
 
-{% comment %} block.super keeps the buttons of the module base. {% endcomment %}
 {% block toolbar %}{{ block.super }}{% endblock %}
 
 {% block content %}
@@ -34,21 +13,27 @@
     <div class="page__head">
         <h1 class="page__title">Journal Entries</h1>
         <p class="page__note">
-            A journal is the first record of a transaction. Each entry names
-            the date, the reference, the account and the amount. The four
-            journals below sort the entries by type: general, sales, purchases
-            and cash. The list at the top holds the entries that a person must
-            review. Accept an entry to post it to the general ledger, or edit
-            it first. Only accepted entries go into the statements.
+            A journal is a detailed running record of all of a business's financial transactions. 
+            It is used to reconcile accounts and is transferred to other accounting records, such 
+            as the general ledger. The journal includes information like the transaction date, 
+            the accounts affected, and the cash amounts. Journal entries are composed in a 
+            double-entry bookkeeping method.
         </p>
     </div>
 
     <div class="actionbar" role="group" aria-label="Journal controls">
         <div class="actionbar__group">
-            <button class="tool tool--primary" type="button">
-                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-10" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                Accept All
+            <button class="tool tool--primary" type="button" data-entry-new>
+               <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                New Entry
             </button>
+            <form method="post" action="{% url 'accounting:journalentry_post_all' %}">
+                {% csrf_token %}
+                <button class="tool" type="submit">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Accept All
+                </button>
+            </form>
 
             <span class="tool__sep" aria-hidden="true"></span>
             {% comment %} base.js must call window.print() for a button with
@@ -63,7 +48,7 @@
             </button>
         </div>
 
-        <p class="actionbar__hint">Accept All posts the {{ pending_count|default:"12" }} new entries to the ledger.</p>
+        <p class="actionbar__hint">Accept All posts the {{ pending_count }} new {{ pending_count|pluralize:"entry,entries" }} to the ledger.</p>
     </div>
 
     <section class="review" aria-labelledby="review-title">
@@ -71,102 +56,76 @@
         <div class="review__head">
             <h2 class="review__title" id="review-title">
                 New Entries
-                <span class="review__count">{{ pending_count|default:"4" }}</span>
+                <span class="review__count">{{ pending_count }}</span>
             </h2>
             <p class="review__hint">These entries wait for a review. Accept or edit each one.</p>
         </div>
 
-        <table class="table table--review">
+        <table class="table table--review" data-num>
             <thead>
                 <tr>
                     <th>Date</th>
                     <th>Reference</th>
                     <th>Journal</th>
-                    <th>Account</th>
-                    <th>Amount</th>
+                    <th>Debit Code</th>
+                    <th>Debit Account</th>
+                    <th>Credit Code</th>
+                    <th>Credit Account</th>
+                    <th>Debit</th>
+                    <th>Credit</th>
                     <th><span class="visually-hidden">Review</span></th>
                 </tr>
             </thead>
             <tbody>
+                {% for entry in draft_entries %}
                 <tr>
-                    <td>2026-02-03</td>
-                    <td>INV-2026-0114</td>
-                    <td>Sales</td>
-                    <td>Trade receivables — Grayson &amp; Co</td>
-                    <td class="is-credit">12,480.00</td>
+                    <td>{{ entry.date }}</td>
+                    <td>{{ entry.reference }}</td>
+                    <td>{{ entry.journal }}</td>
+                    <td>{{ entry.debit_account.code }}</td>
+                    <td>{{ entry.debit_account.name }}</td>
+                    <td>{{ entry.credit_account.code }}</td>
+                    <td>{{ entry.credit_account.name }}</td>
+                    {% comment %} The two sides always hold the same amount. {% endcomment %}
+                    <td class="is-debit">{{ entry.debit_amount }}</td>
+                    <td class="is-credit">{{ entry.credit_amount }}</td>
                     <td>
                         <div class="review__buttons">
-                            <button class="tool tool--sm tool--accept" type="button" aria-label="Accept INV-2026-0114">
-                                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-10" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                Accept
-                            </button>
-                            <button class="tool tool--sm tool--neutral" type="button" aria-label="Edit INV-2026-0114">
+                            <form method="post" action="{% url 'accounting:journalentry_post' entry.id %}">
+                                {% csrf_token %}
+                                <button class="tool tool--sm tool--accept" type="submit" aria-label="Accept {{ entry.reference }}">
+                                    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    Accept
+                                </button>
+                            </form>
+                            {% comment %} journals.js reads these attributes and
+                                 fills the overlay. {% endcomment %}
+                            <button class="tool tool--sm tool--neutral" type="button"
+                                    aria-label="Edit {{ entry.reference }}"
+                                    data-entry-edit
+                                    data-url="{% url 'accounting:journalentry_update' entry.id %}"
+                                    data-post-url="{% url 'accounting:journalentry_post' entry.id %}"
+                                    data-void-url="{% url 'accounting:journalentry_void' entry.id %}"
+                                    data-date="{{ entry.date|date:'Y-m-d' }}"
+                                    data-entry-type="{{ entry.entry_type }}"
+                                    data-period="{{ entry.period_id }}"
+                                    data-reference="{{ entry.reference }}"
+                                    data-debit="{{ entry.debit_id }}"
+                                    data-credit="{{ entry.credit_id }}"
+                                    data-amount="{{ entry.debit_amount|stringformat:'f' }}"
+                                    data-currency="{{ entry.currency_id }}"
+                                    data-tax="{{ entry.tax_id }}"
+                                    data-description="{{ entry.description }}"
+                                    data-narration="{{ entry.narration }}">
                                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 20h4L18 10l-4-4L4 16v4z" stroke-linejoin="round"/><path d="M14 6l4 4" stroke-linecap="round"/></svg>
                                 Edit
                             </button>
                         </div>
                     </td>
                 </tr>
-
-                <tr>
-                    <td>2026-02-03</td>
-                    <td>BILL-4471</td>
-                    <td>Purchases</td>
-                    <td>Office consumables — Kite Supplies</td>
-                    <td class="is-debit">1,265.40</td>
-                    <td>
-                        <div class="review__buttons">
-                            <button class="tool tool--sm tool--accept" type="button" aria-label="Accept BILL-4471">
-                                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-10" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                Accept
-                            </button>
-                            <button class="tool tool--sm tool--neutral" type="button" aria-label="Edit BILL-4471">
-                                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 20h4L18 10l-4-4L4 16v4z" stroke-linejoin="round"/><path d="M14 6l4 4" stroke-linecap="round"/></svg>
-                                Edit
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-
-                <tr>
-                    <td>2026-02-04</td>
-                    <td>BNK-0098</td>
-                    <td>Cash</td>
-                    <td>Bank charges — Current account</td>
-                    <td class="is-debit">312.75</td>
-                    <td>
-                        <div class="review__buttons">
-                            <button class="tool tool--sm tool--accept" type="button" aria-label="Accept BNK-0098">
-                                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-10" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                Accept
-                            </button>
-                            <button class="tool tool--sm tool--neutral" type="button" aria-label="Edit BNK-0098">
-                                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 20h4L18 10l-4-4L4 16v4z" stroke-linejoin="round"/><path d="M14 6l4 4" stroke-linecap="round"/></svg>
-                                Edit
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-
-                <tr>
-                    <td>2026-02-05</td>
-                    <td>JNL-0032</td>
-                    <td>General</td>
-                    <td>Depreciation — Vehicles</td>
-                    <td class="is-debit">4,900.00</td>
-                    <td>
-                        <div class="review__buttons">
-                            <button class="tool tool--sm tool--accept" type="button" aria-label="Accept JNL-0032">
-                                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-10" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                Accept
-                            </button>
-                            <button class="tool tool--sm tool--neutral" type="button" aria-label="Edit JNL-0032">
-                                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 20h4L18 10l-4-4L4 16v4z" stroke-linejoin="round"/><path d="M14 6l4 4" stroke-linecap="round"/></svg>
-                                Edit
-                            </button>
-                        </div>
-                    </td>
-                </tr>
+                {% empty %}
+                <tr><td colspan="10">There are no new entries.</td></tr>
+                {% endfor %}
             </tbody>
         </table>
     </section>
@@ -200,7 +159,7 @@
         <div class="tabset__panel" role="tabpanel" data-panel="general"
              id="panel-general" aria-labelledby="tab-general" tabindex="0">
             <h2 class="tabset__print-title">General Journal</h2>
-            <table class="table">
+            <table class="table" data-num>
                 <thead>
                     <tr><th>Date</th><th>Reference</th><th>Account</th><th>Amount</th></tr>
                 </thead>
@@ -224,7 +183,7 @@
         <div class="tabset__panel" role="tabpanel" data-panel="sales"
              id="panel-sales" aria-labelledby="tab-sales" tabindex="0" hidden>
             <h2 class="tabset__print-title">Sales Journal</h2>
-            <table class="table">
+            <table class="table" data-num>
                 <thead>
                     <tr><th>Date</th><th>Reference</th><th>Account</th><th>Amount</th></tr>
                 </thead>
@@ -247,7 +206,7 @@
         <div class="tabset__panel" role="tabpanel" data-panel="purchases"
              id="panel-purchases" aria-labelledby="tab-purchases" tabindex="0" hidden>
             <h2 class="tabset__print-title">Purchases Journal</h2>
-            <table class="table">
+            <table class="table" data-num>
                 <thead>
                     <tr><th>Date</th><th>Reference</th><th>Account</th><th>Amount</th></tr>
                 </thead>
@@ -270,7 +229,7 @@
         <div class="tabset__panel" role="tabpanel" data-panel="cash"
              id="panel-cash" aria-labelledby="tab-cash" tabindex="0" hidden>
             <h2 class="tabset__print-title">Cash Journal</h2>
-            <table class="table">
+            <table class="table" data-num>
                 <thead>
                     <tr><th>Date</th><th>Reference</th><th>Account</th><th>Amount</th></tr>
                 </thead>
@@ -311,6 +270,99 @@
             }
         </style>
     </noscript>
+
+    <dialog class="sheet sheet--wide" id="entry-dialog">
+        <form method="post" action="{% url 'accounting:journalentry_create' %}">
+            {% csrf_token %}
+            <div class="sheet__head">
+                <h2 class="sheet__title">New Journal Entry</h2>
+            </div>
+
+            <div class="sheet__body sheet__body--split">
+                <div class="field">
+                    <label class="field__label" for="entry-date">Date</label>
+                    <input class="field__control" type="date" id="entry-date" name="date" required>
+                </div>
+                <div class="field">
+                    <label class="field__label" for="entry-type">Journal</label>
+                    <select class="field__control" id="entry-type" name="entry_type" required>
+                        {% for value, label in entry_types %}
+                        <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field">
+                    <label class="field__label" for="entry-period">Period</label>
+                    <select class="field__control" id="entry-period" name="period" required>
+                        {% for period in periods %}
+                        <option value="{{ period.id }}">{{ period.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field">
+                    <label class="field__label" for="entry-reference">Reference</label>
+                    <input class="field__control" type="text" id="entry-reference" name="reference" required>
+                </div>
+                <div class="field">
+                    <label class="field__label" for="entry-debit">Debit account</label>
+                    <select class="field__control" id="entry-debit" name="debit_account" required>
+                        {% for account in accounts %}
+                        <option value="{{ account.id }}">{{ account }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field">
+                    <label class="field__label" for="entry-credit">Credit account</label>
+                    <select class="field__control" id="entry-credit" name="credit_account" required>
+                        {% for account in accounts %}
+                        <option value="{{ account.id }}">{{ account }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field">
+                    <label class="field__label" for="entry-amount">Amount</label>
+                    <input class="field__control" type="number" step="0.01" min="0.01"
+                           id="entry-amount" name="amount" required>
+                </div>
+                <div class="field">
+                    <label class="field__label" for="entry-currency">Currency</label>
+                    <select class="field__control" id="entry-currency" name="currency" required>
+                        {% for currency in currencies %}
+                        <option value="{{ currency.pk }}">{{ currency }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field">
+                    <label class="field__label" for="entry-tax">Tax code</label>
+                    <select class="field__control" id="entry-tax" name="tax_code">
+                        <option value="">None</option>
+                        {% for tax in tax_codes %}
+                        <option value="{{ tax.id }}">{{ tax.code }} — {{ tax.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field field--wide">
+                    <label class="field__label" for="entry-description">Line description</label>
+                    <input class="field__control" type="text" id="entry-description" name="description">
+                </div>
+                <div class="field field--wide">
+                    <label class="field__label" for="entry-narration">Narration</label>
+                    <input class="field__control" type="text" id="entry-narration" name="narration">
+                </div>
+            </div>
+
+            <div class="sheet__foot">
+                <button class="tool" type="button" data-dialog-cancel>Cancel</button>
+                {% comment %} journals.js opens these two buttons for an edit
+                     only, and it gives each one its formaction. The attribute
+                     formnovalidate lets them send an empty form, because the
+                     views read the entry from the URL. {% endcomment %}
+                <button class="tool tool--danger" type="submit" formnovalidate data-entry-void hidden>Mark as Void</button>
+                <button class="tool tool--accept" type="submit" formnovalidate data-entry-post hidden>Post Entry</button>
+                <button class="tool tool--primary" type="submit">Save Draft</button>
+            </div>
+        </form>
+    </dialog>
 </section>
 {% endblock %}
 

@@ -1,65 +1,241 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect, get_object_or_404
+from django.db.models import Sum, DecimalField
+from django.db.models.functions import Coalesce
+from django.utils import timezone
+from decimal import Decimal
+from accounting.models import *
 
+ZERO = Decimal("0")
 
 def dashboard(request):
     return render(request, "accounting/overview.html")
 
-def journals(request):
+JOURNAL_TABS = {
+    "general_entries":  [JournalEntry.EntryType.GENERAL],
+    "sales_entries":    [JournalEntry.EntryType.SALES],
+    "purchase_entries": [JournalEntry.EntryType.PURCHASES],
+    "cash_entries":     [JournalEntry.EntryType.RECEIPT, JournalEntry.EntryType.PAYMENT],
+}
 
-    GENERAL_ENTRIES = [
-        {"date": "2026-01-02", "reference": "JE-2026-0001", "account": "Opening balance · Retained earnings",  "amount": "184 300.00", "is_debit": False},
-        {"date": "2026-01-05", "reference": "JE-2026-0002", "account": "Depreciation · Office equipment",      "amount": "2 450.00",   "is_debit": True},
-        {"date": "2026-01-12", "reference": "JE-2026-0003", "account": "Accrual · Audit fees",                 "amount": "18 000.00",  "is_debit": True},
-        {"date": "2026-01-19", "reference": "JE-2026-0004", "account": "Reclass · Prepaid insurance",          "amount": "7 125.50",   "is_debit": False},
-        {"date": "2026-01-31", "reference": "JE-2026-0005", "account": "Payroll · Salaries and wages",         "amount": "96 480.00",  "is_debit": True},
-        {"date": "2026-02-03", "reference": "JE-2026-0006", "account": "Interest · Term loan",                 "amount": "3 812.40",   "is_debit": True},
-        {"date": "2026-02-14", "reference": "JE-2026-0007", "account": "Forex gain · USD account",             "amount": "1 267.85",   "is_debit": False},
-    ]
-    
-    SALES_ENTRIES = [
-        {"date": "2026-01-06", "reference": "INV-1041", "account": "Halden Group · Consulting",         "amount": "24 800.00", "is_debit": False},
-        {"date": "2026-01-09", "reference": "INV-1042", "account": "Bergman AB · Licence renewal",      "amount": "12 350.00", "is_debit": False},
-        {"date": "2026-01-15", "reference": "CN-0114",  "account": "Bergman AB · Credit note",          "amount": "1 150.00",  "is_debit": True},
-        {"date": "2026-01-22", "reference": "INV-1043", "account": "Norwind Logistics · Support hours", "amount": "8 940.00",  "is_debit": False},
-        {"date": "2026-02-02", "reference": "INV-1044", "account": "Delacroix SARL · Implementation",   "amount": "41 600.00", "is_debit": False},
-        {"date": "2026-02-11", "reference": "INV-1045", "account": "Halden Group · Retainer February",  "amount": "9 500.00",  "is_debit": False},
-    ]
-    
-    PURCHASE_ENTRIES = [
-        {"date": "2026-01-04", "reference": "BILL-3308", "account": "Kestrel Hosting · Cloud services",  "amount": "4 210.00", "is_debit": True},
-        {"date": "2026-01-08", "reference": "BILL-3309", "account": "Vandermeer Office · Stationery",    "amount": "612.75",   "is_debit": True},
-        {"date": "2026-01-17", "reference": "BILL-3310", "account": "Lindqvist Legal · Contract review", "amount": "7 800.00", "is_debit": True},
-        {"date": "2026-01-25", "reference": "BILL-3311", "account": "Northline Freight · Delivery",      "amount": "1 986.40", "is_debit": True},
-        {"date": "2026-02-01", "reference": "DN-0207",   "account": "Kestrel Hosting · Service credit",  "amount": "320.00",   "is_debit": False},
-        {"date": "2026-02-09", "reference": "BILL-3312", "account": "Aurora Print · Marketing material", "amount": "3 145.90", "is_debit": True},
-    ]
-    
-    CASH_ENTRIES = [
-        {"date": "2026-01-07", "reference": "RCT-0218", "account": "Receipt · Halden Group INV-1041",      "amount": "24 800.00", "is_debit": False},
-        {"date": "2026-01-10", "reference": "PMT-0455", "account": "Payment · Kestrel Hosting BILL-3308",  "amount": "4 210.00",  "is_debit": True},
-        {"date": "2026-01-16", "reference": "PMT-0456", "account": "Bank charges · Monthly fee",           "amount": "89.00",     "is_debit": True},
-        {"date": "2026-01-28", "reference": "RCT-0219", "account": "Receipt · Bergman AB INV-1042",        "amount": "11 200.00", "is_debit": False},
-        {"date": "2026-01-31", "reference": "PMT-0457", "account": "Payment · Payroll run January",        "amount": "96 480.00", "is_debit": True},
-        {"date": "2026-02-05", "reference": "PMT-0458", "account": "Payment · Lindqvist Legal BILL-3310",  "amount": "7 800.00",  "is_debit": True},
-        {"date": "2026-02-12", "reference": "RCT-0220", "account": "Receipt · Norwind Logistics INV-1043", "amount": "8 940.00",  "is_debit": False},
-    ]
+def journal_rows(lines):
+    return [{
+        "date": line.entry.date,
+        "reference": line.entry.reference,
+        "journal": line.entry.get_entry_type_display(),
+        "account": line.account,
+        "amount": line.debit or line.credit,
+        "is_debit": line.debit > 0,
+    } for line in lines]
+
+def draft_rows(entries):
+    """One row for each draft entry. The row also holds the data of the
+    edit form, thus the Edit button can fill the overlay."""
+    rows = []
+    for entry in entries:
+        lines = list(entry.lines.all())
+        debit = next((l for l in lines if l.debit > 0), None)
+        credit = next((l for l in lines if l.credit > 0), None)
+        if not (debit and credit):
+            continue
+        rows.append({
+            "id": entry.id,
+            "date": entry.date,
+            "reference": entry.reference,
+            "journal": entry.get_entry_type_display(),
+            "entry_type": entry.entry_type,
+            "period_id": entry.period_id,
+            "narration": entry.narration,
+            "debit_account": debit.account,
+            "credit_account": credit.account,
+            "debit_amount": debit.debit,
+            "credit_amount": credit.credit,
+            "debit_id": debit.account_id,
+            "credit_id": credit.account_id,
+            "currency_id": debit.currency_id,
+            "tax_id": debit.tax_code_id or "",
+            "description": debit.description,
+        })
+    return rows
+
+def make_lines(entry, post):
+    """Make the debit line and the credit line of an entry."""
+    amount = Decimal(post["amount"])
+    common = {
+        "entry": entry,
+        "currency_id": post["currency"],
+        "tax_code_id": post.get("tax_code") or None,
+        "description": post.get("description", ""),
+    }
+    JournalLine.objects.create(
+        account_id=post["debit_account"], debit=amount, base_debit=amount, **common,
+    )
+    JournalLine.objects.create(
+        account_id=post["credit_account"], credit=amount, base_credit=amount, **common,
+    )
+
+def journals(request):
+    lines = (JournalLine.objects.select_related("entry", "account").order_by("entry__date", "entry_id", "id"))
+
+    posted = list(lines.filter(entry__status=JournalEntry.Status.POSTED))
+    drafts = draft_rows(
+        JournalEntry.objects
+        .filter(status=JournalEntry.Status.DRAFT)
+        .prefetch_related("lines__account")
+        .order_by("date", "id")
+    )
 
     context = {
-        "page_title": "Journal Entries",
-        "period": "FY 2026",
-        "general_entries": GENERAL_ENTRIES,
-        "sales_entries": SALES_ENTRIES,
-        "purchase_entries": PURCHASE_ENTRIES,
-        "cash_entries": CASH_ENTRIES,
+        "draft_entries": drafts,
+        "pending_count": len(drafts),
+        "entry_types": JournalEntry.EntryType.choices,
+        "periods": Period.objects.filter(is_closed=False),
+        "accounts": Account.objects.filter(is_active=True),
+        "currencies": Currency.objects.all(),
+        "tax_codes": TaxCode.objects.all(),
     }
+    for key, types in JOURNAL_TABS.items():
+        context[key] = journal_rows([l for l in posted if l.entry.entry_type in types])
 
-    return render(request, "accounting/journals.html",context)
+    return render(request, "accounting/journals.html", context)
+
+def journalentry_create(request):
+    if request.method == "POST":
+        entry = JournalEntry.objects.create(
+            company=request.company,                            # Add to every function that creates a CompanyOwned record
+            date=request.POST["date"],
+            period_id=request.POST["period"],
+            entry_type=request.POST["entry_type"],
+            status=JournalEntry.Status.DRAFT,
+            reference=request.POST["reference"],
+            narration=request.POST.get("narration", ""),
+        )
+        make_lines(entry, request.POST)
+    return redirect("accounting:journals")
+
+def journalentry_update(request, pk):
+    """The Edit button sends the overlay here. The form holds one debit and
+    one credit, thus the view makes the lines again."""
+    if request.method == "POST":
+        entry = get_object_or_404(JournalEntry, pk=pk, status=JournalEntry.Status.DRAFT)
+        entry.date = request.POST["date"]
+        entry.period_id = request.POST["period"]
+        entry.entry_type = request.POST["entry_type"]
+        entry.reference = request.POST["reference"]
+        entry.narration = request.POST.get("narration", "")
+        entry.save()
+        entry.lines.all().delete()
+        make_lines(entry, request.POST)
+    return redirect("accounting:journals")
+
+def journalentry_post(request, pk):
+    """The Accept button. It moves one draft entry to the Posted status."""
+    if request.method == "POST":
+        JournalEntry.objects.filter(pk=pk, status=JournalEntry.Status.DRAFT).update(
+            status=JournalEntry.Status.POSTED, posted_at=timezone.now(),
+        )
+    return redirect("accounting:journals")
+
+def journalentry_post_all(request):
+    """The Accept All button. It moves each draft entry to the Posted status."""
+    if request.method == "POST":
+        JournalEntry.objects.filter(status=JournalEntry.Status.DRAFT).update(
+            status=JournalEntry.Status.POSTED, posted_at=timezone.now(),
+        )
+    return redirect("accounting:journals")
+
+def journalentry_void(request, pk):
+    """The Void button of the entry overlay. It stops a draft entry."""
+    if request.method == "POST":
+        JournalEntry.objects.filter(pk=pk, status=JournalEntry.Status.DRAFT).update(
+            status=JournalEntry.Status.VOID,
+        )
+    return redirect("accounting:journals")
 
 def invoices(request):
     return render(request, "accounting/invoices.html")
 
+# ___________________________________CHART OF ACCOUNTS___________________________________________#
+# The account types of each tab. FLOATING_NOMINAL is not in this map,
+# because its category comes from the balance (see category_of).
+CATEGORIES = {
+    "asset":     [Account.AccountType.CURRENT_ASSETS, Account.AccountType.NON_CURRENT_ASSETS],
+    "liability": [Account.AccountType.CURRENT_LIABILITIES, Account.AccountType.NON_CURRENT_LIABILITIES],
+    "equity":    [Account.AccountType.SHAREHOLDER_EQUITY],
+    "income":    [Account.AccountType.SALES, Account.AccountType.OTHER_INCOME],
+    "expense":   [Account.AccountType.COST_OF_SALES, Account.AccountType.EXPENSES, Account.AccountType.INCOME_TAX],
+}
+ 
+# The service layer owns the normal side. It comes from the account type,
+# thus the user does not choose it. A floating nominal account starts on
+# the debit side, but its balance can move to either side.
+NORMAL_SIDE = {
+    Account.AccountType.SALES:                   Account.Side.CREDIT,
+    Account.AccountType.OTHER_INCOME:            Account.Side.CREDIT,
+    Account.AccountType.COST_OF_SALES:           Account.Side.DEBIT,
+    Account.AccountType.EXPENSES:                Account.Side.DEBIT,
+    Account.AccountType.INCOME_TAX:              Account.Side.DEBIT,
+    Account.AccountType.NON_CURRENT_ASSETS:      Account.Side.DEBIT,
+    Account.AccountType.CURRENT_ASSETS:          Account.Side.DEBIT,
+    Account.AccountType.NON_CURRENT_LIABILITIES: Account.Side.CREDIT,
+    Account.AccountType.CURRENT_LIABILITIES:     Account.Side.CREDIT,
+    Account.AccountType.SHAREHOLDER_EQUITY:      Account.Side.CREDIT,
+    Account.AccountType.FLOATING_NOMINAL:        Account.Side.DEBIT,
+}
+ 
+def category_of(account):
+    if account.type == Account.AccountType.FLOATING_NOMINAL:
+        return "asset" if account.is_debit else "liability"
+    for key, types in CATEGORIES.items():
+        if account.type in types:
+            return key
+    return None
+ 
 def chartaccounts(request):
-    return render(request, "accounting/chart_of_accounts.html")
+    accounts = list(Account.objects.annotate(
+        debits=Coalesce(Sum("lines__base_debit"), ZERO, output_field=DecimalField()),
+        credits=Coalesce(Sum("lines__base_credit"), ZERO, output_field=DecimalField()),
+    ).order_by("code"))
+ 
+    parent_ids = set(Account.objects.exclude(parent=None).values_list("parent_id", flat=True))
+ 
+    for account in accounts:
+        account.signed = account.debits - account.credits
+        account.is_debit = account.signed >= 0
+        account.is_credit = not account.is_debit
+        account.balance = abs(account.signed)
+        account.is_group = account.pk in parent_ids
+ 
+    context = {
+        # Data for the New Account form.
+        "account_types": Account.AccountType.choices,
+        "currencies": Currency.objects.all(),
+        "parent_accounts": accounts,
+        # The All tab keeps every account.
+        "all_accounts": accounts,
+        "all_total": sum((a.signed for a in accounts), ZERO),
+    }
+    for key in CATEGORIES:
+        rows = [a for a in accounts if category_of(a) == key]
+        context[f"{key}_accounts"] = rows
+        context[f"{key}_total"] = abs(sum((a.signed for a in rows), ZERO))
+ 
+    return render(request, "accounting/chart_of_accounts.html", context)
+ 
+def account_create(request):
+    if request.method == "POST":
+        Account.objects.create(
+            company=request.company,                            # Add to every function that creates a CompanyOwned record
+            code=request.POST["code"],
+            name=request.POST["name"],
+            type=request.POST["type"],
+            normal_side=NORMAL_SIDE[request.POST["type"]],
+            parent_id=request.POST.get("parent") or None,
+            currency_id=request.POST.get("currency") or None,
+            is_active=bool(request.POST.get("is_active")),
+            description=request.POST.get("description", ""),
+        )
+    return redirect("accounting:chartaccounts")
+
 
 def ledger(request):
     return render(request, "accounting/ledger.html")
@@ -75,4 +251,3 @@ def cashflow(request):
 
 def equity(request):
     return render(request,"accounting/shareholder_equity.html")
-

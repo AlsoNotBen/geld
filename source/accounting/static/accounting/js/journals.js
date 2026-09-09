@@ -121,3 +121,69 @@
         init();
     }
 })();
+/* ==========================================================================
+   The entry overlay. It uses the same pattern as accounts.js.
+
+   The New Entry button opens an empty form, which goes to the create URL.
+   The Edit button opens the same form with the data of its row, and it
+   sends the form to the update URL of that entry. The data comes from the
+   data-* attributes of the button (see journals.html).
+   ========================================================================== */
+(function () {
+    const dialog = document.getElementById("entry-dialog");
+    if (!dialog) return;
+
+    const form = dialog.querySelector("form");
+    const title = dialog.querySelector(".sheet__title");
+    const submit = dialog.querySelector(".tool--primary[type=submit]");
+    const voidBtn = dialog.querySelector("[data-entry-void]");
+    const postBtn = dialog.querySelector("[data-entry-post]");
+    const createUrl = form.getAttribute("action");
+    const field = form.elements;
+
+    const openBtn = document.querySelector("[data-entry-new]");
+    if (openBtn) openBtn.onclick = function () {
+        form.reset();
+        form.setAttribute("action", createUrl);
+        title.textContent = "New Journal Entry";
+        submit.textContent = "Post Entry";
+        voidBtn.hidden = true;
+        postBtn.hidden = true;
+        dialog.showModal();
+    };
+
+    document.querySelectorAll("[data-entry-edit]").forEach(function (btn) {
+        btn.onclick = function () {
+            const data = btn.dataset;
+            form.setAttribute("action", data.url);
+            field.date.value = data.date;
+            field.entry_type.value = data.entryType;
+            field.period.value = data.period;
+            field.reference.value = data.reference;
+            field.debit_account.value = data.debit;
+            field.credit_account.value = data.credit;
+            field.amount.value = data.amount;
+            field.currency.value = data.currency;
+            field.tax_code.value = data.tax;
+            field.description.value = data.description;
+            field.narration.value = data.narration;
+            title.textContent = "Edit Journal Entry";
+            submit.textContent = "Save as Draft";
+            /* Each button sends the form to its own view. The view reads the
+               entry from the URL, thus it ignores the fields. */
+            voidBtn.setAttribute("formaction", data.voidUrl);
+            postBtn.setAttribute("formaction", data.postUrl);
+            voidBtn.hidden = false;
+            postBtn.hidden = false;
+            dialog.showModal();
+        };
+    });
+
+    const cancelBtn = dialog.querySelector("[data-dialog-cancel]");
+    if (cancelBtn) cancelBtn.onclick = () => dialog.close();
+
+    // Close the dialog when the user clicks the backdrop.
+    dialog.onclick = (e) => {
+        if (e.target === dialog) dialog.close();
+    };
+})();

@@ -1,0 +1,280 @@
+/* ======================================================================
+   login.css  —  sign-in page. This file stands alone.
+   base.css does not load here, thus this file holds its own tokens and
+   its own reset. The token values copy base.css, so the two agree.
+   ====================================================================== */
+
+:root {
+    --cream:      #181A1F;
+    --navy:       #363b44;
+    --gold:       #F0BE72;
+    --gold-deep:  #C9974A;   /* darker gold — used for errors and hover */
+    --white:      #252932;
+
+    --ink:        #E8E6DE;
+    --ink-soft:   #A7ACB5;
+    --line:       rgba(232, 230, 222, 0.10);
+    --line-strong:rgba(232, 230, 222, 0.16);
+    --gold-soft:  rgba(240, 190, 114, 0.14);
+
+    --glass:      rgba(37, 41, 50, 0.85);
+    --glass-edge: rgba(255, 255, 255, 0.14);
+    --shadow-md:  0 20px 50px rgba(0, 0, 0, 0.45);
+
+    --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+    --radius:    16px;
+    --radius-sm: 8px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    padding: 24px;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink);
+    background: var(--cream);
+    -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; text-decoration: none; }
+
+button {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.icon { width: 20px; height: 20px; flex: none; }
+
+.is-hidden { display: none; }
+
+:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* ---- Background ------------------------------------------------------
+   Set --login-image on .backdrop (the template does this with the static
+   tag). The layer is larger than the window, thus the blur has no soft
+   edge. The dark wash keeps the text readable on a bright image. */
+.backdrop {
+    position: fixed;
+    inset: -60px;
+    z-index: -1;
+    background-image: var(--login-image), linear-gradient(140deg, #1F242C 0%, #14161A 55%, #2A2016 100%);
+    background-size: cover;
+    background-position: center;
+    filter: blur(20px) saturate(115%);
+}
+.backdrop::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(12, 13, 16, 0.55);
+}
+
+/* ---- Card ------------------------------------------------------------ */
+.login {
+    margin: auto;
+    width: 100%;
+    max-width: 380px;
+}
+
+.login__card {
+    position: relative;
+    padding: 36px 32px 28px;
+    border-radius: var(--radius);
+    border: 1px solid var(--glass-edge);
+    background: var(--glass);
+    box-shadow: var(--shadow-md);
+    backdrop-filter: blur(24px) saturate(150%);
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+}
+
+/* A light edge along the top. This is what makes the glass read as glass. */
+.login__card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 22px;
+    right: 22px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+}
+
+/* ---- Brand — mark above the name, both centred ----------------------- */
+.login__brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 22px;
+}
+.brand__mark {
+    width: 46px;
+    height: 46px;
+    border-radius: 13px;
+    background: var(--gold);
+    color: var(--navy);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    font-size: 19px;
+    font-weight: 700;
+    box-shadow: 0 6px 18px rgba(240, 190, 114, 0.25);
+}
+.brand__text {
+    text-align: center;
+    font-weight: 600;
+    font-size: 16px;
+    letter-spacing: 0.2px;
+}
+.brand__text small {
+    display: block;
+    font-family: var(--font-mono);
+    font-weight: 400;
+    font-size: 10px;
+    color: var(--ink-soft);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+/* ---- Headline -------------------------------------------------------- */
+.login__title {
+    margin: 0;
+    text-align: center;
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+}
+.login__note {
+    margin: 4px 0 26px;
+    text-align: center;
+    color: var(--ink-soft);
+}
+
+/* ---- Fields ---------------------------------------------------------- */
+.login__form { display: flex; flex-direction: column; gap: 16px; }
+
+.field { display: flex; flex-direction: column; gap: 6px; }
+
+.field__label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink-soft);
+}
+
+.field__input { position: relative; }
+
+.field__input input {
+    width: 100%;
+    height: 42px;
+    padding: 0 14px;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--ink);
+    background: rgba(24, 26, 31, 0.55);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.field__input input::placeholder { color: var(--ink-soft); }
+.field__input input:hover { border-color: var(--line-strong); }
+.field__input input:focus {
+    border-color: var(--gold);
+    background: rgba(24, 26, 31, 0.75);
+    box-shadow: 0 0 0 3px var(--gold-soft);
+}
+
+.field__input--toggle input { padding-right: 44px; }
+
+.field__toggle {
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    color: var(--ink-soft);
+    transition: color 0.15s ease, background 0.15s ease;
+}
+.field__toggle:hover { color: var(--gold); background: var(--gold-soft); }
+.field__toggle .icon { width: 18px; height: 18px; }
+
+/* ---- Errors — gold, not orange --------------------------------------- */
+.field__error {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--gold);
+}
+
+.alert {
+    padding: 10px 14px;
+    border: 1px solid rgba(240, 190, 114, 0.35);
+    border-left: 3px solid var(--gold);
+    border-radius: var(--radius-sm);
+    background: var(--gold-soft);
+    color: var(--gold);
+    font-size: 13px;
+    font-weight: 500;
+}
+.alert p { margin: 0; }
+.alert p + p { margin-top: 4px; }
+
+/* ---- Submit ---------------------------------------------------------- */
+.login__submit {
+    margin-top: 6px;
+    width: 100%;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--navy);
+    background: var(--gold);
+    border-radius: var(--radius-sm);
+    transition: background 0.15s ease;
+}
+.login__submit .icon { width: 18px; height: 18px; }
+.login__submit:hover { background: var(--gold-deep); }
+.login__submit[disabled] { opacity: 0.65; cursor: default; }
+
+/* ---- Foot ------------------------------------------------------------ */
+.login__foot {
+    margin: 22px 0 0;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    text-align: center;
+    font-size: 13px;
+}
+.login__foot a { color: var(--gold); font-weight: 500; }
+.login__foot a:hover { color: var(--gold-deep); }
+
+/* ---- Responsive ------------------------------------------------------ */
+@media (max-width: 420px) {
+    body { padding: 16px; }
+    .login__card { padding: 28px 20px 22px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; }
+}

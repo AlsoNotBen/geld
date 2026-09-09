@@ -54,3 +54,56 @@
         }
     });
 })();
+/* ==========================================================================
+   Number format
+   A number reads more easily with a space between each group of three
+   digits. This code writes the space into the page after the load, thus
+   the server keeps the plain value.
+
+       <table data-num>              each money cell of the table
+       <td data-num>1234.50</td>     one cell only
+       App.formatAmount("23000.00")  → "23 000.00"
+   ========================================================================== */
+window.App = window.App || {};      // Make the namespace before you fill it.
+
+(function () {
+    'use strict';
+
+    var SPACE = '\u00A0';                    // a space that holds the line
+    var MONEY = /^-?\d+\.\d{2}$/;
+
+    /* Give the groups of three digits a space. The function first removes
+       the separators of a previous call, thus a second call is safe. */
+    App.formatAmount = function (value) {
+        var text = String(value).replace(/[\s,\u00A0\u202F]/g, '');
+        if (!MONEY.test(text)) { return null; }
+
+        var parts = text.split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, SPACE);
+        return parts.join('.');
+    };
+
+    /* Find each marked element. An element with the attribute gets the
+       format. A container with the attribute gives it to its cells. */
+    App.formatNumbers = function (root) {
+        var scope = root || document;
+        Array.prototype.forEach.call(scope.querySelectorAll('[data-num]'), function (node) {
+            var cells = node.querySelectorAll('td, th, .num');
+            var items = cells.length ? cells : [node];
+
+            Array.prototype.forEach.call(items, function (cell) {
+                if (cell.children.length) { return; }   // keep a cell with markup
+                var out = App.formatAmount(cell.textContent);
+                if (out !== null) { cell.textContent = out; }
+            });
+        });
+    };
+
+    function init() { App.formatNumbers(document); }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();

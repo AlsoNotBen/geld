@@ -1526,6 +1526,8 @@ form:has(input[name="depreciating_item"]:checked) .useful-life-hint { display: b
         inset: 0;
         z-index: 50;
         background: rgba(24, 26, 31, 0.55);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
         opacity: 0;
         visibility: hidden;
         transition: opacity 0.2s ease, visibility 0.2s;
@@ -1640,4 +1642,148 @@ form:has(input[name="depreciating_item"]:checked) .useful-life-hint { display: b
     .status { color: #000000; border-color: #999999; background: #FFFFFF; }
     .table--inv td.is-name, .table--inv td.is-qty { color: #000000; }
     .cell-sub, .chart-note, .chart-key__item { color: #333333; }
+}
+
+/* ==================================================================
+   The middle column of the bill of materials shows the kit as a graph
+   of dependencies. A node is a component. An edge goes from a parent
+   to a child, and it carries the quantity that one parent needs.
+
+   bom-graph.js gives the position of each node. This file gives all
+   colors, all sizes and all states. The layer below the nodes is one
+   SVG element, thus an edge stays behind a node.
+   ================================================================== */
+.graph {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 420px;
+    margin-top: 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+/* The window on the map. The dots move with the map, thus the user
+   sees that the map moves. */
+.graph__view {
+    position: absolute;
+    inset: 0;
+    cursor: grab;
+    touch-action: none;
+    background-color: rgba(0, 0, 0, 0.12);
+    background-image: radial-gradient(var(--line-strong) 1px, transparent 1px);
+    background-size: 18px 18px;
+}
+.graph__view.is-panning { cursor: grabbing; }
+
+.graph__canvas { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+.graph__edges { position: absolute; top: 0; left: 0; overflow: visible; }
+
+/* ---- The edges ---------------------------------------------------- */
+.gedge {
+    fill: none;
+    stroke: var(--line-strong);
+    stroke-width: 1.5;
+    transition: stroke 0.12s ease;
+}
+/* The path that sets the limit of the kit. It takes the color that
+   the module gives to stock which asks for an order. */
+.gedge.is-limit { stroke: rgba(255, 243, 140, 0.45); }
+.gedge.is-lit { stroke: var(--gold); stroke-width: 2; }
+
+.gedge__qty {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    fill: var(--ink-soft);
+}
+
+/* ---- The nodes ---------------------------------------------------- */
+/* A node keeps the width of a column, thus dagre puts all ranks on
+   one line and the reader compares two nodes without effort. */
+.gnode {
+    position: absolute;
+    width: 208px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 9px 11px;
+    background: var(--white);
+    border: 1px solid var(--line-strong);
+    border-left: 3px solid var(--ink-soft);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.gnode:hover { border-color: var(--gold-line); box-shadow: var(--shadow-md); }
+.gnode.is-active {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 1px var(--gold), var(--shadow-md);
+}
+
+/* The color at the left edge names the level: the kit, a sub-assembly
+   or a component that no other component holds. */
+.gnode--kit  { border-left-color: var(--gold); }
+.gnode--sub  { border-left-color: var(--credit); }
+.gnode--part { border-left-color: var(--line-strong); }
+
+.gnode__top { display: flex; align-items: center; gap: 8px; }
+.gnode__name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.gnode__top .status { flex: none; }
+.gnode__meta { display: flex; align-items: center; gap: 8px; }
+.gnode__code {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+}
+
+/* ---- The controls above the map ------------------------------------ */
+.graph__bar {
+    position: absolute;
+    z-index: 2;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    gap: 4px;
+}
+.graph__key {
+    position: absolute;
+    z-index: 2;
+    left: 10px;
+    bottom: 8px;
+    display: flex;
+    gap: 14px;
+    font-size: 11px;
+    color: var(--ink-soft);
+}
+.graph__key span { display: flex; align-items: center; gap: 6px; }
+.graph__key i {
+    width: 10px;
+    height: 3px;
+    border-radius: 2px;
+    background: currentColor;
+}
+.graph__key .is-kit  { color: var(--gold); }
+.graph__key .is-sub  { color: var(--credit); }
+.graph__key .is-part { color: var(--ink-soft); }
+
+@media (max-width: 900px) { .graph { min-height: 340px; } }
+
+@media print {
+    .graph { min-height: 0; border-color: #999999; }
+    .graph__view { background: #FFFFFF; cursor: auto; }
+    .graph__bar, .graph__key { display: none !important; }
+    .gnode { background: #FFFFFF; border-color: #999999; box-shadow: none; }
+    .gnode__name { color: #000000; }
+    .gedge { stroke: #999999; }
+    .gedge__qty { fill: #333333; }
 }

@@ -1,37 +1,6 @@
 {% extends "accounting/module_base.html" %}
 {% load static %}
 
-{% comment %}
-  ============================================================================
-  accounting/templates/accounting/chart_of_accounts.html
-  ----------------------------------------------------------------------------
-  The page shows one table. Each account category is a tab above the table.
-
-  The page follows the pattern of the module:
-      .page__head    the title and the note
-      .actionbar     New account (primary), Print, Export, the row actions
-      .tabset        the five categories
-
-  The view sends these lists:
-      asset_accounts · liability_accounts · equity_accounts
-      income_accounts · expense_accounts
-  Each account in a list can have these fields:
-      code · name · type · balance
-      is_debit / is_credit   the color of the balance (both are optional)
-      is_group               a heading row inside the table (optional)
-  The view also sends one total for each category:
-      asset_total · liability_total · equity_total
-      income_total · expense_total
-
-  A list that the view does not send gives an empty table. Do not put a
-  fallback in a filter argument, for example |default:accounts. A variable
-  in that position must exist, or Django stops the page.
-
-  The five tables are equal. Thus a change to one column must go into all
-  five panels below.
-  ============================================================================
-{% endcomment %}
-
 {% block page_key %}accounts{% endblock %}
 
 {% block title %}Chart of Accounts · Accounting · Console{% endblock %}
@@ -39,248 +8,234 @@
 {% comment %} block.super keeps the buttons of the module base. {% endcomment %}
 {% block toolbar %}{{ block.super }}{% endblock %}
 
-
 {% block content %}
+
 <section class="page">
 
-    <div class="page__head">
-        <h1 class="page__title">Chart of Accounts</h1>
-        <p class="page__note">
-            The chart of accounts is the list of all accounts in the books.
-            Each account has a code, a name and a type. The five tabs sort the
-            accounts into the five categories of the balance sheet and the
-            income statement: assets, liabilities, equity, income and
-            expenses. Every journal entry must go to one of these accounts.
-            Use this page to add an account, to change its name, or to archive
-            an account that the business no longer uses. All balances in ZAR.
-        </p>
+<div class="page__head">
+    <h1 class="page__title">Chart of Accounts</h1>
+    <p class="page__note">
+        The chart of accounts is the list of all accounts in the books.
+        Each account has a code, a name and a type. The tabs sort the
+        accounts into the five categories of the balance sheet and the
+        income statement: assets, liabilities, equity, income and
+        expenses. A floating nominal account, e.g. VAT control, goes to
+        assets when it has a debit balance, and to liabilities when it
+        has a credit balance. Every journal entry must go to one of these
+        accounts. All balances in ZAR.
+    </p>
+</div>
+
+<div class="actionbar" role="group" aria-label="Account controls">
+    <div class="actionbar__group">
+        <button class="tool tool--primary" type="button" data-account-new>
+            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+            New Account
+        </button>
+
+        <span class="tool__sep" aria-hidden="true"></span>
+        <button class="tool" type="button" data-print>
+            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+            Print
+        </button>
+        <button class="tool" type="button">
+            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Export
+        </button>
+
+        <span class="tool__sep" aria-hidden="true"></span>
+        <button class="tool" type="button" disabled>
+            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+            New Sub-Account
+        </button>
+        <button class="tool" type="button" disabled>
+            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 20h4L18 10l-4-4L4 16v4z" stroke-linejoin="round"/><path d="M14 6l4 4" stroke-linecap="round"/></svg>
+            Edit
+        </button>
+        <button class="tool" type="button" disabled>
+            <svg class="icon" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 001 1h12a1 1 0 001-1V8M10 13h4" stroke-linecap="round"/></svg>
+            Archive
+        </button>
     </div>
 
-    <div class="actionbar" role="group" aria-label="Account controls">
-        <div class="actionbar__group">
-            <button class="tool tool--primary" type="button">
-                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
-                New account
-            </button>
+    <p class="actionbar__hint">Select a row to edit or archive an account.</p>
+</div>
 
-            <span class="tool__sep" aria-hidden="true"></span>
-            {% comment %} base.js must call window.print() for a button with
-                 the data-print attribute. {% endcomment %}
-            <button class="tool" type="button" data-print>
-                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
-                Print
-            </button>
-            <button class="tool" type="button">
-                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                Export
-            </button>
+<div class="tabset" data-tabset data-tabset-param="category" data-num>
 
-            <span class="tool__sep" aria-hidden="true"></span>
-            {% comment %} The three buttons below need a row. Remove the
-                 disabled attribute when the user selects one. {% endcomment %}
-            <button class="tool" type="button" disabled>
-                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
-                New sub-account
-            </button>
-            <button class="tool" type="button" disabled>
-                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 20h4L18 10l-4-4L4 16v4z" stroke-linejoin="round"/><path d="M14 6l4 4" stroke-linecap="round"/></svg>
-                Edit
-            </button>
-            <button class="tool" type="button" disabled>
-                <svg class="icon" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 001 1h12a1 1 0 001-1V8M10 13h4" stroke-linecap="round"/></svg>
-                Archive
-            </button>
-        </div>
+    <div class="tabset__list" role="tablist" aria-label="Account category">
 
-        <p class="actionbar__hint">Select a row to edit or archive an account.</p>
-    </div>
+        <button class="tabset__tab" type="button" role="tab" data-tab="all"
+                id="tab-all" aria-controls="panel-all"
+                aria-selected="true" tabindex="0">
+            All
+            <span class="tabset__count">{{ all_accounts|length }}</span>
+        </button>
 
-    <div class="tabset" data-tabset data-tabset-param="category">
+        <button class="tabset__tab" type="button" role="tab" data-tab="assets"
+                id="tab-assets" aria-controls="panel-assets"
+                aria-selected="false" tabindex="-1">
+            Assets
+            <span class="tabset__count">{{ asset_accounts|length }}</span>
+        </button>
 
-        <div class="tabset__list" role="tablist" aria-label="Account category">
-            <button class="tabset__tab" type="button" role="tab" data-tab="assets"
-                    id="tab-assets" aria-controls="panel-assets"
-                    aria-selected="true" tabindex="0">
-                Assets
-                <span class="tabset__count">{{ asset_accounts|length }}</span>
-            </button>
-            <button class="tabset__tab" type="button" role="tab" data-tab="liabilities"
-                    id="tab-liabilities" aria-controls="panel-liabilities"
-                    aria-selected="false" tabindex="-1">
-                Liabilities
-                <span class="tabset__count">{{ liability_accounts|length }}</span>
-            </button>
-            <button class="tabset__tab" type="button" role="tab" data-tab="equity"
-                    id="tab-equity" aria-controls="panel-equity"
-                    aria-selected="false" tabindex="-1">
-                Equity
-                <span class="tabset__count">{{ equity_accounts|length }}</span>
-            </button>
-            <button class="tabset__tab" type="button" role="tab" data-tab="income"
-                    id="tab-income" aria-controls="panel-income"
-                    aria-selected="false" tabindex="-1">
-                Income
-                <span class="tabset__count">{{ income_accounts|length }}</span>
-            </button>
-            <button class="tabset__tab" type="button" role="tab" data-tab="expenses"
-                    id="tab-expenses" aria-controls="panel-expenses"
-                    aria-selected="false" tabindex="-1">
-                Expenses
-                <span class="tabset__count">{{ expense_accounts|length }}</span>
-            </button>
-        </div>
+        <button class="tabset__tab" type="button" role="tab" data-tab="liabilities"
+                id="tab-liabilities" aria-controls="panel-liabilities"
+                aria-selected="false" tabindex="-1">
+            Liabilities
+            <span class="tabset__count">{{ liability_accounts|length }}</span>
+        </button>
 
-        {# ----------------------------- ASSETS ---------------------------- #}
-        <div class="tabset__panel" role="tabpanel" data-panel="assets"
-             id="panel-assets" aria-labelledby="tab-assets" tabindex="0">
-            <h2 class="tabset__print-title">Assets</h2>
-            <table class="table table--coa">
-                <thead>
-                    <tr><th>Code</th><th>Account</th><th>Type</th><th>Balance</th></tr>
-                </thead>
-                <tbody>
-                    {% for account in asset_accounts %}
-                    {% comment %} The view sets account.is_group for a heading row. {% endcomment %}
-                    <tr{% if account.is_group %} class="is-group"{% endif %}>
-                        <td>{{ account.code }}</td>
-                        <td>{{ account.name }}</td>
-                        <td>{{ account.type }}</td>
-                        <td class="{% if account.is_debit %}is-debit{% elif account.is_credit %}is-credit{% endif %}">{{ account.balance }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="4">This category has no accounts. Use the New account button above.</td></tr>
-                    {% endfor %}
-                </tbody>
-                <tfoot>
-                    <tr><td colspan="3">Total assets</td><td>{{ asset_total }}</td></tr>
-                </tfoot>
-            </table>
-        </div>
+        <button class="tabset__tab" type="button" role="tab" data-tab="equity"
+                id="tab-equity" aria-controls="panel-equity"
+                aria-selected="false" tabindex="-1">
+            Equity
+            <span class="tabset__count">{{ equity_accounts|length }}</span>
+        </button>
 
-        {# --------------------------- LIABILITIES -------------------------- #}
-        <div class="tabset__panel" role="tabpanel" data-panel="liabilities"
-             id="panel-liabilities" aria-labelledby="tab-liabilities" tabindex="0" hidden>
-            <h2 class="tabset__print-title">Liabilities</h2>
-            <table class="table table--coa">
-                <thead>
-                    <tr><th>Code</th><th>Account</th><th>Type</th><th>Balance</th></tr>
-                </thead>
-                <tbody>
-                    {% for account in liability_accounts %}
-                    <tr{% if account.is_group %} class="is-group"{% endif %}>
-                        <td>{{ account.code }}</td>
-                        <td>{{ account.name }}</td>
-                        <td>{{ account.type }}</td>
-                        <td class="{% if account.is_debit %}is-debit{% elif account.is_credit %}is-credit{% endif %}">{{ account.balance }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="4">This category has no accounts. Use the New account button above.</td></tr>
-                    {% endfor %}
-                </tbody>
-                <tfoot>
-                    <tr><td colspan="3">Total liabilities</td><td>{{ liability_total }}</td></tr>
-                </tfoot>
-            </table>
-        </div>
+        <button class="tabset__tab" type="button" role="tab" data-tab="income"
+                id="tab-income" aria-controls="panel-income"
+                aria-selected="false" tabindex="-1">
+            Income
+            <span class="tabset__count">{{ income_accounts|length }}</span>
+        </button>
 
-        {# ----------------------------- EQUITY ----------------------------- #}
-        <div class="tabset__panel" role="tabpanel" data-panel="equity"
-             id="panel-equity" aria-labelledby="tab-equity" tabindex="0" hidden>
-            <h2 class="tabset__print-title">Equity</h2>
-            <table class="table table--coa">
-                <thead>
-                    <tr><th>Code</th><th>Account</th><th>Type</th><th>Balance</th></tr>
-                </thead>
-                <tbody>
-                    {% for account in equity_accounts %}
-                    <tr{% if account.is_group %} class="is-group"{% endif %}>
-                        <td>{{ account.code }}</td>
-                        <td>{{ account.name }}</td>
-                        <td>{{ account.type }}</td>
-                        <td class="{% if account.is_debit %}is-debit{% elif account.is_credit %}is-credit{% endif %}">{{ account.balance }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="4">This category has no accounts. Use the New account button above.</td></tr>
-                    {% endfor %}
-                </tbody>
-                <tfoot>
-                    <tr><td colspan="3">Total equity</td><td>{{ equity_total }}</td></tr>
-                </tfoot>
-            </table>
-        </div>
-
-        {# ----------------------------- INCOME ----------------------------- #}
-        <div class="tabset__panel" role="tabpanel" data-panel="income"
-             id="panel-income" aria-labelledby="tab-income" tabindex="0" hidden>
-            <h2 class="tabset__print-title">Income</h2>
-            <table class="table table--coa">
-                <thead>
-                    <tr><th>Code</th><th>Account</th><th>Type</th><th>Balance</th></tr>
-                </thead>
-                <tbody>
-                    {% for account in income_accounts %}
-                    <tr{% if account.is_group %} class="is-group"{% endif %}>
-                        <td>{{ account.code }}</td>
-                        <td>{{ account.name }}</td>
-                        <td>{{ account.type }}</td>
-                        <td class="{% if account.is_debit %}is-debit{% elif account.is_credit %}is-credit{% endif %}">{{ account.balance }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="4">This category has no accounts. Use the New account button above.</td></tr>
-                    {% endfor %}
-                </tbody>
-                <tfoot>
-                    <tr><td colspan="3">Total income</td><td>{{ income_total }}</td></tr>
-                </tfoot>
-            </table>
-        </div>
-
-        {# ---------------------------- EXPENSES ---------------------------- #}
-        <div class="tabset__panel" role="tabpanel" data-panel="expenses"
-             id="panel-expenses" aria-labelledby="tab-expenses" tabindex="0" hidden>
-            <h2 class="tabset__print-title">Expenses</h2>
-            <table class="table table--coa">
-                <thead>
-                    <tr><th>Code</th><th>Account</th><th>Type</th><th>Balance</th></tr>
-                </thead>
-                <tbody>
-                    {% for account in expense_accounts %}
-                    <tr{% if account.is_group %} class="is-group"{% endif %}>
-                        <td>{{ account.code }}</td>
-                        <td>{{ account.name }}</td>
-                        <td>{{ account.type }}</td>
-                        <td class="{% if account.is_debit %}is-debit{% elif account.is_credit %}is-credit{% endif %}">{{ account.balance }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="4">This category has no accounts. Use the New account button above.</td></tr>
-                    {% endfor %}
-                </tbody>
-                <tfoot>
-                    <tr><td colspan="3">Total expenses</td><td>{{ expense_total }}</td></tr>
-                </tfoot>
-            </table>
-        </div>
+        <button class="tabset__tab" type="button" role="tab" data-tab="expenses"
+                id="tab-expenses" aria-controls="panel-expenses"
+                aria-selected="false" tabindex="-1">
+            Expenses
+            <span class="tabset__count">{{ expense_accounts|length }}</span>
+        </button>
 
     </div>
 
-    <noscript>
-        <style>
-            .tabset__list { display: none; }
-            .tabset__panel[hidden] { display: block; }
-            .tabset__panel + .tabset__panel { margin-top: 30px; }
-            .tabset__print-title {
-                display: block;
-                margin: 0 0 14px;
-                font-size: 15px;
-                font-weight: 600;
-                color: var(--ink);
-            }
-        </style>
-    </noscript>
+    {# ------------------------------- ALL ------------------------------- #}
+    <div class="tabset__panel" role="tabpanel" data-panel="all"
+         id="panel-all" aria-labelledby="tab-all" tabindex="0">
+        <h2 class="tabset__print-title">All Accounts</h2>
+        {% include "accounting/_accounts_table.html" with rows=all_accounts total=all_total total_label="Debits less credits" %}
+    </div>
+
+    {# ----------------------------- ASSETS ---------------------------- #}
+    <div class="tabset__panel" role="tabpanel" data-panel="assets"
+         id="panel-assets" aria-labelledby="tab-assets" tabindex="0" hidden>
+        <h2 class="tabset__print-title">Assets</h2>
+        {% include "accounting/_accounts_table.html" with rows=asset_accounts total=asset_total total_label="Total assets" %}
+    </div>
+
+    {# --------------------------- LIABILITIES -------------------------- #}
+    <div class="tabset__panel" role="tabpanel" data-panel="liabilities"
+         id="panel-liabilities" aria-labelledby="tab-liabilities" tabindex="0" hidden>
+        <h2 class="tabset__print-title">Liabilities</h2>
+        {% include "accounting/_accounts_table.html" with rows=liability_accounts total=liability_total total_label="Total liabilities" %}
+    </div>
+
+    {# ----------------------------- EQUITY ----------------------------- #}
+    <div class="tabset__panel" role="tabpanel" data-panel="equity"
+         id="panel-equity" aria-labelledby="tab-equity" tabindex="0" hidden>
+        <h2 class="tabset__print-title">Equity</h2>
+        {% include "accounting/_accounts_table.html" with rows=equity_accounts total=equity_total total_label="Total equity" %}
+    </div>
+
+    {# ----------------------------- INCOME ----------------------------- #}
+    <div class="tabset__panel" role="tabpanel" data-panel="income"
+         id="panel-income" aria-labelledby="tab-income" tabindex="0" hidden>
+        <h2 class="tabset__print-title">Income</h2>
+        {% include "accounting/_accounts_table.html" with rows=income_accounts total=income_total total_label="Total income" %}
+    </div>
+
+    {# ---------------------------- EXPENSES ---------------------------- #}
+    <div class="tabset__panel" role="tabpanel" data-panel="expenses"
+         id="panel-expenses" aria-labelledby="tab-expenses" tabindex="0" hidden>
+        <h2 class="tabset__print-title">Expenses</h2>
+        {% include "accounting/_accounts_table.html" with rows=expense_accounts total=expense_total total_label="Total expenses" %}
+    </div>
+
+</div>
+
+<noscript>
+    <style>
+        .tabset__list { display: none; }
+        .tabset__panel[hidden] { display: block; }
+        .tabset__panel + .tabset__panel { margin-top: 30px; }
+        .tabset__print-title {
+            display: block;
+            margin: 0 0 14px;
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--ink);
+        }
+    </style>
+</noscript>
+
+{# ---------------------- NEW ACCOUNT OVERLAY ------------------------ #}
+<dialog class="sheet sheet--wide" id="account-dialog" aria-labelledby="account-dialog-title">
+    <form method="post" action="{% url 'accounting:account_create' %}">
+        {% csrf_token %}
+        <div class="sheet__head">
+            <h2 class="sheet__title" id="account-dialog-title">Create New Account</h2>
+        </div>
+        <div class="sheet__body sheet__body--split">
+            <div class="field">
+                <label class="field__label" for="ac-code">Code</label>
+                <input class="field__control" id="ac-code" name="code" type="text" maxlength="10" required>
+            </div>
+            <div class="field">
+                <label class="field__label" for="ac-name">Name</label>
+                <input class="field__control" id="ac-name" name="name" type="text" maxlength="255" required>
+            </div>
+            <div class="field">
+                <label class="field__label" for="ac-type">Type</label>
+                <select class="field__control" id="ac-type" name="type" required>
+                    {% for value, label in account_types %}
+                    <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="field">
+                <label class="field__label" for="ac-parent">Parent account</label>
+                <select class="field__control" id="ac-parent" name="parent">
+                    <option value="">None</option>
+                    {% for account in parent_accounts %}
+                    <option value="{{ account.pk }}">{{ account }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="field">
+                <label class="field__label" for="ac-currency">Currency</label>
+                <select class="field__control" id="ac-currency" name="currency">
+                    <option value="">Company currency</option>
+                    {% for currency in currencies %}
+                    <option value="{{ currency.pk }}">{{ currency }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="field">
+                <label class="field__label" for="ac-active">Status</label>
+                <label class="switch">
+                    <input id="ac-active" name="is_active" type="checkbox" checked>
+                    <span class="switch__track" aria-hidden="true"></span>
+                    <span class="switch__text">Active</span>
+                </label>
+            </div>
+            <div class="field field--wide">
+                <label class="field__label" for="ac-description">Description</label>
+                <input class="field__control" id="ac-description" name="description" type="text" maxlength="500">
+            </div>
+        </div>
+        <div class="sheet__foot">
+            <button class="tool" type="button" data-dialog-cancel>Cancel</button>
+            <button class="tool tool--primary" type="submit">Save</button>
+        </div>
+    </form>
+</dialog>
+
 </section>
 {% endblock %}
 
-
 {% block extra_js %}
+
 <script src="{% static 'accounting/js/journals.js' %}"></script>
+<script src="{% static 'accounting/js/accounts.js' %}"></script>
+
 {% endblock %}
