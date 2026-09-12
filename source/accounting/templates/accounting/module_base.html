@@ -168,10 +168,49 @@
 
     <div class="context__actions">
         {% block context_actions %}
-        <button class="tool tool--ghost" type="button">
-            <svg class="icon" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18" stroke-linecap="round"/></svg>
-            {{ period|default:"FY 2026" }}
-        </button>
+        {% comment %} The global date range. daterange.js keeps the choice in
+             local storage, and copies it into a cookie. Each view then
+             filters its queries with the same dates. {% endcomment %}
+        <div class="daterange" data-daterange
+             data-key="{{ range_key|default:'fy' }}"
+             data-start="{{ range_start|date:'Y-m-d' }}"
+             data-end="{{ range_end|date:'Y-m-d' }}"
+             data-fy-start="{{ fy_start|date:'Y-m-d' }}"
+             data-fy-end="{{ fy_end|date:'Y-m-d' }}">
+
+            <button class="tool tool--ghost" type="button" aria-haspopup="true"
+                    aria-expanded="false" data-range-btn>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18" stroke-linecap="round"/></svg>
+                <span data-range-label>{{ range_label|default:"Current Financial Year" }}</span>
+                <svg class="icon icon--caret" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 10l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+
+            <div class="daterange__panel" role="dialog" aria-label="Date range" hidden data-range-panel>
+                <div class="daterange__presets">
+                    <button class="daterange__preset" type="button" data-preset="fy">Current Financial Year</button>
+                    <button class="daterange__preset" type="button" data-preset="fy_last">Last Financial Year</button>
+                    <button class="daterange__preset" type="button" data-preset="quarter">Current Quarter</button>
+                    <button class="daterange__preset" type="button" data-preset="month">Current Month</button>
+                    <button class="daterange__preset" type="button" data-preset="ytd">Year to Date</button>
+                </div>
+
+                <div class="daterange__fields">
+                    <label class="field">
+                        <span class="field__label">Start</span>
+                        <input class="field__control" type="date" data-range-start>
+                    </label>
+                    <label class="field">
+                        <span class="field__label">End</span>
+                        <input class="field__control" type="date" data-range-end>
+                    </label>
+                </div>
+
+                <div class="daterange__foot">
+                    <button class="tool tool--ghost" type="button" data-range-cancel>Cancel</button>
+                    <button class="tool tool--primary" type="button" data-range-apply>Apply</button>
+                </div>
+            </div>
+        </div>
         {% endblock %}
     </div>
 </div>
@@ -238,4 +277,9 @@
 
 {% comment %} The scrim closes the drawer. base.js reads data-drawer-close. {% endcomment %}
 <div class="scrim" data-drawer-close></div>
+{% endblock %}
+
+{# ===================== MODULE SCRIPTS ===================== #}
+{% block extra_js %}
+<script src="{% static 'accounting/js/daterange.js' %}"></script>
 {% endblock %}

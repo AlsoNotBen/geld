@@ -368,5 +368,6 @@
 
 
 {% block extra_js %}
+{{ block.super }}
 <script src="{% static 'accounting/js/journals.js' %}"></script>
 {% endblock %}

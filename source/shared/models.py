@@ -93,11 +93,23 @@ class Membership(models.Model):
     def can_edit(self):
         return self.role != self.Role.VIEWER
 
+
 # Used for customers, suppliers, partners, leads etc. Any trade activity entities (do not confuse with Company model)
 class Entity(CompanyOwned, TimeStamped):
     class EntityType(models.TextChoices):
         INDIVIDUAL      = "I", "Individual"
         ORGANIZATION    = "O", "Organization"
+
+    # TODO: once the sales cycle makes more sense, move this to its own model for custom statuses
+    class EntityStatus(models.TextChoices):
+        # Leads
+        NEW_LEAD        = "NL", "New Lead"
+        OPEN_LEAD       = "OL", "Open Lead" # Quotes sent to new people should get this status
+        HERDING_LEAD    = "HL", "In Progress"
+        CLOSED_LOST     = "CL", "Lost Lead"
+        CUSTOMER        = "C", "Customer"    # Invoices sent to new people/organisations should get this status
+
+
 
     type                = models.CharField(max_length=1, choices=EntityType.choices)
     display_name        = models.CharField(max_length=255)         

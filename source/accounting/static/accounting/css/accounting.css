@@ -1572,3 +1572,65 @@
 }
 .switch__text { font-size: 13px; color: var(--ink-soft); }
 .switch input:checked ~ .switch__text { color: var(--ink); }
+
+/* ================================================================== */
+/*  DATE RANGE  (the drop-down at the right of the module bar)        */
+/* ================================================================== */
+.daterange { position: relative; }
+
+.daterange__panel {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 70;
+    width: 280px;
+    margin-top: 6px;
+    padding: 8px;
+
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
+}
+.daterange__panel[hidden] { display: none; }
+
+.daterange__presets {
+    display: grid;
+    gap: 2px;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+}
+.daterange__preset {
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    color: var(--ink-soft);
+    font-size: 13px;
+    font-weight: 500;
+    text-align: left;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+.daterange__preset:hover,
+.daterange__preset:focus-visible {
+    background: var(--gold-soft);
+    color: var(--gold);
+}
+
+.daterange__fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+.daterange__fields .field { min-width: 0; }
+.daterange__fields .field__control {
+    width: 100%;
+    min-width: 0;
+    padding: 0 8px;
+}
+
+.daterange__foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 10px;
+}

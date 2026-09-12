@@ -1,9 +1,10 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.db.models import Sum, DecimalField
+from django.db.models import Sum, DecimalField, Q
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from decimal import Decimal
 from accounting.models import *
+from accounting.date_range import get_range
 
 ZERO = Decimal("0")
 
@@ -74,12 +75,18 @@ def make_lines(entry, post):
     )
 
 def journals(request):
-    lines = (JournalLine.objects.select_related("entry", "account").order_by("entry__date", "entry_id", "id"))
+    # The global date range keeps only the entries of the selected period.
+    key, start, end = get_range(request)
+
+    lines = (JournalLine.objects
+             .filter(entry__date__range=(start, end))
+             .select_related("entry", "account")
+             .order_by("entry__date", "entry_id", "id"))
 
     posted = list(lines.filter(entry__status=JournalEntry.Status.POSTED))
     drafts = draft_rows(
         JournalEntry.objects
-        .filter(status=JournalEntry.Status.DRAFT)
+        .filter(status=JournalEntry.Status.DRAFT, date__range=(start, end))
         .prefetch_related("lines__account")
         .order_by("date", "id")
     )
@@ -191,9 +198,13 @@ def category_of(account):
     return None
  
 def chartaccounts(request):
+    # The balance of an account uses only the lines of the date range.
+    key, start, end = get_range(request)
+    in_range = Q(lines__entry__date__range=(start, end))
+
     accounts = list(Account.objects.annotate(
-        debits=Coalesce(Sum("lines__base_debit"), ZERO, output_field=DecimalField()),
-        credits=Coalesce(Sum("lines__base_credit"), ZERO, output_field=DecimalField()),
+        debits=Coalesce(Sum("lines__base_debit", filter=in_range), ZERO, output_field=DecimalField()),
+        credits=Coalesce(Sum("lines__base_credit", filter=in_range), ZERO, output_field=DecimalField()),
     ).order_by("code"))
  
     parent_ids = set(Account.objects.exclude(parent=None).values_list("parent_id", flat=True))
