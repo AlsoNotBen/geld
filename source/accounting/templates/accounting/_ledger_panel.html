@@ -1,0 +1,49 @@
+{% comment %}
+  accounting/templates/accounting/_ledger_panel.html
+  The account blocks of one General Ledger tab.
+  Give it: accounts (the list of one category), and title.
+{% endcomment %}
+{% load fin %}
+{% for acct in accounts %}
+<section class="ledger-acct" aria-labelledby="acct-{{ acct.account.code }}">
+    <div class="ledger-acct__head">
+        <span class="ledger-acct__code">{{ acct.account.code }}</span>
+        <h3 class="ledger-acct__name" id="acct-{{ acct.account.code }}">{{ acct.account.name }}</h3>
+        <span class="ledger-acct__type">{{ acct.account.get_type_display }}</span>
+        <span class="ledger-acct__bal">Closing balance
+            <b class="{% if acct.account.is_debit %}is-debit{% else %}is-credit{% endif %}" data-num>{{ acct.closing|money }} {{ acct.side }}</b>
+        </span>
+    </div>
+
+    <table class="table table--ledger">
+        <thead>
+            <tr>
+                <th>Date</th><th>Reference</th><th>Details</th>
+                <th>Debit</th><th>Credit</th><th>Balance ({{ acct.side }})</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr class="is-open is-prior">
+                <td>{{ start|date:"Y-m-d" }}</td><td>—</td><td>Balance brought forward</td>
+                <td></td><td></td><td>{{ acct.opening|money }}</td>
+            </tr>
+            {% for line in acct.lines %}
+            <tr>
+                <td>{{ line.date|date:"Y-m-d" }}</td><td>{{ line.reference }}</td><td>{{ line.details }}</td>
+                <td>{% if line.debit %}{{ line.debit|money }}{% endif %}</td>
+                <td>{% if line.credit %}{{ line.credit|money }}{% endif %}</td>
+                <td>{{ line.balance|money }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="3">Totals for the period</td>
+                <td>{{ acct.debit_total|money }}</td><td>{{ acct.credit_total|money }}</td><td>{{ acct.closing|money }}</td>
+            </tr>
+        </tfoot>
+    </table>
+</section>
+{% empty %}
+<p class="page__note">No {{ title|lower }} account has a movement in this period.</p>
+{% endfor %}

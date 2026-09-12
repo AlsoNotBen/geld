@@ -1,0 +1,16 @@
+{% comment %}
+  accounting/templates/accounting/_statement_rows.html
+  The body rows of a balance sheet or income statement table.
+  Give it: rows. Each row has name · row_class · group · code · this · last.
+{% endcomment %}
+{% load fin %}
+{% for row in rows %}
+<tr class="{{ row.row_class }}">
+    {% if row.group %}
+    <td colspan="4">{{ row.name }}</td>
+    {% else %}
+    <td>{{ row.name }}</td><td>{{ row.code }}</td>
+    <td>{{ row.this|money }}</td><td>{{ row.last|money }}</td>
+    {% endif %}
+</tr>
+{% endfor %}

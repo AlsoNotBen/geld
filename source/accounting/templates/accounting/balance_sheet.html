@@ -1,5 +1,5 @@
 {% extends "accounting/module_base.html" %}
-{% load static %}
+{% load static fin %}
 
 {% comment %}
   ============================================================================
@@ -25,23 +25,12 @@
       is-sum     a total inside the table, for example "Total current assets"
   The tfoot holds the total of the table.
 
-  The figures below are examples. Replace them with the values of the view.
-  A line can come from a list, for example:
-
-      {% for line in asset_lines %}
-      <tr class="{{ line.row_class }}">
-          <td>{{ line.name }}</td>
-          <td>{{ line.note }}</td>
-          <td>{{ line.this_period }}</td>
-          <td>{{ line.last_period }}</td>
-      </tr>
-      {% endfor %}
-
-  Do not put a fallback in a filter argument, for example |default:lines.
-  A variable in that position must exist, or Django stops the page.
-
-  Show a negative figure in brackets, for example (240,000). This is the
-  practice of a financial statement.
+  The view gives two lists: asset_rows and equity_rows. Each row has
+      name · row_class · group (True for a heading row)
+      code · this · last
+  _statement_rows.html renders a list. The money filter shows a negative
+  figure in brackets, for example (240,000.00). This is the practice of
+  a financial statement.
   ============================================================================
 {% endcomment %}
 
@@ -64,8 +53,9 @@
             totals must agree: total assets are equal to total equity and
             liabilities. A lender reads this statement to see if the business
             can pay its debts. An owner reads it to see the value of the
-            business. The position is at 31 March 2026, with 31 March 2025 for
-            comparison. All figures in ZAR.
+            business. The position is at {{ end|date:"j F Y" }}, with
+            {{ prev_end|date:"j F Y" }} for comparison. All figures in
+            {{ currency }}.
         </p>
     </div>
 
@@ -89,30 +79,33 @@
             </button>
         </div>
 
-        <p class="actionbar__hint">Total assets agree with total equity and liabilities.</p>
+        <p class="actionbar__hint">
+            {% if is_balanced %}Total assets agree with total equity and liabilities.
+            {% else %}Total assets do not agree with total equity and liabilities. Examine the posted entries.{% endif %}
+        </p>
     </div>
 
     {% comment %} The five cards give the result of the two tables below. {% endcomment %}
     <div class="cards">
         <div class="card">
             <span class="card__label">Total assets</span>
-            <div class="card__value" data-unit="ZAR">11,000,000</div>
+            <div class="card__value" data-unit="{{ currency }}">{{ assets_this|money }}</div>
         </div>
         <div class="card">
             <span class="card__label">Total equity</span>
-            <div class="card__value is-credit" data-unit="ZAR">6,362,000</div>
+            <div class="card__value is-credit" data-unit="{{ currency }}">{{ equity_this|money }}</div>
         </div>
         <div class="card">
             <span class="card__label">Total liabilities</span>
-            <div class="card__value is-debit" data-unit="ZAR">4,638,000</div>
+            <div class="card__value is-debit" data-unit="{{ currency }}">{{ liabilities_this|money }}</div>
         </div>
         <div class="card">
             <span class="card__label">Working capital</span>
-            <div class="card__value" data-unit="ZAR">2,760,000</div>
+            <div class="card__value" data-unit="{{ currency }}">{{ working_capital|money }}</div>
         </div>
         <div class="card">
             <span class="card__label">Current ratio</span>
-            <div class="card__value is-count">2.21</div>
+            <div class="card__value is-count">{% if current_ratio %}{{ current_ratio|floatformat:2 }}{% else %}—{% endif %}</div>
         </div>
     </div>
 
@@ -123,60 +116,18 @@
         <thead>
             <tr>
                 <th>Line</th>
-                <th>Note</th>
-                <th>31 Mar 2026</th>
-                <th>31 Mar 2025</th>
+                <th>Code</th>
+                <th>{{ end|date:"j M Y" }}</th>
+                <th>{{ prev_end|date:"j M Y" }}</th>
             </tr>
         </thead>
         <tbody>
-            <tr class="is-group"><td colspan="4">Non-current assets</td></tr>
-            <tr class="is-nest">
-                <td>Property, plant and equipment</td><td>3</td>
-                <td>4,820,000</td><td>4,310,000</td>
-            </tr>
-            <tr class="is-nest">
-                <td>Right-of-use assets</td><td>4</td>
-                <td>640,000</td><td>780,000</td>
-            </tr>
-            <tr class="is-nest">
-                <td>Intangible assets</td><td>5</td>
-                <td>310,000</td><td>265,000</td>
-            </tr>
-            <tr class="is-nest">
-                <td>Deferred tax asset</td><td>6</td>
-                <td>180,000</td><td>145,000</td>
-            </tr>
-            <tr class="is-sum">
-                <td>Total non-current assets</td><td></td>
-                <td>5,950,000</td><td>5,500,000</td>
-            </tr>
-
-            <tr class="is-group"><td colspan="4">Current assets</td></tr>
-            <tr class="is-nest">
-                <td>Inventories</td><td>7</td>
-                <td>1,145,000</td><td>980,000</td>
-            </tr>
-            <tr class="is-nest">
-                <td>Trade and other receivables</td><td>8</td>
-                <td>2,380,000</td><td>2,060,000</td>
-            </tr>
-            <tr class="is-nest">
-                <td>Prepayments</td><td></td>
-                <td>96,000</td><td>84,000</td>
-            </tr>
-            <tr class="is-nest">
-                <td>Cash and cash equivalents</td><td>9</td>
-                <td>1,429,000</td><td>872,000</td>
-            </tr>
-            <tr class="is-sum">
-                <td>Total current assets</td><td></td>
-                <td>5,050,000</td><td>3,996,000</td>
-            </tr>
+            {% include "accounting/_statement_rows.html" with rows=asset_rows %}
         </tbody>
         <tfoot>
             <tr>
                 <td colspan="2">Total assets</td>
-                <td>11,000,000</td><td>9,496,000</td>
+                <td>{{ assets_this|money }}</td><td>{{ assets_last|money }}</td>
             </tr>
         </tfoot>
     </table>
@@ -184,82 +135,22 @@
     {# ----------------------- EQUITY AND LIABILITIES ---------------------- #}
     <h2 class="page__subtitle" id="equity-title">Equity and liabilities</h2>
 
-    <table class="table table--fin" aria-labelledby="equity-title">
+    <table class="table table--fin" aria-labelledby="equity-title" data-num>
         <thead>
             <tr>
                 <th>Line</th>
-                <th>Note</th>
-                <th>31 Mar 2026</th>
-                <th>31 Mar 2025</th>
+                <th>Code</th>
+                <th>{{ end|date:"j M Y" }}</th>
+                <th>{{ prev_end|date:"j M Y" }}</th>
             </tr>
         </thead>
         <tbody>
-            <tr class="is-group"><td colspan="4">Equity</td></tr>
-            <tr class="is-nest">
-                <td>Share capital</td><td>10</td>
-                <td>1,500,000</td><td>1,200,000</td>
-            </tr>
-            <tr class="is-nest">
-                <td>Share premium</td><td>10</td>
-                <td>850,000</td><td>610,000</td>
-            </tr>
-            <tr class="is-nest">
-                <td>Revaluation reserve</td><td>11</td>
-                <td>420,000</td><td>300,000</td>
-            </tr>
-            <tr class="is-nest">
-                <td>Retained earnings</td><td></td>
-                <td>3,592,000</td><td>2,690,000</td>
-            </tr>
-            <tr class="is-sum">
-                <td>Total equity</td><td></td>
-                <td>6,362,000</td><td>4,800,000</td>
-            </tr>
-
-            <tr class="is-group"><td colspan="4">Non-current liabilities</td></tr>
-            <tr class="is-nest">
-                <td>Long-term borrowings</td><td>12</td>
-                <td>1,650,000</td><td>1,980,000</td>
-            </tr>
-            <tr class="is-nest">
-                <td>Lease liabilities</td><td>13</td>
-                <td>430,000</td><td>560,000</td>
-            </tr>
-            <tr class="is-nest">
-                <td>Deferred tax liability</td><td>6</td>
-                <td>268,000</td><td>214,000</td>
-            </tr>
-            <tr class="is-sum">
-                <td>Total non-current liabilities</td><td></td>
-                <td>2,348,000</td><td>2,754,000</td>
-            </tr>
-
-            <tr class="is-group"><td colspan="4">Current liabilities</td></tr>
-            <tr class="is-nest">
-                <td>Trade and other payables</td><td>14</td>
-                <td>1,485,000</td><td>1,318,000</td>
-            </tr>
-            <tr class="is-nest">
-                <td>Current portion of borrowings</td><td>12</td>
-                <td>330,000</td><td>330,000</td>
-            </tr>
-            <tr class="is-nest">
-                <td>VAT payable</td><td></td>
-                <td>187,000</td><td>154,000</td>
-            </tr>
-            <tr class="is-nest">
-                <td>Current tax payable</td><td></td>
-                <td>288,000</td><td>140,000</td>
-            </tr>
-            <tr class="is-sum">
-                <td>Total current liabilities</td><td></td>
-                <td>2,290,000</td><td>1,942,000</td>
-            </tr>
+            {% include "accounting/_statement_rows.html" with rows=equity_rows %}
         </tbody>
         <tfoot>
             <tr>
                 <td colspan="2">Total equity and liabilities</td>
-                <td>11,000,000</td><td>9,496,000</td>
+                <td>{{ equity_liabilities_this|money }}</td><td>{{ equity_liabilities_last|money }}</td>
             </tr>
         </tfoot>
     </table>

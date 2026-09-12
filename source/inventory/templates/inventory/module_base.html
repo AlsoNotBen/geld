@@ -59,17 +59,17 @@
     <div class="toolbar" role="toolbar" aria-label="Inventory tools">
         {% block toolbar %}
             {% comment %}
-              The Accounting module opens the document overlay from a tool,
-              with a data-doc-overlay attribute. The Inventory module has no
-              document type yet. Give a button this attribute when the
-              documents app knows an inventory panel:
-                  data-doc-overlay="{% verbatim %}{% url 'documents:panel' 'inventory' 'grn' %}{% endverbatim %}"
+              A button with data-doc-overlay opens the document overlay.
+              documents.js fetches the panel and shows it in a dialog.
+              inventory/documents.py registers the two document types.
             {% endcomment %}
-            <button class="tool tool--primary" type="button">
+            <button class="tool tool--primary" type="button"
+                    data-doc-overlay="{% url 'documents:panel' 'inventory' 'purchase-order' %}">
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
                 Purchase Order
             </button>
-            <button class="tool tool--primary" type="button">
+            <button class="tool tool--primary" type="button"
+                    data-doc-overlay="{% url 'documents:panel' 'inventory' 'goods-receipt' %}">
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
                 Goods Receipt
             </button>
@@ -118,6 +118,21 @@
                     <a class="tbar-menu__item" role="menuitem" href="#">Reorder List</a>
                     <span class="tbar-menu__sep" role="separator" aria-hidden="true"></span>
                     <a class="tbar-menu__item" role="menuitem" href="#">Consumable Dashboard</a>
+                </div>
+            </div>
+
+            <div class="tbar-menu">
+                <button class="tool tbar-menu__btn" type="button" aria-haspopup="true" aria-expanded="false">
+                    Components
+                    <svg class="icon icon--caret" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 10l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <div class="tbar-menu__panel tbar-menu__panel--right" role="menu" aria-label="Movement">
+                    <a class="tbar-menu__item" role="menuitem" href="#">All Components</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">New Component</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Stale Components</a>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Write-offs</a>
+                    <span class="tbar-menu__sep" role="separator" aria-hidden="true"></span>
+                    <a class="tbar-menu__item" role="menuitem" href="#">Movement Dashboard</a>
                 </div>
             </div>
 
@@ -187,11 +202,11 @@
             <a class="nav__item" data-nav="analytics" href="{% url 'inventory:analytics' %}">Analytics</a>
             <a class="nav__item" data-nav="reports"   href="{% url 'inventory:reports' %}">Reports</a>
 
-            <div class="nav__group">Stock Control</div>
+            <div class="nav__group">Inventory Control</div>
             <a class="nav__item" data-nav="bom" href="{% url 'inventory:bom' %}">Bill of Materials</a>
             <a class="nav__item" data-nav="kits" href="{% url 'inventory:codes' %}">Codes Management</a>
             <a class="nav__item" data-nav="assets" href="{% url 'inventory:items' %}">Item Management</a>
-            <a class="nav__item" data-nav="stock" href="#">Locations</a>
+            <a class="nav__item" data-nav="stock" href="#">Warhouse Management</a>
             <a class="nav__item" data-nav="consumables" href="#">Suppliers</a>
 
             <div class="nav__group">Movement</div>

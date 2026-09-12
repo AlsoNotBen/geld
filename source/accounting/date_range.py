@@ -7,7 +7,7 @@ on each request, and a view can filter its queries.
 Cookie format:  key|start|end     e.g.  fy|2026-03-01|2027-02-28
 """
 
-from datetime import date
+from datetime import date, timedelta
 
 from accounting.models import FiscalYear
 
@@ -50,3 +50,15 @@ def get_range(request):
 def label_of(key, start, end):
     """The text of the button in the module bar."""
     return LABELS.get(key) or f"{start:%d %b %Y} – {end:%d %b %Y}"
+
+def previous_range(start, end):
+    """The period of the same length that ends the day before start.
+    A range of full months moves back in months. Thus a year stays a
+    year, and a quarter stays a quarter."""
+    if start.day == 1 and (end + timedelta(days=1)).day == 1:
+        months = (end.year - start.year) * 12 + end.month - start.month + 1
+        first = start.month - 1 - months                # zero-based month, can be negative
+        prev_start = date(start.year + first // 12, first % 12 + 1, 1)
+        return prev_start, start - timedelta(days=1)
+    length = end - start + timedelta(days=1)
+    return start - length, start - timedelta(days=1)

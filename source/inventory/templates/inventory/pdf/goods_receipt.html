@@ -1,0 +1,114 @@
+{% extends "documents/base_pdf.html" %}
+{% load humanize %}
+
+{% block doc_title %}Goods Receipt {{ options.number }}{% endblock %}
+{% block doc_kind %}Goods Receipt{% endblock %}
+{% block footer_kind %}Goods Receipt {{ options.number }}{% endblock %}
+{% block doc_number %}{{ options.number }}{% endblock %}
+
+{% block styles %}
+    .sign {
+        margin-top: 12mm;
+        page-break-inside: avoid;
+    }
+    .sign__title {
+        font-size: 7pt;
+        font-weight: 700;
+        letter-spacing: 1pt;
+        text-transform: uppercase;
+        color: #8A8F98;
+        margin-bottom: 4mm;
+    }
+    .sign__grid { display: flex; gap: 12mm; }
+    .sign__field { flex: 1; }
+    .sign__line {
+        border-bottom: 0.6pt solid #23272E;
+        height: 9mm;
+    }
+    .sign__label { font-size: 7.5pt; color: #6B7078; margin-top: 1mm; }
+{% endblock %}
+
+{% block body %}
+<div class="meta">
+    <div class="meta__block">
+        <div class="meta__label">Received from</div>
+        <div class="meta__value"><strong>{{ supplier.name }}</strong>{% if supplier.details %}
+{{ supplier.details }}{% endif %}</div>
+    </div>
+    <div class="meta__block">
+        <div class="meta__label">Received at</div>
+        <div class="meta__value">{{ options.received_at }}</div>
+    </div>
+    <div class="meta__block">
+        <div class="meta__label">Received date</div>
+        <div class="meta__value">{{ options.received_date|date:"j F Y" }}</div>
+    </div>
+    <div class="meta__block">
+        <div class="meta__label">Order number</div>
+        <div class="meta__value">{{ options.order_number }}{% if options.delivery_note %}
+Delivery note {{ options.delivery_note }}{% endif %}</div>
+    </div>
+</div>
+
+<table class="items">
+    <thead>
+        <tr>
+            <th>Description</th>
+            <th class="num">Qty received</th>
+            <th>Unit</th>
+            <th class="num">Unit price</th>
+            <th class="num">Value</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for line in lines %}
+        <tr>
+            <td>{{ line.description }}</td>
+            <td class="num">{{ line.quantity|floatformat:"-2" }}</td>
+            <td>{{ line.unit }}</td>
+            <td class="num">{{ options.currency }} {{ line.unit_price|floatformat:2|intcomma }}</td>
+            <td class="num">{{ options.currency }} {{ line.total|floatformat:2|intcomma }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<table class="totals">
+    <tr>
+        <td>Subtotal</td>
+        <td class="num">{{ options.currency }} {{ subtotal|floatformat:2|intcomma }}</td>
+    </tr>
+    <tr>
+        <td>Tax ({{ options.tax_rate|floatformat:"-2" }}%)</td>
+        <td class="num">{{ options.currency }} {{ tax|floatformat:2|intcomma }}</td>
+    </tr>
+    <tr class="grand">
+        <td>Value received</td>
+        <td class="num">{{ options.currency }} {{ total|floatformat:2|intcomma }}</td>
+    </tr>
+</table>
+
+{% if options.notes %}
+<div class="note">
+    <div class="note__label">Notes</div>{{ options.notes }}
+</div>
+{% endif %}
+
+<div class="sign">
+    <div class="sign__title">Confirmation</div>
+    <div class="sign__grid">
+        <div class="sign__field">
+            <div class="sign__line"></div>
+            <div class="sign__label">Received by</div>
+        </div>
+        <div class="sign__field">
+            <div class="sign__line"></div>
+            <div class="sign__label">Checked by</div>
+        </div>
+        <div class="sign__field">
+            <div class="sign__line"></div>
+            <div class="sign__label">Date</div>
+        </div>
+    </div>
+</div>
+{% endblock %}

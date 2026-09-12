@@ -4,7 +4,8 @@ from django.db.models.functions import Coalesce
 from django.utils import timezone
 from decimal import Decimal
 from accounting.models import *
-from accounting.date_range import get_range
+from accounting.date_range import get_range, previous_range
+from datetime import timedelta
 
 ZERO = Decimal("0")
 
@@ -217,13 +218,11 @@ def chartaccounts(request):
         account.is_group = account.pk in parent_ids
  
     context = {
-        # Data for the New Account form.
-        "account_types": Account.AccountType.choices,
-        "currencies": Currency.objects.all(),
-        "parent_accounts": accounts,
-        # The All tab keeps every account.
-        "all_accounts": accounts,
-        "all_total": sum((a.signed for a in accounts), ZERO),
+        "account_types"     : Account.AccountType.choices,
+        "currencies"        : Currency.objects.all(),
+        "parent_accounts"   : accounts,
+        "all_accounts"      : accounts,
+        "all_total"         : sum((a.signed for a in accounts), ZERO),
     }
     for key in CATEGORIES:
         rows = [a for a in accounts if category_of(a) == key]
@@ -247,18 +246,230 @@ def account_create(request):
         )
     return redirect("accounting:chartaccounts")
 
+PROFIT_TYPES = [
+    Account.AccountType.SALES, Account.AccountType.COST_OF_SALES, Account.AccountType.OTHER_INCOME,
+    Account.AccountType.EXPENSES, Account.AccountType.INCOME_TAX,
+]
+
+def movements(start=None, end=None):
+    """The signed movement (debits less credits) of each account, from the
+    posted entries in the date range. Returns {account_id: Decimal}."""
+    lines = JournalLine.objects.filter(entry__status=JournalEntry.Status.POSTED)
+    if start:
+        lines = lines.filter(entry__date__gte=start)
+    if end:
+        lines = lines.filter(entry__date__lte=end)
+    rows = lines.values("account_id").annotate(d=Sum("base_debit"), c=Sum("base_credit"))
+    return {row["account_id"]: row["d"] - row["c"] for row in rows}
+
+def profit_of(balances, accounts):
+    """The profit in a set of balances: credits less debits of the
+    profit or loss accounts."""
+    return -sum((balances.get(a.id, ZERO) for a in accounts if a.type in PROFIT_TYPES), ZERO)
+
+def items_of(accounts, this, last, sign):
+    """One (name, code, this, last) for each account. sign is 1 for a
+    debit balance shown as positive, -1 for a credit balance."""
+    return [(a.name, a.code, sign * this.get(a.id, ZERO), sign * last.get(a.id, ZERO)) for a in accounts]
+
+def block(title, items, total_label):
+    """The rows of one group of a statement: a group row, a nested row for
+    each item with a figure, and a sum row. Returns (rows, this, last)."""
+    rows = [{"name": title, "row_class": "is-group", "group": True}]
+    this = last = ZERO
+    for name, code, v1, v2 in items:
+        if v1 == 0 and v2 == 0:
+            continue
+        rows.append({"name": name, "code": code, "row_class": "is-nest", "this": v1, "last": v2})
+        this += v1
+        last += v2
+    rows.append({"name": total_label, "row_class": "is-sum", "this": this, "last": last})
+    return rows, this, last
+
+def sum_row(name, this, last):
+    return {"name": name, "row_class": "is-sum", "this": this, "last": last}
+
+def by_type(accounts):
+    groups = {}
+    for account in accounts:
+        groups.setdefault(account.type, []).append(account)
+    return groups
+
+def statement_context(request):
+    """The dates that each statement shows."""
+    key, start, end = get_range(request)
+    prev_start, prev_end = previous_range(start, end)
+    company = getattr(request, "company", None)
+    return {
+        "start": start, "end": end, "prev_start": prev_start, "prev_end": prev_end,
+        "currency": company.base_currency_id if company else "",
+    }
 
 def ledger(request):
-    return render(request, "accounting/ledger.html")
+    ctx = statement_context(request)
+    opening = movements(end=ctx["start"] - timedelta(days=1))
+    lines = (JournalLine.objects
+             .filter(entry__status=JournalEntry.Status.POSTED,
+                     entry__date__range=(ctx["start"], ctx["end"]))
+             .select_related("entry", "account")
+             .order_by("account__code", "entry__date", "entry_id", "id"))
+
+    # One block for each account with a movement in the period.
+    blocks = {}
+    for line in lines:
+        acct = blocks.get(line.account_id)
+        if acct is None:
+            balance = opening.get(line.account_id, ZERO)
+            acct = {"account": line.account, "opening": balance, "closing": balance,
+                    "debit_total": ZERO, "credit_total": ZERO, "lines": []}
+            blocks[line.account_id] = acct
+        acct["closing"] += line.base_debit - line.base_credit
+        acct["debit_total"] += line.base_debit
+        acct["credit_total"] += line.base_credit
+        acct["lines"].append({
+            "date": line.entry.date,
+            "reference": line.entry.reference,
+            "details": line.description or line.entry.narration,
+            "debit": line.base_debit,
+            "credit": line.base_credit,
+            "balance": acct["closing"],
+        })
+
+    # The balance column shows the side of the closing balance.
+    for acct in blocks.values():
+        acct["account"].is_debit = acct["closing"] >= 0
+        acct["side"] = "Dr" if acct["account"].is_debit else "Cr"
+        if not acct["account"].is_debit:
+            acct["opening"] = -acct["opening"]
+            acct["closing"] = -acct["closing"]
+            for row in acct["lines"]:
+                row["balance"] = -row["balance"]
+
+    for key in CATEGORIES:
+        ctx[f"{key}_accounts"] = [a for a in blocks.values() if category_of(a["account"]) == key]
+    return render(request, "accounting/ledger.html", ctx)
 
 def balancesheet(request):
-    return render(request,"accounting/balance_sheet.html")
+    ctx = statement_context(request)
+    accounts = list(Account.objects.all())
+    this = movements(end=ctx["end"])
+    last = movements(end=ctx["prev_end"])
+    groups = by_type(accounts)
+    T = Account.AccountType
+
+    # A floating nominal account goes to the side of its balance today.
+    floating = groups.get(T.FLOATING_NOMINAL, [])
+    floating_debit = [a for a in floating if this.get(a.id, ZERO) >= 0]
+    floating_credit = [a for a in floating if this.get(a.id, ZERO) < 0]
+
+    nca, nca_this, nca_last = block("Non-current assets", items_of(groups.get(T.NON_CURRENT_ASSETS, []), this, last, 1), "Total non-current assets")
+    ca, ca_this, ca_last = block("Current assets", items_of(groups.get(T.CURRENT_ASSETS, []) + floating_debit, this, last, 1), "Total current assets")
+
+    # The profit that is not yet closed to an equity account stays in the
+    # profit or loss accounts. The statement shows it as one equity line.
+    equity_items = items_of(groups.get(T.SHAREHOLDER_EQUITY, []), this, last, -1)
+    equity_items.append(("Profit or loss to date", "", profit_of(this, accounts), profit_of(last, accounts)))
+    eq, eq_this, eq_last = block("Equity", equity_items, "Total equity")
+    ncl, ncl_this, ncl_last = block("Non-current liabilities", items_of(groups.get(T.NON_CURRENT_LIABILITIES, []), this, last, -1), "Total non-current liabilities")
+    cl, cl_this, cl_last = block("Current liabilities", items_of(groups.get(T.CURRENT_LIABILITIES, []) + floating_credit, this, last, -1), "Total current liabilities")
+
+    assets_this, assets_last = nca_this + ca_this, nca_last + ca_last
+    liabilities_this, liabilities_last = ncl_this + cl_this, ncl_last + cl_last
+    ctx.update({
+        "asset_rows": nca + ca,
+        "equity_rows": eq + ncl + cl,
+        "assets_this": assets_this, "assets_last": assets_last,
+        "equity_this": eq_this,
+        "liabilities_this": liabilities_this,
+        "equity_liabilities_this": eq_this + liabilities_this,
+        "equity_liabilities_last": eq_last + liabilities_last,
+        "working_capital": ca_this - cl_this,
+        "current_ratio": ca_this / cl_this if cl_this else None,
+        "is_balanced": assets_this == eq_this + liabilities_this,
+    })
+    return render(request, "accounting/balance_sheet.html", ctx)
 
 def incomestatement(request):
-    return render(request,"accounting/income_statement.html")
+    ctx = statement_context(request)
+    groups = by_type(Account.objects.all())
+    this = movements(ctx["start"], ctx["end"])
+    last = movements(ctx["prev_start"], ctx["prev_end"])
+    T = Account.AccountType
+
+    def part(title, account_type, total_label):
+        return block(title, items_of(groups.get(account_type, []), this, last, -1), total_label)
+
+    revenue, rev_this, rev_last = part("Revenue", T.SALES, "Total revenue")
+    cost, cost_this, cost_last = part("Cost of sales", T.COST_OF_SALES, "Total cost of sales")
+    other, other_this, other_last = part("Other income", T.OTHER_INCOME, "Total other income")
+    expenses, exp_this, exp_last = part("Operating expenses", T.EXPENSES, "Total operating expenses")
+    tax, tax_this, tax_last = part("Income tax", T.INCOME_TAX, "Total income tax")
+
+    gross_this, gross_last = rev_this + cost_this, rev_last + cost_last
+    operating_this = gross_this + other_this + exp_this
+    operating_last = gross_last + other_last + exp_last
+    profit_this, profit_last = operating_this + tax_this, operating_last + tax_last
+
+    ctx.update({
+        "rows": (revenue + cost + [sum_row("Gross profit", gross_this, gross_last)]
+                 + other + expenses + [sum_row("Operating profit", operating_this, operating_last)]
+                 + tax),
+        "revenue": rev_this,
+        "gross_profit": gross_this,
+        "operating_profit": operating_this,
+        "tax": tax_this,
+        "profit_this": profit_this,
+        "profit_last": profit_last,
+        "margin_this": gross_this / rev_this * 100 if rev_this else None,
+        "margin_last": gross_last / rev_last * 100 if rev_last else None,
+    })
+    return render(request, "accounting/income_statement.html", ctx)
 
 def cashflow(request):
-    return render(request,"accounting/cash_flow.html")
+    return render(request, "accounting/cash_flow.html")
 
 def equity(request):
-    return render(request,"accounting/shareholder_equity.html")
+    ctx = statement_context(request)
+    accounts = list(Account.objects.all())
+    columns = [a for a in accounts if a.type == Account.AccountType.SHAREHOLDER_EQUITY]
+    column_ids = [a.id for a in columns]
+    size = len(columns) + 1
+
+    def row(name, values, row_class, reference="", prior=False):
+        return {"name": name, "reference": reference, "values": values,
+                "total": sum(values, ZERO),
+                "row_class": row_class + (" is-prior" if prior else "")}
+
+    def balance_row(end, prior):
+        bal = movements(end=end)
+        values = [-bal.get(a.id, ZERO) for a in columns] + [profit_of(bal, accounts)]
+        return row(f"Balance at {end:%d %b %Y}", values, "is-sum", prior=prior)
+
+    def period_rows(start, end, prior):
+        """The group row of one period, its profit, and one row for each
+        posted entry that touched an equity account."""
+        mv = movements(start, end)
+        rows = [{"group": True, "start": start, "end": end,
+                 "row_class": "is-group" + (" is-prior" if prior else "")}]
+        rows.append(row("Profit for the period", [ZERO] * (size - 1) + [profit_of(mv, accounts)], "is-nest", prior=prior))
+        entries = (JournalEntry.objects
+                   .filter(status=JournalEntry.Status.POSTED, date__range=(start, end),
+                           lines__account__in=columns)
+                   .distinct().prefetch_related("lines").order_by("date", "id"))
+        for entry in entries:
+            values = [ZERO] * size
+            for line in entry.lines.all():
+                if line.account_id in column_ids:
+                    values[column_ids.index(line.account_id)] += line.base_credit - line.base_debit
+            rows.append(row(entry.narration or entry.reference, values, "is-nest", entry.reference, prior))
+        return rows
+
+    ctx.update({
+        "columns": columns,
+        "rows": ([balance_row(ctx["prev_start"] - timedelta(days=1), True)]
+                 + period_rows(ctx["prev_start"], ctx["prev_end"], True)
+                 + [balance_row(ctx["prev_end"], True)]
+                 + period_rows(ctx["start"], ctx["end"], False)),
+        "closing": balance_row(ctx["end"], False),
+    })
+    return render(request, "accounting/shareholder_equity.html", ctx)
