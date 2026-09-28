@@ -1,0 +1,106 @@
+{% extends "accounting/module_base.html" %}
+
+{% comment %}
+  ============================================================================
+  accounting/templates/accounting/sales_crnotes.html
+  ----------------------------------------------------------------------------
+  The credit notes page of the Sales section. It is a shell: the rows below
+  are dummy data in the markup.
+
+  A credit note gives money back to a customer, thus the amounts use the
+  debit tone. The page keeps one table only, because the list is short.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}sales_crnotes{% endblock %}
+
+{% block title %}Credit Notes · Accounting · Console{% endblock %}
+
+{% block toolbar %}{{ block.super }}{% endblock %}
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title">Credit Notes</h1>
+        <p class="page__note">
+            A credit note decreases the money that a customer owes. Make a
+            credit note when you give a discount after the invoice, when the
+            customer sends goods back, or when an invoice has an error. The
+            Applied column shows the invoice that receives the credit.
+        </p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Credit note controls">
+        <div class="actionbar__group">
+            <button class="tool tool--primary" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                New Credit Note
+            </button>
+            <button class="tool" type="button" data-print>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+                Print
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+        </div>
+
+        <p class="actionbar__hint">The list shows the credit notes of {{ period|default:"FY 2026" }}.</p>
+    </div>
+
+    <table class="table">
+        <thead>
+            <tr><th>Date</th><th>Number</th><th>Customer</th><th>Applied to</th><th>Status</th><th>Amount</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>2026-02-10</td>
+                <td>CN-00231</td>
+                <td>Halcyon Interiors</td>
+                <td>IN-01039</td>
+                <td><span class="status status--ok">Applied</span></td>
+                <td class="is-debit">1,850.00</td>
+            </tr>
+            <tr>
+                <td>2026-02-03</td>
+                <td>CN-00230</td>
+                <td>Karoo Fresh Produce</td>
+                <td>IN-01035</td>
+                <td><span class="status status--low">Part applied</span></td>
+                <td class="is-debit">640.00</td>
+            </tr>
+            <tr>
+                <td>2026-01-27</td>
+                <td>CN-00229</td>
+                <td>Vaal Metal Press</td>
+                <td>—</td>
+                <td><span class="status status--busy">Open</span></td>
+                <td class="is-debit">2,410.00</td>
+            </tr>
+            <tr>
+                <td>2026-01-14</td>
+                <td>CN-00228</td>
+                <td>Bergrivier Logistics</td>
+                <td>IN-01024</td>
+                <td><span class="status status--ok">Applied</span></td>
+                <td class="is-debit">980.00</td>
+            </tr>
+            <tr>
+                <td>2025-12-22</td>
+                <td>CN-00227</td>
+                <td>Table Bay Marine</td>
+                <td>—</td>
+                <td><span class="status status--idle">Draft</span></td>
+                <td class="is-debit">320.00</td>
+            </tr>
+            {% comment %} Keep this row. It shows the page with no data. {% endcomment %}
+            {# <tr><td colspan="6">There are no credit notes for this period.</td></tr> #}
+        </tbody>
+        <tfoot>
+            <tr><td colspan="5">Total of the credit notes</td><td class="is-debit">6,200.00</td></tr>
+        </tfoot>
+    </table>
+</section>
+{% endblock %}
