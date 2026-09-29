@@ -4,6 +4,11 @@
    base.html loads it with the Django static tag, before the extra_js block.
    ========================================================================== */
 
+(function () {
+    var banner = document.getElementById('no-js-banner');
+    if (banner) { banner.classList.add('is-hidden'); }
+})();
+
 // Small, dependency-free behaviour for the shell.
 (function () {
     "use strict";

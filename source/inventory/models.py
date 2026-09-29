@@ -23,16 +23,16 @@ class Item(models.Model):
     depreciate  = models.BooleanField(default=False)
     lifespan    = models.DecimalField(max_digits=12,decimal_places=2,null=True,blank=True)
     lifeunits   = models.CharField(choices=LifeUnits.choices,null=True,blank=True)
-    item_type   = models.CharField(choices=ItemType.choices)    # default should be "STOCK"
+    item_type   = models.CharField(choices=ItemType.choices, default=ItemType.STOCK)
     description = models.TextField(null=True,blank=True)
     obsoleted   = models.BooleanField(default=False)
     active      = models.BooleanField(default=True)
+    files       = models.ManyToManyField("filestore.StoredFile", blank=True, related_name="+")
 
     def save(self, *args, **kwargs):
-        if (self.item_type == self.ItemType.ASSET and not self.tag):
+        if self.item_type == self.ItemType.ASSET and not self.tag:
             self.tag = uuid.uuid4().hex
-        else:
-            super().save(*args, **kwargs)
+        super().save(*args, **kwargs)
 
 
 # Need to check for cyclic relationships in the middleware (e.g "A is a component of A")

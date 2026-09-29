@@ -1,0 +1,19 @@
+{% comment %}
+  Upload field. Put it inside a <form method="post" enctype="multipart/form-data">.
+  Parameters: name (required), multiple, accept, required, hint.
+  Example:
+    {% include "filestore/filestore.html" with name="attachments" multiple=True accept=".pdf,.png,.jpg" hint="PDF, PNG or JPG, max. 20 MB" %}
+{% endcomment %}
+<div class="upload" data-upload>
+    <input class="upload__input" type="file" id="upload-{{ name }}" name="{{ name }}"{% if multiple %} multiple{% endif %}{% if accept %} accept="{{ accept }}"{% endif %}{% if required %} required{% endif %}>
+    <label class="upload__zone" for="upload-{{ name }}">
+        <svg class="icon upload__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M20 15v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4"/>
+        </svg>
+        <span class="upload__title">Drop {% if multiple %}files{% else %}a file{% endif %} here</span>
+        <span class="upload__or">or</span>
+        <span class="upload__btn">Choose {% if multiple %}files{% else %}a file{% endif %}</span>
+        {% if hint %}<span class="upload__hint">{{ hint }}</span>{% endif %}
+    </label>
+    <ul class="upload__list" aria-live="polite"></ul>
+</div>

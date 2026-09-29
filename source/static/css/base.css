@@ -394,6 +394,28 @@ button {
 .footer__links { display: flex; gap: 18px; margin-left: auto; align-items: center; }
 .footer__version { font-family: var(--font-mono); color: rgba(255, 255, 255, 0.45); }
 
+
+/* ---- No-JS warning banner ----------------------------------------- */
+.no-js-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 20px;
+    background: #E0785E;
+    color: #1B1D22;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.4;
+    flex: 0 0 auto;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+}
+.no-js-banner .icon { stroke: currentColor; width: 20px; height: 20px; }
+.no-js-banner strong { font-weight: 700; margin-right: 4px; }
+
+/* base.js adds this class; the banner then leaves the layout. */
+.no-js-banner.is-hidden { display: none; }
+
+
 /* ================================================================== */
 /*  RESPONSIVE  (chrome only — the module holds its own breakpoints)  */
 /* ================================================================== */

@@ -1,0 +1,76 @@
+/* Upload field. Uses the tokens from static/css/base.css. */
+.upload { position: relative; display: grid; gap: 8px; }
+
+/* The input stays in the tab order, but is not visible. */
+.upload__input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+}
+
+.upload__zone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 28px 20px;
+    background: var(--white);
+    border: 1.5px dashed var(--line-strong);
+    border-radius: var(--radius);
+    color: var(--ink-soft);
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+/* Stops false dragleave events from the child elements. */
+.upload__zone > * { pointer-events: none; }
+.upload__zone:hover,
+.upload__zone.is-over { border-color: var(--gold-line); background: var(--gold-soft); }
+.upload__zone.is-over { border-style: solid; }
+.upload__input:focus-visible + .upload__zone { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.upload__icon { width: 28px; height: 28px; stroke: var(--gold); margin-bottom: 4px; }
+.upload__title { color: var(--ink); font-weight: 600; }
+.upload__or { font-size: 12px; }
+.upload__btn {
+    display: inline-flex;
+    align-items: center;
+    height: 34px;
+    padding: 0 14px;
+    border: 1px solid var(--gold-line);
+    border-radius: var(--radius-sm);
+    color: var(--gold);
+    font-weight: 500;
+    transition: background 0.15s ease;
+}
+.upload__zone:hover .upload__btn { background: var(--gold-soft); }
+.upload__hint { margin-top: 4px; font-size: 12px; color: var(--ink-soft); }
+
+.upload__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.upload__list:empty { display: none; }
+.upload__item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 6px 6px 12px;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+}
+.upload__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.upload__size { font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft); }
+.upload__remove {
+    flex: none;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    display: grid;
+    place-items: center;
+    color: var(--ink-soft);
+    transition: background 0.12s ease, color 0.12s ease;
+}
+.upload__remove:hover { background: rgba(224, 120, 94, 0.14); color: #E0785E; }
+.upload__remove .icon { width: 16px; height: 16px; stroke: currentColor; }

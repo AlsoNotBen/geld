@@ -28,4 +28,5 @@ urlpatterns = [
     path('inventory/',include('inventory.urls')),
     path('accounting/',include('accounting.urls')),
     path('documents/',include('documents.urls')),
+    path('files/', include('filestore.urls')),
 ]

@@ -36,6 +36,22 @@
          moves the keyboard focus to the content of the page. -->
     <a class="skip-link" href="#main">Skip to content</a>
 
+    <!-- ============ NO-JS WARNING (core, do not override) ==================
+        Visible by default. base.js adds the class "is-hidden" as soon as it
+        runs, which hides this banner. A browser with JavaScript disabled
+        never runs base.js, thus the warning stays on screen.
+        ====================================================================== -->
+    <div class="no-js-banner" id="no-js-banner">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 3.5L22 20H2L12 3.5z" stroke-linejoin="round"/>
+            <path d="M12 10.5v4" stroke-linecap="round"/>
+            <circle cx="12" cy="17.2" r="0.9" fill="currentColor" stroke="none"/>
+        </svg>
+        <span><strong>JAVASCRIPT DISABLED</strong>
+        This platform needs JavaScript for core functionality such as navigation, documents and data entry.
+        Please turn it on in your browser settings, then reload the page.</span>
+    </div>
+
     <!-- ================= TOP RIBBON (core, do not override) ================= -->
     <header class="ribbon">
         <!-- The module puts its drawer button here, if it has a side panel.

@@ -1,4 +1,5 @@
 {% extends "inventory/module_base.html" %}
+{% load static %}
 
 {% comment %}
   ============================================================================
@@ -28,6 +29,12 @@
 {% endcomment %}
 
 {% block page_key %}items{% endblock %}
+
+{% block module_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'filestore/filestore.css' %}">
+<script src="{% static 'filestore/filestore.js' %}" defer></script>
+{% endblock %}
 
 {% block title %}Items · Inventory · Console{% endblock %}
 
@@ -166,36 +173,49 @@
         </div>
 
         {% comment %} ================= MIDDLE: the item form =================
-             The fields follow the model directly: code, name, item_type,
-             description, active. The form does not save. Refer to
-             views.py. {% endcomment %}
+             The form creates an Item. ItemForm in forms.py reads only
+             the fields with a model name: sku, name, item_type, serial,
+             description, active, depreciate, lifespan, lifeunits.
+             The other fields have no model field yet, and the form
+             ignores them. Refer to views.py. {% endcomment %}
         <div class="card">
             <span class="card__label">Item Details</span>
 
-            <form method="post" action="" aria-label="Edit the selected item" style="margin-top: 14px;">
+            {% for message in messages %}
+                <p class="chart-note" role="status" style="margin-top: 14px; color: var(--gold);">{{ message }}</p>
+            {% endfor %}
+            {% if form.errors %}
+                <div role="alert" style="margin-top: 14px;">
+                    {% for field, errors in form.errors.items %}{% for error in errors %}
+                        <p class="chart-note" style="margin: 0; color: #E0785E;">{% if field != "__all__" %}{{ field|capfirst }}: {% endif %}{{ error }}</p>
+                    {% endfor %}{% endfor %}
+                </div>
+            {% endif %}
+
+            <form id="item-form" method="post" action="" enctype="multipart/form-data"
+                  aria-label="Edit the selected item" style="margin-top: 14px;">
                 {% csrf_token %}
 
                 <span class="field-row__label field-row__label--first">Code</span>
                 <div class="field-row field-row--full">
                     <label class="visually-hidden" for="item-code">Code</label>
-                    <input class="field" id="item-code" name="code" type="text" value="AST-00124">
+                    <input class="field" id="item-code" name="sku" type="text" value="{{ form.sku.value|default_if_none:'' }}">
                 </div>
                 <p class="chart-note" style="margin-top: 4px;">Must be unique across every item.</p>
 
                 <span class="field-row__label">Name</span>
                 <div class="field-row field-row--full">
                     <label class="visually-hidden" for="item-name">Name</label>
-                    <input class="field" id="item-name" name="name" type="text" value="Dell Latitude 7440">
+                    <input class="field" id="item-name" name="name" type="text" value="{{ form.name.value|default_if_none:'' }}" required>
                 </div>
 
                 <span class="field-row__label">Item Type</span>
                 <div class="field-row field-row--full">
                     <label class="visually-hidden" for="item-type">Item type</label>
                     <select class="field field--select" id="item-type" name="item_type">
-                        <option value="ASSET" selected>Asset</option>
-                        <option value="STOCK">Stock</option>
-                        <option value="CONSUMABLE">Consumable</option>
-                        <option value="COMPONENT">Component</option>
+                        {% for value, label in form.fields.item_type.choices %}
+                            <option value="{{ value }}"{% if value == form.item_type.value %} selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
                     </select>
                 </div>
 
@@ -217,8 +237,8 @@
                            placeholder="Part number" value="7440-CTO-BASE">
 
                     <label class="visually-hidden" for="item-serial-number">Serial number</label>
-                    <input class="field" id="item-serial-number" name="serial_number" type="text"
-                           placeholder="Serial number" value="7HJ4K2Q">
+                    <input class="field" id="item-serial-number" name="serial" type="text"
+                           placeholder="Serial number" value="{{ form.serial.value|default_if_none:'' }}">
                 </div>
 
                 <span class="field-row__label">Version Number &amp; Country of Origin</span>
@@ -250,7 +270,7 @@
                 <div class="field-row field-row--full">
                     <label class="visually-hidden" for="item-description">Description</label>
                     <textarea class="field field--area" id="item-description" name="description"
-                              placeholder="A short description of the item">14-inch business laptop, i7, 16GB RAM, 512GB SSD. Standard issue for the Pretoria office.</textarea>
+                              placeholder="A short description of the item">{{ form.description.value|default_if_none:'' }}</textarea>
                 </div>
 
                 <span class="field-row__label">Notes</span>
@@ -262,7 +282,7 @@
 
                 <div class="field-row field-row--full">
                     <label class="field-check">
-                        <input type="checkbox" name="active" checked>
+                        <input type="checkbox" name="active"{% if form.active.value %} checked{% endif %}>
                         Active item
                     </label>
                 </div>
@@ -273,7 +293,7 @@
 
                 <div class="field-row field-row--full">
                     <label class="field-check">
-                        <input type="checkbox" name="depreciating_item" checked>
+                        <input type="checkbox" name="depreciate"{% if form.depreciate.value %} checked{% endif %}>
                         Depreciating item
                     </label>
                 </div>
@@ -285,19 +305,22 @@
                 <span class="field-row__label">Useful Life</span>
                 <div class="field-row useful-life-row">
                     <label class="visually-hidden" for="item-life-qty">Useful life, quantity</label>
-                    <input class="field field--sm" id="item-life-qty" name="useful_life_quantity" type="number"
-                           min="0" step="1" value="3">
+                    <input class="field field--sm" id="item-life-qty" name="lifespan" type="number"
+                           min="0" step="0.01" value="{{ form.lifespan.value|default_if_none:'' }}">
 
                     <label class="visually-hidden" for="item-life-unit">Useful life, unit</label>
-                    <select class="field field--select field--sm" id="item-life-unit" name="useful_life_unit">
-                        <option>Weeks</option>
-                        <option>Months</option>
-                        <option selected>Years</option>
+                    <select class="field field--select field--sm" id="item-life-unit" name="lifeunits">
+                        {% for value, label in form.fields.lifeunits.choices %}
+                            <option value="{{ value }}"{% if value == form.lifeunits.value %} selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
                     </select>
                 </div>
                 <p class="chart-note useful-life-hint" style="margin-top: 4px;">
                     Sets the depreciation schedule of this asset.
                 </p>
+
+                <span class="field-row__label">Images &amp; Documents</span>
+                {% include "filestore/upload_field.html" with name="files" multiple=True accept=".pdf,.png,.jpg,.jpeg,.webp" hint="Images or PDF, max. 20 MB each" %}
             </form>
 
             <div class="bom__foot">
@@ -305,7 +328,7 @@
                     <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
                     New Item
                 </button>
-                <button class="tool tool--primary" type="button">
+                <button class="tool tool--primary" type="submit" form="item-form">
                     <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     Save Item
                 </button>

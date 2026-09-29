@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'inventory.apps.InventoryConfig',
     'documents.apps.DocumentsConfig',
     'shared.apps.SharedConfig',
+    'filestore.apps.FilestoreConfig',
     # -- Add your app here --
 
     'django.contrib.admin',
@@ -146,6 +147,18 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    "filestore": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "OPTIONS": {"location": BASE_DIR / "var" / "filestore"},  # not public
+    },
+}
+# Optional:
+# FILESTORE_MAX_SIZE = 20 * 1024 * 1024
+# FILESTORE_ALLOWED_EXTENSIONS = {".pdf", ".png", ".jpg"}
 
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "index"
