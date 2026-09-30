@@ -1,0 +1,65 @@
+{% comment %}
+============================================================================
+messaging/templates/messaging/compose.html
+----------------------------------------------------------------------------
+The content of the message overlay. messaging.js loads this fragment
+with fetch() and puts it into a <dialog>. Thus the template extends no
+base template.
+
+messaging.js reads these data attributes:
+    data-message-form        the form
+    data-message-attachment  the line that shows the attached file
+    data-message-status      the text next to the buttons
+    data-message-close       each element that closes the overlay
+============================================================================
+{% endcomment %}
+<form class="msg-panel" method="post" data-message-form>
+    {% csrf_token %}
+
+    <header class="msg-panel__head">
+        <h2 class="msg-panel__title">New message</h2>
+        <button class="icon-btn" type="button" data-message-close aria-label="Close the overlay" title="Close the overlay">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/>
+            </svg>
+        </button>
+    </header>
+
+    <div class="msg-panel__body">
+        {% for error in form.non_field_errors %}
+        <p class="msg-panel__error" role="alert">{{ error }}</p>
+        {% endfor %}
+
+        {% for field in form %}
+        <div class="msg-field">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% for error in field.errors %}<small class="msg-field__error">{{ error }}</small>{% endfor %}
+            {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+        </div>
+        {% endfor %}
+
+        <p class="msg-attachment" data-message-attachment hidden>
+            <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M21 11l-8.5 8.5a5 5 0 01-7-7L14 4a3.5 3.5 0 015 5l-8.5 8.5a2 2 0 01-3-3L15 7"
+                      stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span></span>
+        </p>
+    </div>
+
+    <footer class="msg-panel__foot">
+        <span class="msg-panel__status" data-message-status aria-live="polite"></span>
+
+        <div class="msg-panel__actions">
+            <button class="tool" type="button" data-message-close>Cancel</button>
+            <button class="tool tool--primary" type="submit">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M21 3L10 14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M21 3l-7 18-4-7-7-4 18-7z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Send
+            </button>
+        </div>
+    </footer>
+</form>

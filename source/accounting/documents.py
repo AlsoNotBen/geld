@@ -17,19 +17,14 @@ exist:
 
 import datetime
 from decimal import Decimal, ROUND_HALF_UP
-
 from django import forms
-
-from documents.forms import (
-    DocumentOptionsForm, LineItemsField, SelectWithAddButton,
-)
+from documents.forms import (DocumentOptionsForm, LineItemsField, SelectWithAddButton)
 from documents.registry import DocumentType, register
 
 
 CENT = Decimal("0.01")
 
-# Sample customers, until the customers table exists. The key is the
-# choice value of the customer field.
+#TODO: Intelligently choose the samples used to pre-populate documents to the most likely option (based on recency/frequency or something)
 SAMPLE_CUSTOMERS = {
     "aster": {
         "name": "Aster Botanicals (Pty) Ltd",
@@ -45,9 +40,6 @@ SAMPLE_CUSTOMERS = {
     },
 }
 
-# Sample catalog items. All values are strings, because the line items
-# travel as JSON. The clean method of LineItemsField turns the numbers
-# into Decimal values.
 CATALOG = [
     {"description": "CRM implementation — discovery workshop",
      "unit": "day", "unit_price": "640.00"},
@@ -61,7 +53,6 @@ CATALOG = [
      "unit": "fixed", "unit_price": "520.00"},
 ]
 
-# The rows that a new document starts with.
 INITIAL_LINES = [
     {**CATALOG[0], "quantity": "2"},
     {**CATALOG[1], "quantity": "1"},
@@ -90,11 +81,7 @@ def _in_days(days):
 
 
 def _date_field(label, days_ahead=0):
-    return forms.DateField(
-        label=label,
-        initial=_in_days(days_ahead),
-        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
-    )
+    return forms.DateField(label=label,initial=_in_days(days_ahead),widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"))
 
 
 def _build_lines(lines, tax_rate, discount_rate=Decimal("0")):
@@ -105,13 +92,16 @@ def _build_lines(lines, tax_rate, discount_rate=Decimal("0")):
     """
     computed = []
     subtotal = Decimal("0")
+
     for line in lines:
-        total = (line["quantity"] * line["unit_price"]).quantize(CENT, ROUND_HALF_UP)
-        subtotal += total
+        total       = (line["quantity"] * line["unit_price"]).quantize(CENT, ROUND_HALF_UP)
+        subtotal    += total
         computed.append({**line, "total": total})
-    discount = (subtotal * discount_rate / 100).quantize(CENT, ROUND_HALF_UP)
-    taxable = subtotal - discount
-    tax = (taxable * tax_rate / 100).quantize(CENT, ROUND_HALF_UP)
+
+    discount    = (subtotal * discount_rate / 100).quantize(CENT, ROUND_HALF_UP)
+    taxable     = subtotal - discount
+    tax         = (taxable * tax_rate / 100).quantize(CENT, ROUND_HALF_UP)
+    
     return {
         "lines": computed,
         "subtotal": subtotal,
@@ -124,12 +114,18 @@ def _build_lines(lines, tax_rate, discount_rate=Decimal("0")):
 class SalesDocumentOptionsForm(DocumentOptionsForm):
     """Options that the invoice and the quote share."""
 
+    muted_field_names = (
+        "number", "issue_date", "due_date", "valid_until",
+        "currency", "tax_rate", "payment_details",
+    )
+
     customer = forms.ChoiceField(
         label="Customer",
         choices=_customer_choices,
         initial="aster",
         widget=SelectWithAddButton(
             action="new-customer", button_label="Add a new customer",
+            search_action="search-customer", search_label="Search the customers",
         ),
     )
     line_items = LineItemsField(
@@ -158,10 +154,11 @@ class SalesDocumentOptionsForm(DocumentOptionsForm):
 
 class InvoiceOptionsForm(SalesDocumentOptionsForm):
     field_order = [
-        "number", "issue_date", "due_date", "customer", "line_items",
+        "pro_forma", "number", "issue_date", "due_date", "customer", "line_items",
         "currency", "tax_rate", "payment_details", "notes",
     ]
 
+    pro_forma = forms.BooleanField(label="Pro-forma", required=False, initial=False)
     number = forms.CharField(label="Invoice number", initial="INV-2026-0042")
     issue_date = _date_field("Issue date")
     due_date = _date_field("Due date", days_ahead=30)

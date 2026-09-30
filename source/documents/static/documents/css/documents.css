@@ -145,6 +145,61 @@
     color: var(--navy);
 }
 
+/* The search button. A default button, not a primary one. */
+.doc-inline__search {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 34px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    background: var(--white);
+    color: var(--ink-soft);
+}
+.doc-inline__search:hover {
+    background: var(--gold-soft);
+    border-color: var(--gold-line);
+    color: var(--gold);
+}
+.doc-inline__search .icon { width: 16px; height: 16px; stroke-width: 1.8; }
+
+/* A field that looks disabled, but stays editable. It becomes clear
+   again when it gets the focus. */
+.doc-field--muted { opacity: 0.45; }
+.doc-field--muted:focus-within { opacity: 1; }
+
+/* A checkbox shows as a toggle switch. */
+.doc-field input[type="checkbox"] {
+    -webkit-appearance: none;
+    appearance: none;
+    position: relative;
+    box-sizing: border-box;
+    width: 38px;
+    height: 20px;
+    padding: 0;
+    border-radius: 999px;
+    cursor: pointer;
+}
+.doc-field input[type="checkbox"]::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--ink-soft);
+    transition: transform 0.15s ease;
+}
+.doc-field input[type="checkbox"]:checked {
+    background: var(--gold-soft);
+    border-color: var(--gold-line);
+}
+.doc-field input[type="checkbox"]:checked::after {
+    transform: translateX(18px);
+    background: var(--gold);
+}
+
 .doc-lines__row {
     display: flex;
     gap: 6px;

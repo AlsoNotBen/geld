@@ -112,3 +112,15 @@ window.App = window.App || {};      // Make the namespace before you fill it.
         init();
     }
 })();
+
+(function () {
+    var body = document.body, item;
+    if (body.dataset.module) {
+        item = document.querySelector('.modules [data-key="' + body.dataset.module + '"]');
+        if (item) { item.classList.add('is-active'); }
+    }
+    if (body.dataset.page) {
+        item = document.querySelector('[data-nav="' + body.dataset.page + '"]');
+        if (item) { item.classList.add('is-active'); item.setAttribute('aria-current', 'page'); }
+    }
+})();

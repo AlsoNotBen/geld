@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'documents.apps.DocumentsConfig',
     'shared.apps.SharedConfig',
     'filestore.apps.FilestoreConfig',
+    'messaging.apps.MessagingConfig',
     # -- Add your app here --
 
     'django.contrib.admin',
@@ -143,10 +144,21 @@ STATICFILES_DIRS = [
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
 MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
+   "default": {
+        "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
+        "OPTIONS": {
+            "host": os.getenv('SMTP_HOST'),
+            "port": int(os.getenv('SMTP_PORT', 587)),
+            "use_tls": True,
+            "username": os.getenv('SMTP_USER'),
+            "password": os.getenv('SMTP_TOKEN'),
+            "timeout": 30,      # seconds. Without it, a mail server that does not answer holds the request open.
+        },
+    }
 }
+
+# The SMTP server accepts only the address of the account as sender.
+DEFAULT_FROM_EMAIL = f"{os.getenv('SMTP_FRIENDLY_NAME')} <{os.getenv('SMTP_USER')}>"
 
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
@@ -156,9 +168,6 @@ STORAGES = {
         "OPTIONS": {"location": BASE_DIR / "var" / "filestore"},  # not public
     },
 }
-# Optional:
-# FILESTORE_MAX_SIZE = 20 * 1024 * 1024
-# FILESTORE_ALLOWED_EXTENSIONS = {".pdf", ".png", ".jpg"}
 
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "index"

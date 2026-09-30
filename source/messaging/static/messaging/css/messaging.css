@@ -1,0 +1,124 @@
+/* ==========================================================================
+   messaging.js creates one <dialog class="msg-overlay"> and fills it with
+   messaging/compose.html or messaging/sent.html. The look follows the
+   document overlay (documents.css). base.html loads this file.
+   ========================================================================== */
+
+.msg-overlay {
+    width: min(640px, 94vw);
+    max-height: 90vh;
+    margin: auto;
+    padding: 0;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    background: var(--white);
+    color: var(--ink);
+    box-shadow: var(--shadow-md);
+}
+
+.msg-overlay::backdrop {
+    background: rgba(24, 26, 31, 0.45);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+}
+
+.msg-overlay__note {
+    display: grid;
+    place-items: center;
+    gap: 14px;
+    padding: 40px 20px;
+    color: var(--ink-soft);
+}
+.msg-overlay__note p { margin: 0; }
+
+.msg-panel__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--line);
+}
+.msg-panel__title { margin: 0; font-size: 17px; font-weight: 600; }
+.msg-panel__body { padding: 16px 20px 4px; }
+.msg-panel__text { margin: 0 0 12px; }
+
+.msg-panel__error {
+    margin: 0 0 12px;
+    padding: 8px 12px;
+    border: 1px solid rgba(229, 119, 107, 0.45);
+    border-radius: var(--radius-sm);
+    background: rgba(229, 119, 107, 0.12);
+    color: #E5776B;
+}
+
+.msg-field { margin-bottom: 12px; }
+.msg-field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-soft);
+    margin-bottom: 4px;
+}
+.msg-field input,
+.msg-field textarea {
+    width: 100%;
+    font: inherit;
+    font-size: 13px;
+    color: var(--ink);
+    background: var(--cream);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    padding: 7px 10px;
+}
+.msg-field textarea { resize: vertical; }
+.msg-field input:focus-visible,
+.msg-field textarea:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 0;
+}
+.msg-field small { display: block; margin-top: 3px; font-size: 12px; color: var(--ink-soft); }
+.msg-field .msg-field__error { color: #E5776B; }
+
+.msg-attachment {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 12px;
+    font-size: 13px;
+    color: var(--ink-soft);
+}
+.msg-attachment[hidden] { display: none; }
+.msg-attachment .icon { width: 16px; height: 16px; }
+.msg-attachment span { color: var(--ink); }
+
+.msg-panel__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 20px;
+    border-top: 1px solid var(--line);
+}
+.msg-panel__status { font-size: 12px; color: var(--ink-soft); }
+.msg-panel__actions { display: flex; align-items: center; gap: 10px; }
+
+/* The same buttons as the footer of the document overlay. */
+.msg-overlay .tool {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--line-strong);
+    font-weight: 500;
+}
+.msg-overlay .tool:hover { background: var(--gold-line); color: var(--navy); }
+.msg-overlay .tool--primary {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: var(--navy);
+}
+.msg-overlay .tool--primary:hover { filter: brightness(1.06); }
+.msg-overlay .tool:disabled { opacity: 0.6; cursor: wait; }
+.msg-overlay .tool .icon { width: 16px; height: 16px; }

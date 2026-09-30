@@ -1,0 +1,18 @@
+<section class="msg-panel">
+    <header class="msg-panel__head">
+        <h2 class="msg-panel__title">Message Sent Successfully</h2>
+    </header>
+
+    <div class="msg-panel__body">
+        <p class="msg-panel__text">
+            The message went to {{ message.to|join:", " }}{% if message.cc %}, with a copy to {{ message.cc|join:", " }}{% endif %}.
+        </p>
+    </div>
+
+    <footer class="msg-panel__foot">
+        <span></span>
+        <div class="msg-panel__actions">
+            <button class="tool tool--primary" type="button" data-message-close>Close</button>
+        </div>
+    </footer>
+</section>

@@ -1,9 +1,9 @@
 {% extends "documents/base_pdf.html" %}
 {% load humanize %}
 
-{% block doc_title %}Invoice {{ options.number }}{% endblock %}
-{% block doc_kind %}Invoice{% endblock %}
-{% block footer_kind %}Invoice {{ options.number }}{% endblock %}
+{% block doc_title %}{% if options.pro_forma %}Pro-forma invoice{% else %}Invoice{% endif %} {{ options.number }}{% endblock %}
+{% block doc_kind %}{% if options.pro_forma %}Pro-forma invoice{% else %}Invoice{% endif %}{% endblock %}
+{% block footer_kind %}{% if options.pro_forma %}Pro-forma invoice{% else %}Invoice{% endif %} {{ options.number }}{% endblock %}
 {% block doc_number %}{{ options.number }}{% endblock %}
 
 {% block body %}

@@ -1,3 +1,4 @@
+import json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -5,7 +6,6 @@ from django.db.models import Sum, DecimalField, Q
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from decimal import Decimal
-import json
 from accounting.models import *
 from accounting.date_range import get_range, previous_range
 from datetime import datetime, timedelta

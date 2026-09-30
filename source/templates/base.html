@@ -1,5 +1,5 @@
 {% load static %}
-{% comment %} ./templates/base.html {% endcomment %}
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,30 +7,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ page_title|default:"Console" }}{% endblock %}</title>
 
-    <!-- IBM Plex suits a data application. Plex Sans is for the interface.
-         Plex Mono marks technical values (version, shortcuts, separators).
-         Remove this link if you host the fonts yourself. -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
-
-    <!-- The document overlay is shared by all modules, thus the shell
-         loads its stylesheet here. -->
     <link rel="stylesheet" href="{% static 'documents/css/documents.css' %}">
+    <link rel="stylesheet" href="{% static 'messaging/css/messaging.css' %}">
 
-    <!-- A module base template loads its own stylesheet here. The file
-         comes after base.css, thus the module wins a tie. -->
     {% block module_css %}{% endblock %}
-
     {% block extra_head %}{% endblock %}
 </head>
 
 <!-- The two data attributes identify the current module and the current page.
      A view can also send active_module in the context. The block wins. -->
-<body data-module="{% block module_key %}{{ active_module|default:'' }}{% endblock %}"
-      data-page="{% block page_key %}{% endblock %}">
+<body data-module="{% block module_key %}{{ active_module|default:'' }}{% endblock %}" data-page="{% block page_key %}{% endblock %}">
 
     <!-- The module must give one element the id "main". This link then
          moves the keyboard focus to the content of the page. -->
@@ -52,23 +43,17 @@
         Please turn it on in your browser settings, then reload the page.</span>
     </div>
 
-    <!-- ================= TOP RIBBON (core, do not override) ================= -->
     <header class="ribbon">
-        <!-- The module puts its drawer button here, if it has a side panel.
-             Use the class icon-btn. Example:
-             <button class="icon-btn" type="button" data-drawer-toggle>…</button> -->
         {% block ribbon_lead %}{% endblock %}
 
         <!-- LOGO PLACEHOLDER — replace .brand__mark with
              <img src="{% static 'img/logo.svg' %}" alt="Console" height="30">. -->
         <a class="brand" href="/" aria-label="Home">
-            <span class="brand__mark">CE</span>
-            <span class="brand__text">POTHOS<small>ERM Suite</small></span>
+            <span class="brand__mark">PT</span>
+            <span class="brand__text">POTHOS<small>Enterprise</small></span>
         </a>
 
-        <!-- Each link has a data-key attribute. The script at the end of this
-             file compares the key with the data-module attribute of the body.
-             The row scrolls sideways on a small screen. -->
+
         <nav class="modules" aria-label="Modules">
             <a class="module" data-key="accounting" href="{% url 'accounting:dashboard' %}">
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h4" stroke-linecap="round"/></svg>
@@ -88,7 +73,6 @@
             </a>
         </nav>
 
-        <!-- GLOBAL SEARCH. Point action at your search view. -->
         <form class="search" role="search" method="get" action="#">
             <div class="search__field">
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4" stroke-linecap="round"/></svg>
@@ -97,7 +81,6 @@
             </div>
         </form>
 
-        <!-- RIBBON ACTIONS -->
         <div class="ribbon__actions">
             {% block topbar_actions %}
             <button class="icon-btn" type="button" aria-label="Notifications">
@@ -106,7 +89,6 @@
             </button>
             {% endblock %}
 
-            <!-- PROFILE AND SETTINGS -->
             <div class="profile">
                 <button class="profile__btn" type="button" aria-haspopup="true" aria-expanded="false" data-menu-toggle>
                     <span class="avatar">JD</span>
@@ -138,35 +120,10 @@
         </div>
     </header>
 
-    <!-- ================= MODULE BAR ==========================================
-         The module base template puts a <div class="context"> here. It holds
-         the breadcrumb and the toolbar of the module. The block stays empty
-         for a page that has no module.
-    ====================================================================== -->
     {% block module_bar %}{% endblock %}
 
-    {% comment %}
-    <!-- ================= LAYOUT =============================================
-         The module base template owns everything between the module bar and
-         the footer: the shell, the side panel, the drawer and the content
-         area. Give the top element the class "fill", so that the footer
-         stays at the bottom of a short page. Give the content element the
-         id "main", for the skip link. Example:
-
-             {% block layout %}
-             <div class="fill">
-                 <aside>…</aside>
-                 <main id="main">{% block content %}{% endblock %}</main>
-             </div>
-             {% endblock %}
-
-         A block that no parent declares prints nothing. Thus the module base
-         must declare "content" itself, inside this block.
-    ====================================================================== -->
-    {% endcomment %}
     {% block layout %}{% endblock %}
 
-    <!-- ================= FOOTER (core, do not override) ================= -->
     <footer class="footer">
         <span>&copy; {% now "Y" %} Pothos ERM Suite</span>
         <div class="footer__links">
@@ -178,30 +135,8 @@
     </footer>
 
     <script src="{% static 'js/base.js' %}"></script>
-
-    <!-- The document overlay. A module opens it with a button that
-         carries the panel URL in a doc-overlay data attribute. The script
-         creates the <dialog> itself, thus this file needs no extra markup. -->
     <script src="{% static 'documents/js/documents.js' %}"></script>
-
-    <!-- This script marks the current module in the ribbon, and the current
-         item in the navigation that the module builds. The second selector
-         has no parent class, thus the module can put the item anywhere.
-         Move the script into base.js if your Content Security Policy
-         prevents an inline script. -->
-    <script>
-    (function () {
-        var body = document.body, item;
-        if (body.dataset.module) {
-            item = document.querySelector('.modules [data-key="' + body.dataset.module + '"]');
-            if (item) { item.classList.add('is-active'); }
-        }
-        if (body.dataset.page) {
-            item = document.querySelector('[data-nav="' + body.dataset.page + '"]');
-            if (item) { item.classList.add('is-active'); item.setAttribute('aria-current', 'page'); }
-        }
-    })();
-    </script>
+    <script src="{% static 'messaging/js/messaging.js' %}"></script>
 
     {% block extra_js %}{% endblock %}
 </body>

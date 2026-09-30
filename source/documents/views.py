@@ -16,7 +16,6 @@ from django.http import Http404, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import render
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_GET
-
 from .registry import registry
 from .renderers import render_pdf
 

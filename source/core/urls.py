@@ -29,4 +29,5 @@ urlpatterns = [
     path('accounting/',include('accounting.urls')),
     path('documents/',include('documents.urls')),
     path('files/', include('filestore.urls')),
+    path('messaging/', include('messaging.urls')),
 ]

@@ -6,20 +6,20 @@ def pending_entries(request):
     if not getattr(request, "company", None):
         return {}
     key, start, end = get_range(request)
-    return {
-        "pending_count": JournalEntry.objects.filter(
-            status=JournalEntry.Status.DRAFT,
-            date__range=(start, end),
-        ).count()
-    }
+    return {"pending_count": JournalEntry.objects.filter(status=JournalEntry.Status.DRAFT,date__range=(start, end)).count()}
 
 def date_range(request):
-    """The values of the date range button in the module bar.
-    The financial year dates give the default of the preset list."""
-    if not getattr(request, "company", None):
+    """Template context for the date-range button in the module bar.
+
+    Financial-year bounds are the defaults offered by the preset list.
+    Returns an empty dict when the request has no company attached.
+    """
+    if getattr(request, "company", None) is None:
         return {}
+
     key, start, end = get_range(request)
     fy_start, fy_end = default_range(request)
+
     return {
         "range_key":   key,
         "range_start": start,

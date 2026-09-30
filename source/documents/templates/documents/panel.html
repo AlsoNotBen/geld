@@ -13,6 +13,7 @@ documents.js reads these data attributes:
     data-doc-form            the options form
     data-doc-preview         the preview <iframe>
     data-doc-download        the download link
+    data-doc-send            the send button (messaging.js opens its overlay)
     data-doc-close           each element that closes the overlay
 ============================================================================
 {% endcomment %}
@@ -46,7 +47,7 @@ documents.js reads these data attributes:
         <form class="doc-panel__form" data-doc-form>
             <div class="doc-panel__form-title">Render options</div>
             {% for field in form.main_fields %}
-            <div class="doc-field">
+            <div class="doc-field{% if field.name in form.muted_field_names %} doc-field--muted{% endif %}">
                 <label for="{{ field.id_for_label }}">{{ field.label }}</label>
                 {{ field }}
                 {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
@@ -103,8 +104,11 @@ documents.js reads these data attributes:
                 Save
             </button>
 
-            <a class="tool tool--primary" data-doc-send
-            href="#">
+            {% comment %} documents.js keeps data-message-attach in step with
+                 the download link. Thus the message gets the current PDF. {% endcomment %}
+            <button class="tool tool--primary" type="button" data-doc-send
+                    data-message-compose="{% url 'messaging:compose' %}"
+                    data-message-attach="{% url 'documents:download' document.module document.key %}">
                 <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                     <path d="M21 3L10 14"
                         stroke="currentColor"
@@ -116,7 +120,7 @@ documents.js reads these data attributes:
                         stroke-linejoin="round"/>
                 </svg>
                 Send
-            </a>
+            </button>
 
             <a class="tool tool--primary" data-doc-download
             href="{% url 'documents:download' document.module document.key %}" download>

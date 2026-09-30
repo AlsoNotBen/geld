@@ -54,13 +54,19 @@
         var form = panel.querySelector("[data-doc-form]");
         var frame = panel.querySelector("[data-doc-preview]");
         var download = panel.querySelector("[data-doc-download]");
+        var send = panel.querySelector("[data-doc-send]");
         var previewUrl = panel.getAttribute("data-preview-url");
         var downloadUrl = panel.getAttribute("data-download-url");
+
+        function setDownload(query) {
+            download.href = downloadUrl + "?" + query;
+            if (send) send.setAttribute("data-message-attach", download.href);
+        }
 
         function refresh() {
             var query = serialize(form);
             frame.src = previewUrl + "?" + query;
-            download.href = downloadUrl + "?" + query;
+            setDownload(query);
         }
 
         if (form) {
@@ -78,7 +84,7 @@
                 btn.addEventListener("click", refresh);
             });
             // Align the download link with the initial form state.
-            download.href = downloadUrl + "?" + serialize(form);
+            setDownload(serialize(form));
         }
 
         panel.querySelectorAll("[data-doc-close]").forEach(function (btn) {

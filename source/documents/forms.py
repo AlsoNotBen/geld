@@ -29,6 +29,22 @@ hex_color = RegexValidator(
 )
 
 
+def _search_button(action, label):
+    """Return a search button with a magnifier icon.
+
+    Like the "+" button, it only sends a "doc:action" event (see
+    documents.js). Another script opens the search.
+    """
+    return format_html(
+        '<button type="button" class="doc-inline__search" data-doc-action="{}"'
+        ' title="{}" aria-label="{}">'
+        '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">'
+        '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4" stroke-linecap="round"/>'
+        '</svg></button>',
+        action, label, label,
+    )
+
+
 class SelectWithAddButton(forms.Select):
     """A select with an inline "+" button.
 
@@ -41,18 +57,24 @@ class SelectWithAddButton(forms.Select):
         });
     """
 
-    def __init__(self, attrs=None, choices=(), action="", button_label="Add"):
+    def __init__(self, attrs=None, choices=(), action="", button_label="Add",
+                 search_action="", search_label="Search"):
         super().__init__(attrs, choices)
         self.action = action
         self.button_label = button_label
+        self.search_action = search_action
+        self.search_label = search_label
 
     def render(self, name, value, attrs=None, renderer=None):
         select = super().render(name, value, attrs, renderer)
+        search = ""
+        if self.search_action:
+            search = _search_button(self.search_action, self.search_label)
         return format_html(
-            '<span class="doc-inline">{}'
+            '<span class="doc-inline">{}{}'
             '<button type="button" class="doc-inline__add" data-doc-action="{}"'
             ' title="{}" aria-label="{}">+</button></span>',
-            select, self.action, self.button_label, self.button_label,
+            select, search, self.action, self.button_label, self.button_label,
         )
 
 
@@ -116,7 +138,7 @@ class LineItemsWidget(forms.Widget):
             '<div class="doc-lines__rows" data-doc-lines-rows>{}</div>'
             '<div class="doc-lines__add">'
             '<select data-line-catalog aria-label="Catalog item">'
-            '<option value="">Add from the catalog&hellip;</option>{}</select>'
+            '<option value="">Add from the catalog&hellip;</option>{}</select>{}'
             '<button type="button" class="doc-inline__add" data-line-add-catalog'
             ' title="Add the catalog item" aria-label="Add the catalog item">+</button>'
             '</div>'
@@ -124,6 +146,7 @@ class LineItemsWidget(forms.Widget):
             '+ Add a custom line</button>'
             '</div>',
             name, json.dumps(rows, default=str), rows_html, catalog_html,
+            _search_button("search-catalog", "Search the catalog"),
         )
 
 
@@ -185,6 +208,10 @@ class DocumentOptionsForm(forms.Form):
     customize_field_names = (
         "paper_size", "accent_color", "company_name", "company_details",
     )
+
+    # The fields in muted_field_names look disabled in the panel, but
+    # stay editable. Thus the customer and the line items get the focus.
+    muted_field_names = ()
 
     paper_size = forms.ChoiceField(
         label="Paper size",
