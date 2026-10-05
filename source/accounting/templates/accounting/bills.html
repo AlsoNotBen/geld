@@ -1,0 +1,58 @@
+{% extends "accounting/module_base.html" %}
+
+{% comment %}
+  ============================================================================
+  accounting/templates/accounting/bills.html
+  ----------------------------------------------------------------------------
+  A bill is an invoice that a supplier sends to the business. Record each bill here, then pay it before the due date. It is a shell: the data below is dummy data in the markup.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}bills{% endblock %}
+
+{% block title %}Bills · Accounting · Console{% endblock %}
+
+{% block toolbar %}{{ block.super }}{% endblock %}
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title">Bills</h1>
+        <p class="page__note">A bill is an invoice that a supplier sends to the business. Record each bill here, then pay it before the due date.</p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Page controls">
+        <div class="actionbar__group">
+            <button class="tool tool--primary" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                New Bill
+            </button>
+            <button class="tool" type="button" data-print>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+                Print
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+        </div>
+        <p class="actionbar__hint">The list shows the bills of {{ period|default:"FY 2026" }}.</p>
+    </div>
+
+    <table class="table">
+        <thead>
+            <tr><th>Date</th><th>Number</th><th>Supplier</th><th>Due</th><th>Status</th><th>Amount</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>2026-02-11</td><td>BL-00412</td><td>Cape Office Supplies</td><td>2026-03-13</td><td><span class="status status--busy">Open</span></td><td class="is-debit">3,240.00</td></tr>
+            <tr><td>2026-02-05</td><td>BL-00411</td><td>Highveld Fuel Services</td><td>2026-02-20</td><td><span class="status status--out">Overdue</span></td><td class="is-overdue">12,880.00</td></tr>
+            <tr><td>2026-01-28</td><td>BL-00410</td><td>Drakensberg Print Co.</td><td>2026-02-27</td><td><span class="status status--ok">Paid</span></td><td class="is-debit">5,615.00</td></tr>
+            <tr><td>2026-01-20</td><td>BL-00409</td><td>Atlantic Cloud Hosting</td><td>2026-02-19</td><td><span class="status status--idle">Draft</span></td><td class="is-debit">1,990.00</td></tr>
+        </tbody>
+        <tfoot>
+            <tr><td colspan="5">Total of the bills</td><td class="is-debit">23,725.00</td></tr>
+        </tfoot>
+    </table>
+</section>
+{% endblock %}

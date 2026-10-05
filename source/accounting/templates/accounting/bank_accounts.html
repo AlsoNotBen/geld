@@ -1,0 +1,56 @@
+{% extends "accounting/module_base.html" %}
+
+{% comment %}
+  ============================================================================
+  accounting/templates/accounting/bank_accounts.html
+  ----------------------------------------------------------------------------
+  This page shows the bank accounts of the business and the balance of each account. It is a shell: the data below is dummy data in the markup.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}banking{% endblock %}
+
+{% block title %}Bank Accounts · Accounting · Console{% endblock %}
+
+{% block toolbar %}{{ block.super }}{% endblock %}
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title">Bank Accounts</h1>
+        <p class="page__note">This page shows the bank accounts of the business and the balance of each account.</p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Page controls">
+        <div class="actionbar__group">
+            <button class="tool tool--primary" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                New Bank Account
+            </button>
+            <button class="tool" type="button" data-print>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+                Print
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+        </div>
+    </div>
+
+    <table class="table">
+        <thead>
+            <tr><th>Bank</th><th>Account</th><th>Number</th><th>Last reconciled</th><th>Status</th><th>Balance</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>FNB</td><td>Main Current</td><td>6201 ••• 4471</td><td>2026-01-31</td><td><span class="status status--ok">Active</span></td><td class="is-credit">214,880.40</td></tr>
+            <tr><td>Nedbank</td><td>Savings</td><td>1048 ••• 2290</td><td>2026-01-31</td><td><span class="status status--ok">Active</span></td><td class="is-credit">500,000.00</td></tr>
+            <tr><td>Standard Bank</td><td>Payroll</td><td>0712 ••• 8834</td><td>2025-12-31</td><td><span class="status status--low">Not reconciled</span></td><td class="is-credit">38,120.00</td></tr>
+        </tbody>
+        <tfoot>
+            <tr><td colspan="5">Total</td><td class="is-credit">753,000.40</td></tr>
+        </tfoot>
+    </table>
+</section>
+{% endblock %}

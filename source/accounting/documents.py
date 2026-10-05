@@ -60,15 +60,25 @@ INITIAL_LINES = [
 ]
 
 
+def _customers():
+    """The entities of the leads. The key of each is its pk."""
+    from accounting.models import Entity
+    return Entity.objects.filter(leads__isnull=False).distinct()
+
+
 def _customer_choices():
-    return [(key, value["name"]) for key, value in SAMPLE_CUSTOMERS.items()]
+    samples = [(key, value["name"]) for key, value in SAMPLE_CUSTOMERS.items()]
+    return samples + [(str(e.pk), e.name) for e in _customers()]
 
 
 def _customer(options):
     """Return the customer record for the selected choice."""
-    return SAMPLE_CUSTOMERS.get(
-        options["customer"], {"name": options["customer"], "details": ""},
-    )
+    key = options["customer"]
+    if key.isdigit():
+        entity = _customers().filter(pk=key).first()
+        if entity:
+            return {"name": entity.name, "details": entity.address}
+    return SAMPLE_CUSTOMERS.get(key, {"name": key, "details": ""})
 
 
 def _in_days(days):
@@ -154,16 +164,17 @@ class SalesDocumentOptionsForm(DocumentOptionsForm):
 
 class InvoiceOptionsForm(SalesDocumentOptionsForm):
     field_order = [
-        "pro_forma", "number", "issue_date", "due_date", "customer", "line_items",
+        "pro_forma", "recurring", "number", "issue_date", "due_date", "customer", "line_items",
         "currency", "tax_rate", "payment_details", "notes",
     ]
 
-    pro_forma = forms.BooleanField(label="Pro-forma", required=False, initial=False)
+    pro_forma = forms.BooleanField(label="Pro-Forma", required=False, initial=False)
+    recurring = forms.BooleanField(label="Recurring Invoice", required=False, initial=False)
     number = forms.CharField(label="Invoice number", initial="INV-2026-0042")
-    issue_date = _date_field("Issue date")
-    due_date = _date_field("Due date", days_ahead=30)
+    issue_date = _date_field("Issue Date")
+    due_date = _date_field("Due Date", days_ahead=30)
     payment_details = forms.CharField(
-        label="Payment details",
+        label="Payment Details",
         required=False,
         initial="First National Bank\nAccount 620 4471 9902\nBranch 250655\nReference: the invoice number",
         widget=forms.Textarea(attrs={"rows": 4}),

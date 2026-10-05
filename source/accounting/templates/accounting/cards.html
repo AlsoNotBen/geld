@@ -1,0 +1,53 @@
+{% extends "accounting/module_base.html" %}
+
+{% comment %}
+  ============================================================================
+  accounting/templates/accounting/cards.html
+  ----------------------------------------------------------------------------
+  This page shows the company cards and the money that each card spent in this period. It is a shell: the data below is dummy data in the markup.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}banking{% endblock %}
+
+{% block title %}Cards · Accounting · Console{% endblock %}
+
+{% block toolbar %}{{ block.super }}{% endblock %}
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title">Cards</h1>
+        <p class="page__note">This page shows the company cards and the money that each card spent in this period.</p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Page controls">
+        <div class="actionbar__group">
+            <button class="tool tool--primary" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                New Card
+            </button>
+            <button class="tool" type="button" data-print>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+                Print
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+        </div>
+    </div>
+
+    <table class="table">
+        <thead>
+            <tr><th>Card</th><th>Holder</th><th>Bank</th><th>Limit</th><th>Status</th><th>Spent</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>•••• 1182</td><td>Lerato Nkosi</td><td>FNB</td><td class="is-credit">20,000.00</td><td><span class="status status--ok">Active</span></td><td class="is-debit">6,412.30</td></tr>
+            <tr><td>•••• 7745</td><td>James Botha</td><td>FNB</td><td class="is-credit">10,000.00</td><td><span class="status status--ok">Active</span></td><td class="is-debit">2,180.00</td></tr>
+            <tr><td>•••• 3021</td><td>Sipho Dlamini</td><td>Nedbank</td><td class="is-credit">5,000.00</td><td><span class="status status--out">Blocked</span></td><td class="is-debit">0.00</td></tr>
+        </tbody>
+    </table>
+</section>
+{% endblock %}

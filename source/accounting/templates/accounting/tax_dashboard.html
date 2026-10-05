@@ -1,0 +1,82 @@
+{% extends "accounting/module_base.html" %}
+
+{% comment %}
+  ============================================================================
+  accounting/templates/accounting/tax_dashboard.html
+  ----------------------------------------------------------------------------
+  The dashboard shows the tax position of the business today. It is a shell: the data below is dummy data in the markup.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}taxes{% endblock %}
+
+{% block title %}Tax Dashboard · Accounting · Console{% endblock %}
+
+{% block toolbar %}{{ block.super }}{% endblock %}
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title">Tax Dashboard</h1>
+        <p class="page__note">The dashboard shows the tax position of the business today.</p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Page controls">
+        <div class="actionbar__group">
+            <button class="tool" type="button" data-print>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+                Print
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+        </div>
+        <p class="actionbar__hint">The figures show {{ period|default:"FY 2026" }}.</p>
+    </div>
+
+    <div class="cards">
+        <div class="card">
+            <span class="card__label">VAT Payable</span>
+            <div class="card__value is-debit" data-unit="ZAR">26,340.00</div>
+        </div>
+        <div class="card">
+            <span class="card__label">PAYE Payable</span>
+            <div class="card__value is-debit" data-unit="ZAR">62,480.00</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Provisional Due</span>
+            <div class="card__value is-debit" data-unit="ZAR">202,500.00</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Income Tax Est.</span>
+            <div class="card__value is-debit" data-unit="ZAR">381,321.00</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Open Returns</span>
+            <div class="card__value is-count">4</div>
+        </div>
+    </div>
+
+    <h2 class="page__subtitle">Next due dates</h2>
+    <table class="table">
+        <thead>
+            <tr><th>Tax</th><th>Period</th><th>Due</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>PAYE</td><td>2026-01</td><td>2026-02-07</td><td><span class="status status--busy">Due</span></td></tr>
+            <tr><td>VAT</td><td>2026-01</td><td>2026-02-25</td><td><span class="status status--busy">Due</span></td></tr>
+            <tr><td>Provisional</td><td>2026 · Second</td><td>2026-02-28</td><td><span class="status status--busy">Due</span></td></tr>
+        </tbody>
+    </table>
+
+    <h2 class="page__subtitle">Items that need an action</h2>
+    <div class="notes">
+        <div class="card">
+            <span class="card__label">Due soon</span>
+            <p class="notes__text">The PAYE return for January is due on 2026-02-07.</p>
+        </div>
+    </div>
+</section>
+{% endblock %}

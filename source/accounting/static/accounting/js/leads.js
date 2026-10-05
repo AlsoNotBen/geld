@@ -21,7 +21,7 @@
        [data-lead-edit]        the Edit button of the overlay
        [data-edit-url]         the URL that saves the changes of the lead
        [data-form]             the values of the form, as JSON
-       #lead-dialog            the lead form (New Lead and Edit Lead)
+   The lead form (#lead-dialog) is in lead_form.js.
    A gauge with no value in the card becomes hidden.
    ========================================================================== */
 (function () {
@@ -96,39 +96,22 @@
     });
 
     /* ---- The lead form ----
-       reset() gives the defaults of the markup. The Edit button then puts
-       the values of the lead in the fields. */
-    const form = document.getElementById("lead-dialog");
-    const formEl = form && form.querySelector("form");
-    const createUrl = formEl && formEl.action;
-
-    function openForm(title, action, values) {
-        formEl.reset();
-        formEl.action = action;
-        form.querySelector(".sheet__title").textContent = title;
-        Object.entries(values || {}).forEach(function ([key, value]) {
-            if (formEl.elements[key]) formEl.elements[key].value = value ?? "";
-        });
-        form.showModal();
-    }
-
+       lead_form.js holds the form. The Edit button puts the values of the
+       lead in the fields, and the form saves to the edit URL of the lead. */
     const newBtn = document.querySelector("[data-lead-new]");
-    if (form && newBtn) newBtn.onclick = () => openForm("Create New Lead", createUrl);
+    if (newBtn) newBtn.onclick = () => window.openLeadForm("Create New Lead");
 
     const editBtn = view.querySelector("[data-lead-edit]");
-    if (form && editBtn) editBtn.onclick = function () {
+    if (editBtn) editBtn.onclick = function () {
         view.close();
-        openForm("Edit Lead", current.dataset.editUrl, JSON.parse(current.dataset.form));
+        window.openLeadForm("Edit Lead", current.dataset.editUrl, JSON.parse(current.dataset.form));
     };
 
     /* ---- Close ---- */
-    [view, form].forEach(function (dialog) {
-        if (!dialog) return;
-        const cancel = dialog.querySelector("[data-dialog-cancel]");
-        if (cancel) cancel.onclick = () => dialog.close();
-        // Close the dialog when the user clicks the backdrop.
-        dialog.onclick = (e) => {
-            if (e.target === dialog) dialog.close();
-        };
-    });
+    const cancel = view.querySelector("[data-dialog-cancel]");
+    if (cancel) cancel.onclick = () => view.close();
+    // Close the dialog when the user clicks the backdrop.
+    view.onclick = (e) => {
+        if (e.target === view) view.close();
+    };
 })();

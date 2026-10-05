@@ -3,6 +3,7 @@
   The table of one Chart of Accounts tab.
   Give it: rows, total, total_label.
 {% endcomment %}
+{% load fin %}
 <table class="table table--coa">
     <thead>
         <tr><th>Code</th><th>Account</th><th>Type</th><th>Balance</th></tr>
@@ -13,13 +14,13 @@
             <td>{{ account.code }}</td>
             <td>{{ account.name }}</td>
             <td>{{ account.get_type_display }}</td>
-            <td class="{% if account.is_debit %}is-debit{% else %}is-credit{% endif %}">{{ account.balance|floatformat:2 }}</td>
+            <td class="{% if account.is_debit %}is-debit{% else %}is-credit{% endif %}">{{ account.balance|money }}</td>
         </tr>
         {% empty %}
         <tr><td colspan="4">This category has no accounts. Use the New Account button above.</td></tr>
         {% endfor %}
     </tbody>
     <tfoot>
-        <tr><td colspan="3">{{ total_label }}</td><td>{{ total|floatformat:2 }}</td></tr>
+        <tr><td colspan="3">{{ total_label }}</td><td>{{ total|money }}</td></tr>
     </tfoot>
 </table>

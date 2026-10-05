@@ -563,6 +563,9 @@
 
 /* ---- Form field --------------------------------------------------- */
 .field { display: grid; gap: 6px; }
+/* leads.js hides the fields of the other entity type with the hidden
+   attribute. The display value above is stronger, thus this rule. */
+.field[hidden] { display: none; }
 .field__label {
     font-family: var(--font-mono);
     font-size: 10px;
@@ -2029,7 +2032,32 @@
     margin-top: 0;
 }
 
+.doc-field:has([name="pro_forma"]),
+.doc-field:has([name="recurring"]) {
+    display: inline-block;
+    vertical-align: top;
+    margin-right: 32px;
+}
+
 /* ---- Responsive --------------------------------------------------- */
 @media (max-width: 640px) {
     .lead__gauges--wide { grid-template-columns: minmax(0, 1fr); }
 }
+/* ================================================================== */
+/*  VIEWING MODE                                                      */
+/*  The shell carries data-view="easy" or data-view="standard".       */
+/*  Easy mode keeps the debit and credit colors above. Standard mode  */
+/*  removes them from the figures: currentColor on the color property */
+/*  means "inherit". The status pills keep their colors.              */
+/* ================================================================== */
+.shell:not([data-view="easy"]) :is(.is-debit, .is-credit, .is-overdue, .card__value, .table--ledger td) {
+    --debit: currentColor;
+    --credit: currentColor;
+    --overdue: currentColor;
+}
+
+/* Easy mode colors every amount, also the totals and the last period.
+   The !important wins over the dim rules of the statement tables. */
+.shell[data-view="easy"] .main .is-debit   { color: var(--debit) !important; }
+.shell[data-view="easy"] .main .is-credit  { color: var(--credit) !important; }
+.shell[data-view="easy"] .main .is-overdue { color: var(--overdue) !important; }

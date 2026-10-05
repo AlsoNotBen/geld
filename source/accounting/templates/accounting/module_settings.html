@@ -1,0 +1,82 @@
+{% extends "accounting/module_base.html" %}
+
+{% comment %}
+  ============================================================================
+  accounting/templates/accounting/module_settings.html
+  ----------------------------------------------------------------------------
+  These settings control the behaviour of the Accounting module for all users. It is a shell: the data below is dummy data in the markup.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}settings{% endblock %}
+
+{% block title %}Module Settings · Accounting · Console{% endblock %}
+
+{% block toolbar %}{{ block.super }}{% endblock %}
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title">Module Settings</h1>
+        <p class="page__note">These settings control the behaviour of the Accounting module for all users.</p>
+    </div>
+
+    <form class="card" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="sheet__body sheet__body--split">
+            {% comment %} The viewing mode. module_settings keeps it in the
+                 view_mode cookie. view_mode.js reads it on each page. {% endcomment %}
+            <div class="field">
+                <label class="field__label" for="f-easy_view">Viewing mode</label>
+                <label class="switch">
+                    <input id="f-easy_view" name="easy_view" type="checkbox" data-view-toggle
+                           {% if request.COOKIES.view_mode != "standard" %}checked{% endif %}>
+                    <span class="switch__track" aria-hidden="true"></span>
+                    <span class="switch__text">{% if request.COOKIES.view_mode != "standard" %}Easy Viewing{% else %}Accounting Standard Viewing{% endif %}</span>
+                </label>
+            </div>
+            <div class="field">
+                <label class="field__label" for="f-landing">Default landing page</label>
+                <select class="field__control" id="f-landing" name="landing"><option>Overview</option><option>Journal Entries</option><option>Sales Dashboard</option></select>
+            </div>
+            <div class="field">
+                <label class="field__label" for="f-page_size">Rows per page</label>
+                <input class="field__control" id="f-page_size" name="page_size" type="number" value="25">
+            </div>
+            <div class="field">
+                <label class="field__label" for="f-date_format">Date format</label>
+                <select class="field__control" id="f-date_format" name="date_format"><option>YYYY-MM-DD</option><option>DD/MM/YYYY</option><option>MM/DD/YYYY</option></select>
+            </div>
+            <div class="field">
+                <label class="field__label" for="f-email_alerts">Email alerts</label>
+                <label class="switch">
+                    <input id="f-email_alerts" name="email_alerts" type="checkbox" checked>
+                    <span class="switch__track" aria-hidden="true"></span>
+                    <span class="switch__text">On</span>
+                </label>
+            </div>
+            <div class="field">
+                <label class="field__label" for="f-show_codes">Show account codes</label>
+                <label class="switch">
+                    <input id="f-show_codes" name="show_codes" type="checkbox" checked>
+                    <span class="switch__track" aria-hidden="true"></span>
+                    <span class="switch__text">On</span>
+                </label>
+            </div>
+            <div class="field">
+                <label class="field__label" for="f-approve_journals">Approve journals before post</label>
+                <label class="switch">
+                    <input id="f-approve_journals" name="approve_journals" type="checkbox">
+                    <span class="switch__track" aria-hidden="true"></span>
+                    <span class="switch__text">On</span>
+                </label>
+            </div>
+        </div>
+        <div class="sheet__foot">
+            <button class="tool tool--primary" type="submit">Save</button>
+            <button class="tool tool--ghost" type="reset">Cancel</button>
+        </div>
+    </form>
+</section>
+{% endblock %}

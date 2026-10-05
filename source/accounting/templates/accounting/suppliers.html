@@ -1,0 +1,54 @@
+{% extends "accounting/module_base.html" %}
+
+{% comment %}
+  ============================================================================
+  accounting/templates/accounting/suppliers.html
+  ----------------------------------------------------------------------------
+  This page shows all the suppliers of the business and the money that the business owes to each supplier. It is a shell: the data below is dummy data in the markup.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}suppliers{% endblock %}
+
+{% block title %}Suppliers · Accounting · Console{% endblock %}
+
+{% block toolbar %}{{ block.super }}{% endblock %}
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title">Suppliers</h1>
+        <p class="page__note">This page shows all the suppliers of the business and the money that the business owes to each supplier.</p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Page controls">
+        <div class="actionbar__group">
+            <button class="tool tool--primary" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                New Supplier
+            </button>
+            <button class="tool" type="button" data-print>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+                Print
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+        </div>
+    </div>
+
+    <table class="table">
+        <thead>
+            <tr><th>Code</th><th>Supplier</th><th>Contact</th><th>Terms</th><th>Status</th><th>Balance</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>SUP-001</td><td>Cape Office Supplies</td><td>Thandi Mokoena</td><td>30 days</td><td><span class="status status--ok">Active</span></td><td class="is-debit">3,240.00</td></tr>
+            <tr><td>SUP-002</td><td>Highveld Fuel Services</td><td>Pieter van Wyk</td><td>15 days</td><td><span class="status status--ok">Active</span></td><td class="is-overdue">12,880.00</td></tr>
+            <tr><td>SUP-003</td><td>Drakensberg Print Co.</td><td>Aisha Patel</td><td>30 days</td><td><span class="status status--ok">Active</span></td><td class="is-debit">0.00</td></tr>
+            <tr><td>SUP-004</td><td>Atlantic Cloud Hosting</td><td>Mark Daniels</td><td>Monthly</td><td><span class="status status--idle">Inactive</span></td><td class="is-debit">1,990.00</td></tr>
+        </tbody>
+    </table>
+</section>
+{% endblock %}

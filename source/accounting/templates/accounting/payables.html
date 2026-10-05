@@ -1,0 +1,53 @@
+{% extends "accounting/module_base.html" %}
+
+{% comment %}
+  ============================================================================
+  accounting/templates/accounting/payables.html
+  ----------------------------------------------------------------------------
+  This page shows the bills that the business did not pay yet. It is a shell: the data below is dummy data in the markup.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}suppliers{% endblock %}
+
+{% block title %}Payables · Accounting · Console{% endblock %}
+
+{% block toolbar %}{{ block.super }}{% endblock %}
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title">Payables</h1>
+        <p class="page__note">This page shows the bills that the business did not pay yet.</p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Page controls">
+        <div class="actionbar__group">
+            <button class="tool" type="button" data-print>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+                Print
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+        </div>
+        <p class="actionbar__hint">The list shows the open bills of {{ period|default:"FY 2026" }}.</p>
+    </div>
+
+    <table class="table">
+        <thead>
+            <tr><th>Bill</th><th>Supplier</th><th>Date</th><th>Due</th><th>Status</th><th>Balance</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>BL-00412</td><td>Cape Office Supplies</td><td>2026-02-11</td><td>2026-03-13</td><td><span class="status status--busy">Open</span></td><td class="is-debit">3,240.00</td></tr>
+            <tr><td>BL-00411</td><td>Highveld Fuel Services</td><td>2026-02-05</td><td>2026-02-20</td><td><span class="status status--out">Overdue</span></td><td class="is-overdue">12,880.00</td></tr>
+            <tr><td>BL-00409</td><td>Atlantic Cloud Hosting</td><td>2026-01-20</td><td>2026-02-19</td><td><span class="status status--idle">Draft</span></td><td class="is-debit">1,990.00</td></tr>
+        </tbody>
+        <tfoot>
+            <tr><td colspan="5">Total payable</td><td class="is-debit">18,110.00</td></tr>
+        </tfoot>
+    </table>
+</section>
+{% endblock %}

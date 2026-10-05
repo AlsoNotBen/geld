@@ -1,0 +1,57 @@
+{% extends "accounting/module_base.html" %}
+
+{% comment %}
+  ============================================================================
+  accounting/templates/accounting/claims.html
+  ----------------------------------------------------------------------------
+  A claim gives money back to an employee for a cost of the business. Make sure that each claim has a receipt before you approve it. It is a shell: the data below is dummy data in the markup.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}claims{% endblock %}
+
+{% block title %}Claims · Accounting · Console{% endblock %}
+
+{% block toolbar %}{{ block.super }}{% endblock %}
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title">Claims</h1>
+        <p class="page__note">A claim gives money back to an employee for a cost of the business. Make sure that each claim has a receipt before you approve it.</p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Page controls">
+        <div class="actionbar__group">
+            <button class="tool tool--primary" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                New Claim
+            </button>
+            <button class="tool" type="button" data-print>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+                Print
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+        </div>
+    </div>
+
+    <table class="table">
+        <thead>
+            <tr><th>Date</th><th>Number</th><th>Employee</th><th>Category</th><th>Status</th><th>Amount</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>2026-02-10</td><td>CL-00087</td><td>Lerato Nkosi</td><td>Travel</td><td><span class="status status--busy">Submitted</span></td><td class="is-debit">1,420.00</td></tr>
+            <tr><td>2026-02-06</td><td>CL-00086</td><td>James Botha</td><td>Meals</td><td><span class="status status--ok">Approved</span></td><td class="is-debit">380.00</td></tr>
+            <tr><td>2026-02-02</td><td>CL-00085</td><td>Lerato Nkosi</td><td>Fuel</td><td><span class="status status--ok">Paid</span></td><td class="is-debit">950.00</td></tr>
+            <tr><td>2026-01-29</td><td>CL-00084</td><td>Sipho Dlamini</td><td>Stationery</td><td><span class="status status--out">Rejected</span></td><td class="is-debit">215.00</td></tr>
+        </tbody>
+        <tfoot>
+            <tr><td colspan="5">Total of the claims</td><td class="is-debit">2,965.00</td></tr>
+        </tfoot>
+    </table>
+</section>
+{% endblock %}

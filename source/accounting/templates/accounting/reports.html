@@ -1,0 +1,55 @@
+{% extends "accounting/module_base.html" %}
+
+{% comment %}
+  ============================================================================
+  accounting/templates/accounting/reports.html
+  ----------------------------------------------------------------------------
+  Select a report to open it. Each report uses the date range at the top of the page. It is a shell: the data below is dummy data in the markup.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}reports{% endblock %}
+
+{% block title %}Reports · Accounting · Console{% endblock %}
+
+{% block toolbar %}{{ block.super }}{% endblock %}
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title">Reports</h1>
+        <p class="page__note">Select a report to open it. Each report uses the date range at the top of the page.</p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Page controls">
+        <div class="actionbar__group">
+            <button class="tool tool--primary" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                New Report
+            </button>
+            <button class="tool" type="button" data-print>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+                Print
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+        </div>
+    </div>
+
+    <table class="table">
+        <thead>
+            <tr><th>Report</th><th>Group</th><th>Last run</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>Trial Balance</td><td>Bookkeeping</td><td>2026-02-12</td><td><span class="status status--ok">Ready</span></td></tr>
+            <tr><td>Sales by Customer</td><td>Sales</td><td>2026-02-10</td><td><span class="status status--ok">Ready</span></td></tr>
+            <tr><td>Purchases by Supplier</td><td>Purchases</td><td>2026-02-08</td><td><span class="status status--ok">Ready</span></td></tr>
+            <tr><td>VAT Summary</td><td>Taxes</td><td>2026-01-31</td><td><span class="status status--low">Out of date</span></td></tr>
+            <tr><td>Budget against Actual</td><td>Analysis</td><td>—</td><td><span class="status status--idle">Not run</span></td></tr>
+        </tbody>
+    </table>
+</section>
+{% endblock %}

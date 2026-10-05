@@ -1,0 +1,82 @@
+{% extends "accounting/module_base.html" %}
+
+{% comment %}
+  ============================================================================
+  accounting/templates/accounting/customer_dashboard.html
+  ----------------------------------------------------------------------------
+  The dashboard shows the position of the customers today. It is a shell: the data below is dummy data in the markup.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}customers{% endblock %}
+
+{% block title %}Customer Dashboard · Accounting · Console{% endblock %}
+
+{% block toolbar %}{{ block.super }}{% endblock %}
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title">Customer Dashboard</h1>
+        <p class="page__note">The dashboard shows the position of the customers today.</p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Page controls">
+        <div class="actionbar__group">
+            <button class="tool" type="button" data-print>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+                Print
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+        </div>
+        <p class="actionbar__hint">The figures show {{ period|default:"FY 2026" }}.</p>
+    </div>
+
+    <div class="cards">
+        <div class="card">
+            <span class="card__label">Customers</span>
+            <div class="card__value is-count">48</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Receivable</span>
+            <div class="card__value is-credit" data-unit="ZAR">100,180.00</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Overdue</span>
+            <div class="card__value is-overdue" data-unit="ZAR">7,400.00</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Received</span>
+            <div class="card__value is-credit" data-unit="ZAR">412,650.00</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Debtor Days</span>
+            <div class="card__value is-count">38</div>
+        </div>
+    </div>
+
+    <h2 class="page__subtitle">Top customers by balance</h2>
+    <table class="table">
+        <thead>
+            <tr><th>Customer</th><th>Invoices</th><th>Balance</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>Sandton Data Centre</td><td class="is-count">6</td><td class="is-credit">88,000.00</td></tr>
+            <tr><td>Bergrivier Logistics</td><td class="is-count">4</td><td class="is-overdue">7,400.00</td></tr>
+            <tr><td>Karoo Fresh Produce</td><td class="is-count">9</td><td class="is-credit">4,780.00</td></tr>
+        </tbody>
+    </table>
+
+    <h2 class="page__subtitle">Items that need an action</h2>
+    <div class="notes">
+        <div class="card">
+            <span class="card__label">Late payments</span>
+            <p class="notes__text">Bergrivier Logistics is 25 days late. Send a reminder.</p>
+        </div>
+    </div>
+</section>
+{% endblock %}

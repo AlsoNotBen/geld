@@ -1,0 +1,71 @@
+{% extends "accounting/module_base.html" %}
+
+{% comment %}
+  ============================================================================
+  accounting/templates/accounting/accounting_settings.html
+  ----------------------------------------------------------------------------
+  These settings control how the module records and reports transactions. It is a shell: the data below is dummy data in the markup.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}accountingsettings{% endblock %}
+
+{% block title %}Accounting Settings · Accounting · Console{% endblock %}
+
+{% block toolbar %}{{ block.super }}{% endblock %}
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title">Accounting Settings</h1>
+        <p class="page__note">These settings control how the module records and reports transactions.</p>
+    </div>
+
+    <form class="card" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="sheet__body sheet__body--split">
+            <div class="field">
+                <label class="field__label" for="f-fy_start">Financial year start</label>
+                <input class="field__control" id="f-fy_start" name="fy_start" type="date" value="2025-03-01">
+            </div>
+            <div class="field">
+                <label class="field__label" for="f-currency">Base currency</label>
+                <select class="field__control" id="f-currency" name="currency"><option>ZAR</option><option>USD</option><option>EUR</option><option>GBP</option></select>
+            </div>
+            <div class="field">
+                <label class="field__label" for="f-vat_rate">Default VAT rate (%)</label>
+                <input class="field__control" id="f-vat_rate" name="vat_rate" type="number" value="15">
+            </div>
+            <div class="field">
+                <label class="field__label" for="f-lock_date">Lock date</label>
+                <input class="field__control" id="f-lock_date" name="lock_date" type="date" value="2026-01-31">
+            </div>
+            <div class="field">
+                <label class="field__label" for="f-invoice_prefix">Invoice prefix</label>
+                <input class="field__control" id="f-invoice_prefix" name="invoice_prefix" type="text" value="IN-">
+            </div>
+            <div class="field">
+                <label class="field__label" for="f-quote_prefix">Quote prefix</label>
+                <input class="field__control" id="f-quote_prefix" name="quote_prefix" type="text" value="QU-">
+            </div>
+            <div class="field">
+                <label class="field__label" for="f-re_account">Retained earnings account</label>
+                <select class="field__control" id="f-re_account" name="re_account"><option>3200 · Retained Earnings</option><option>3100 · Share Capital</option></select>
+            </div>
+            <div class="field">
+                <label class="field__label" for="f-accrual">Accrual basis</label>
+                <label class="switch">
+                    <input id="f-accrual" name="accrual" type="checkbox" checked>
+                    <span class="switch__track" aria-hidden="true"></span>
+                    <span class="switch__text">On</span>
+                </label>
+            </div>
+        </div>
+        <div class="sheet__foot">
+            <button class="tool tool--primary" type="submit">Save</button>
+            <button class="tool tool--ghost" type="reset">Cancel</button>
+        </div>
+    </form>
+</section>
+{% endblock %}

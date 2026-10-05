@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static lead_tags %}
 
 {% comment %}
   ============================================================================
@@ -103,12 +103,12 @@
                     <svg class="icon icon--caret" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 10l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </button>
                 <div class="tbar-menu__panel" role="menu" aria-label="Customers">
-                    <a class="tbar-menu__item" role="menuitem" href="#">All Customers</a>
-                    <a class="tbar-menu__item" role="menuitem" href="#">New Customer</a>
-                    <a class="tbar-menu__item" role="menuitem" href="#">Receivables</a>
-                    <a class="tbar-menu__item" role="menuitem" href="#">Aging Receivables</a>
+                    <a class="tbar-menu__item" role="menuitem" href="{% url 'accounting:customers' %}">All Customers</a>
+                    <a class="tbar-menu__item" role="menuitem" href="{% url 'accounting:customer_new' %}">New Customer</a>
+                    <a class="tbar-menu__item" role="menuitem" href="{% url 'accounting:receivables' %}">Receivables</a>
+                    <a class="tbar-menu__item" role="menuitem" href="{% url 'accounting:aging_receivables' %}">Aging Receivables</a>
                     <span class="tbar-menu__sep" role="separator" aria-hidden="true"></span>
-                    <a class="tbar-menu__item" role="menuitem" href="#">Customer Dashboard</a>
+                    <a class="tbar-menu__item" role="menuitem" href="{% url 'accounting:customer_dashboard' %}">Customer Dashboard</a>
                 </div>
             </div>
 
@@ -118,12 +118,12 @@
                     <svg class="icon icon--caret" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 10l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </button>
                 <div class="tbar-menu__panel" role="menu" aria-label="Suppliers">
-                    <a class="tbar-menu__item" role="menuitem" href="#">All Suppliers</a>
-                    <a class="tbar-menu__item" role="menuitem" href="#">New Supplier</a>
-                    <a class="tbar-menu__item" role="menuitem" href="#">Payables</a>
-                    <a class="tbar-menu__item" role="menuitem" href="#">Aging Payables</a>
+                    <a class="tbar-menu__item" role="menuitem" href="{% url 'accounting:suppliers' %}">All Suppliers</a>
+                    <a class="tbar-menu__item" role="menuitem" href="{% url 'accounting:supplier_new' %}">New Supplier</a>
+                    <a class="tbar-menu__item" role="menuitem" href="{% url 'accounting:payables' %}">Payables</a>
+                    <a class="tbar-menu__item" role="menuitem" href="{% url 'accounting:aging_payables' %}">Aging Payables</a>
                     <span class="tbar-menu__sep" role="separator" aria-hidden="true"></span>
-                    <a class="tbar-menu__item" role="menuitem" href="#">Supplier Dashboard</a>
+                    <a class="tbar-menu__item" role="menuitem" href="{% url 'accounting:supplier_dashboard' %}">Supplier Dashboard</a>
                 </div>
             </div>
 
@@ -133,13 +133,13 @@
                     <svg class="icon icon--caret" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 10l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </button>
                 <div class="tbar-menu__panel tbar-menu__panel--right" role="menu" aria-label="Banking">
-                    <a class="tbar-menu__item" role="menuitem" href="#">All Bank Accounts</a>
-                    <a class="tbar-menu__item" role="menuitem" href="#">New Bank Account</a>
-                    <a class="tbar-menu__item" role="menuitem" href="#">Cards</a>
-                    <a class="tbar-menu__item" role="menuitem" href="#">Import Statement</a>
-                    <a class="tbar-menu__item" role="menuitem" href="#">Reconcile</a>
+                    <a class="tbar-menu__item" role="menuitem" href="{% url 'accounting:bank_accounts' %}">All Bank Accounts</a>
+                    <a class="tbar-menu__item" role="menuitem" href="{% url 'accounting:bank_account_new' %}">New Bank Account</a>
+                    <a class="tbar-menu__item" role="menuitem" href="{% url 'accounting:cards' %}">Cards</a>
+                    <a class="tbar-menu__item" role="menuitem" href="{% url 'accounting:import_statement' %}">Import Statement</a>
+                    <a class="tbar-menu__item" role="menuitem" href="{% url 'accounting:reconcile' %}">Reconcile</a>
                     <span class="tbar-menu__sep" role="separator" aria-hidden="true"></span>
-                    <a class="tbar-menu__item" role="menuitem" href="#">Payment Runs</a>
+                    <a class="tbar-menu__item" role="menuitem" href="{% url 'accounting:payment_runs' %}">Payment Runs</a>
                 </div>
             </div>
 
@@ -148,13 +148,13 @@
                     Taxes
                     <svg class="icon icon--caret" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 10l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </button>
-                <div class="tbar-menu__panel" role="menu" aria-label="Customers">
-                    <a class="tbar-menu__item" role="menuitem" href="#">Income Tax Returns</a>
-                    <a class="tbar-menu__item" role="menuitem" href="#">Provisional Taxes</a>
-                    <a class="tbar-menu__item" role="menuitem" href="#">VAT</a>
-                    <a class="tbar-menu__item" role="menuitem" href="#">PAYE</a>
+                <div class="tbar-menu__panel" role="menu" aria-label="Taxes">
+                    <a class="tbar-menu__item" role="menuitem" href="{% url 'accounting:income_tax' %}">Income Tax Returns</a>
+                    <a class="tbar-menu__item" role="menuitem" href="{% url 'accounting:provisional_tax' %}">Provisional Taxes</a>
+                    <a class="tbar-menu__item" role="menuitem" href="{% url 'accounting:vat' %}">VAT</a>
+                    <a class="tbar-menu__item" role="menuitem" href="{% url 'accounting:paye' %}">PAYE</a>
                     <span class="tbar-menu__sep" role="separator" aria-hidden="true"></span>
-                    <a class="tbar-menu__item" role="menuitem" href="#">Tax Dashboard</a>
+                    <a class="tbar-menu__item" role="menuitem" href="{% url 'accounting:tax_dashboard' %}">Tax Dashboard</a>
                 </div>
             </div>
 
@@ -223,7 +223,7 @@
    base.html.
 ======================================================================= #}
 {% block layout %}
-<div class="shell fill">
+<div class="shell fill" data-view="{{ request.COOKIES.view_mode|default:'easy' }}">
 
     <aside class="sidebar" id="accounting-sidebar" aria-label="Accounting sections">
         {% block sidebar %}
@@ -232,8 +232,8 @@
         <nav class="nav">
             <div class="nav__group">Analysis</div>
             <a class="nav__item" data-nav="dashboard" href="{% url 'accounting:dashboard' %}">Overview</a>
-            <a class="nav__item" data-nav="analytics"   href="#">Analytics</a>
-            <a class="nav__item" data-nav="reports"  href="#">Reports</a>
+            <a class="nav__item" data-nav="analytics" href="{% url 'accounting:analytics' %}">Analytics</a>
+            <a class="nav__item" data-nav="reports" href="{% url 'accounting:reports' %}">Reports</a>
 
 
             <div class="nav__group">Bookkeeping</div>
@@ -251,13 +251,13 @@
             <a class="nav__item" data-nav="equity" href="{% url 'accounting:equity' %}">Equity and Notes</a>
 
             <div class="nav__group">Cost Centre</div>
-            <a class="nav__item" data-nav="bills"     href="#">Bills</a>
-            <a class="nav__item" data-nav="suppliers" href="#">Suppliers</a>
-            <a class="nav__item" data-nav="claims" href="#">Claims</a>
+            <a class="nav__item" data-nav="bills" href="{% url 'accounting:bills' %}">Bills</a>
+            <a class="nav__item" data-nav="suppliers" href="{% url 'accounting:suppliers' %}">Suppliers</a>
+            <a class="nav__item" data-nav="claims" href="{% url 'accounting:claims' %}">Claims</a>
 
             <div class="nav__group">General</div>
-            <a class="nav__item" data-nav="accountingsettings"  href="#">Accounting Settings</a>
-            <a class="nav__item" data-nav="settings" href="#">Module settings</a>
+            <a class="nav__item" data-nav="accountingsettings" href="{% url 'accounting:accounting_settings' %}">Accounting Settings</a>
+            <a class="nav__item" data-nav="settings" href="{% url 'accounting:module_settings' %}">Module settings</a>
         </nav>
 
         {% block sidebar_extra %}{% endblock %}
@@ -277,9 +277,15 @@
 
 {% comment %} The scrim closes the drawer. base.js reads data-drawer-close. {% endcomment %}
 <div class="scrim" data-drawer-close></div>
+
+{% comment %} The New Lead overlay. The Leads page and the customer "+" of
+     the Quote and Invoice overlays use it. {% endcomment %}
+{% lead_form %}
 {% endblock %}
 
 {# ===================== MODULE SCRIPTS ===================== #}
 {% block extra_js %}
 <script src="{% static 'accounting/js/daterange.js' %}"></script>
+<script src="{% static 'accounting/js/lead_form.js' %}"></script>
+<script src="{% static 'accounting/js/view_mode.js' %}"></script>
 {% endblock %}

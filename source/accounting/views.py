@@ -1,6 +1,6 @@
 import json
+from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Sum, DecimalField, Q
 from django.db.models.functions import Coalesce
@@ -39,6 +39,8 @@ def card_data(lead, now):
     the values of the edit form, and the level (0 to 100) and the text
     of each gauge."""
     entity, owner = lead.entity, lead.entity.owner
+    ind = getattr(entity, "individual_profile", None)
+    org = getattr(entity, "organization_profile", None)
     lead.name = entity.display_name or entity.name
     lead.owner_name = (owner.get_full_name() or owner.username) if owner else ""
     lead.form_json = json.dumps({
@@ -49,7 +51,12 @@ def card_data(lead, now):
         "temperature": lead.temperature, "turn": "yours" if lead.turn else "theirs",
         "responsiveness": timezone.localtime(lead.responsiveness).strftime("%Y-%m-%dT%H:%M")
                           if lead.responsiveness else None,
-    })
+        # The values of the profile fields. The form shows them by type.
+        "lastname": ind and ind.last_name, "birthdate": ind and ind.date_of_birth,
+        "role": ind and ind.role_id, "title": ind and ind.title_id,
+        "taxnumber": org and org.tax_number, "registration": org and org.registration_number,
+        "url": org and org.url, "industry": org and org.industry_id,
+    }, default=str)
     lead.tone = STATUS_TONE.get(lead.status, "idle")
     if lead.size is not None:
         lead.size_level = min(100, round(lead.size / 10))       # 1 to 1000
@@ -61,7 +68,8 @@ def card_data(lead, now):
 
 def leads(request):
     now = timezone.now()
-    rows = list(Lead.objects.select_related("entity__owner").order_by("-id"))
+    rows = list(Lead.objects.select_related(
+        "entity__owner", "entity__individual_profile", "entity__organization_profile").order_by("-id"))
     for lead in rows:
         card_data(lead, now)
 
@@ -70,37 +78,53 @@ def leads(request):
         "columns":      [{"title": label, "leads": [l for l in rows if l.stage == key]}
                          for key, label in Lead.SaleStage.choices if key != Lead.SaleStage.CLOSED],
         "closed_leads": [l for l in rows if l.stage == Lead.SaleStage.CLOSED],
-        "stages":       Lead.SaleStage.choices,
-        "statuses":     Lead.LeadStatus.choices,
-        "temperatures": Lead.Temperature.choices,
-        "owners":       get_user_model().objects.filter(is_active=True),
     })
 
 def save_lead(lead, post):
     """Copy the lead form to the lead and its entity, then save both. The
     New Lead overlay and the Edit Lead overlay use the same form."""
-    entity = lead.entity
-    entity.name = post["name"]
-    entity.type = post["type"]
-    entity.owner_id = post.get("owner") or None
-    entity.email = post.get("email", "")
-    entity.phone = post.get("phone", "")
-    entity.address = post.get("address", "")
+    when                = post.get("responsiveness")
+    entity              = lead.entity
+    entity.name         = post["name"]
+    entity.description  = post.get("description","")
+    entity.type         = post["type"]
+    entity.owner_id     = post.get("owner") or None
+    entity.email        = post.get("email", "")
+    entity.phone        = post.get("phone", "")
+    entity.address      = post.get("address", "")
 
-    when = post.get("responsiveness")
-    lead.description = post.get("description", "")
-    lead.stage = post["stage"]
-    lead.status = post["status"]
+    lead.description        = post.get("description", "")
+    lead.stage              = post["stage"]
+    lead.status             = post["status"]
+    lead.size               = post.get("size") or 1
+    lead.qualifying_score   = post.get("qualifying_score") or None
+    lead.temperature        = post["temperature"]
+    lead.responsiveness     = timezone.make_aware(datetime.fromisoformat(when)) if when else None
+    lead.turn               = post.get("turn") == "yours"
+
     if lead.status in (Lead.LeadStatus.LOST, Lead.LeadStatus.WON):
-        lead.stage = Lead.SaleStage.CLOSED      # A lost or won lead is closed.
-    lead.size = post.get("size") or 1
-    lead.qualifying_score = post.get("qualifying_score") or None
-    lead.temperature = post["temperature"]
-    lead.responsiveness = timezone.make_aware(datetime.fromisoformat(when)) if when else None
-    lead.turn = post.get("turn") == "yours"
+        lead.stage = Lead.SaleStage.CLOSED 
 
     with transaction.atomic():
         entity.save()
+        if entity.type == Entity.EntityType.INDIVIDUAL:
+            OrganizationProfile.objects.filter(entity=entity).delete()
+            IndividualProfile.objects.update_or_create(entity=entity, defaults={
+                "first_name":    entity.name,
+                "last_name":     post.get("lastname", ""),
+                "date_of_birth": post.get("birthdate") or None,
+                "role_id":       post.get("role") or None,
+                "title_id":      post.get("title") or None,
+            })
+        else:
+            IndividualProfile.objects.filter(entity=entity).delete()
+            OrganizationProfile.objects.update_or_create(entity=entity, defaults={
+                "legal_name":          entity.name,
+                "tax_number":          post.get("taxnumber", ""),
+                "registration_number": post.get("registration", ""),
+                "url":                 post.get("url", ""),
+                "industry_id":         post.get("industry") or None,
+            })
         lead.save()
 
 def lead_create(request):
@@ -108,6 +132,9 @@ def lead_create(request):
     if request.method == "POST":
         entity = Entity(company=request.company, created_by=request.user)   # Add to every function that creates a CompanyOwned record
         save_lead(Lead(company=request.company, entity=entity), request.POST)
+        # The Quote and Invoice overlays send JSON. They select the new customer.
+        if "application/json" in request.headers.get("Accept", ""):
+            return JsonResponse({"id": entity.pk, "name": entity.name})
     return redirect("accounting:leads")
 
 def lead_update(request, pk):
@@ -585,3 +612,97 @@ def equity(request):
         "closing": balance_row(ctx["end"], False),
     })
     return render(request, "accounting/shareholder_equity.html", ctx)
+
+# ___________________________________UI SHELLS_______________________________________#
+# These pages show dummy data from the template only.
+
+def analytics(request):
+    return render(request, "accounting/analytics.html")
+
+def reports(request):
+    return render(request, "accounting/reports.html")
+
+def bills(request):
+    return render(request, "accounting/bills.html")
+
+def suppliers(request):
+    return render(request, "accounting/suppliers.html")
+
+def claims(request):
+    return render(request, "accounting/claims.html")
+
+def accounting_settings(request):
+    return render(request, "accounting/accounting_settings.html")
+
+def module_settings(request):
+    if request.method == "POST":
+        # Only the viewing mode is kept at this time.
+        mode = "easy" if request.POST.get("easy_view") else "standard"
+        response = redirect("accounting:module_settings")
+        response.set_cookie("view_mode", mode, max_age=365 * 24 * 3600, samesite="Lax")
+        return response
+    return render(request, "accounting/module_settings.html")
+
+# Customers
+def customers(request):
+    return render(request, "accounting/customers.html")
+
+def customer_new(request):
+    return render(request, "accounting/customer_new.html")
+
+def receivables(request):
+    return render(request, "accounting/receivables.html")
+
+def aging_receivables(request):
+    return render(request, "accounting/aging_receivables.html")
+
+def customer_dashboard(request):
+    return render(request, "accounting/customer_dashboard.html")
+
+# Suppliers
+def supplier_new(request):
+    return render(request, "accounting/supplier_new.html")
+
+def payables(request):
+    return render(request, "accounting/payables.html")
+
+def aging_payables(request):
+    return render(request, "accounting/aging_payables.html")
+
+def supplier_dashboard(request):
+    return render(request, "accounting/supplier_dashboard.html")
+
+# Banking
+def bank_accounts(request):
+    return render(request, "accounting/bank_accounts.html")
+
+def bank_account_new(request):
+    return render(request, "accounting/bank_account_new.html")
+
+def cards(request):
+    return render(request, "accounting/cards.html")
+
+def import_statement(request):
+    return render(request, "accounting/import_statement.html")
+
+def reconcile(request):
+    return render(request, "accounting/reconcile.html")
+
+def payment_runs(request):
+    return render(request, "accounting/payment_runs.html")
+
+# Taxes
+def income_tax(request):
+    return render(request, "accounting/income_tax.html")
+
+def provisional_tax(request):
+    return render(request, "accounting/provisional_tax.html")
+
+def vat(request):
+    return render(request, "accounting/vat.html")
+
+def paye(request):
+    return render(request, "accounting/paye.html")
+
+def tax_dashboard(request):
+    return render(request, "accounting/tax_dashboard.html")

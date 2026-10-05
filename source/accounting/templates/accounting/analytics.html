@@ -1,0 +1,76 @@
+{% extends "accounting/module_base.html" %}
+
+{% comment %}
+  ============================================================================
+  accounting/templates/accounting/analytics.html
+  ----------------------------------------------------------------------------
+  This page shows the main financial ratios and trends of the business. Use it to compare this period with the last period. It is a shell: the data below is dummy data in the markup.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}analytics{% endblock %}
+
+{% block title %}Analytics · Accounting · Console{% endblock %}
+
+{% block toolbar %}{{ block.super }}{% endblock %}
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title">Analytics</h1>
+        <p class="page__note">This page shows the main financial ratios and trends of the business. Use it to compare this period with the last period.</p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Page controls">
+        <div class="actionbar__group">
+            <button class="tool" type="button" data-print>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+                Print
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+        </div>
+        <p class="actionbar__hint">The figures show {{ period|default:"FY 2026" }}.</p>
+    </div>
+
+    <div class="cards">
+        <div class="card">
+            <span class="card__label">Revenue</span>
+            <div class="card__value is-credit" data-unit="ZAR">1,284,500.00</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Expenses</span>
+            <div class="card__value is-debit" data-unit="ZAR">902,310.00</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Net Profit</span>
+            <div class="card__value is-credit" data-unit="ZAR">382,190.00</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Gross Margin</span>
+            <div class="card__value is-count">41.2%</div>
+        </div>
+        <div class="card">
+            <span class="card__label">Current Ratio</span>
+            <div class="card__value is-count">1.86</div>
+        </div>
+    </div>
+
+    <h2 class="page__subtitle">Period comparison</h2>
+    <table class="table">
+        <thead>
+            <tr><th>Measure</th><th>This period</th><th>Last period</th><th>Change</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>Revenue</td><td class="is-credit">1,284,500.00</td><td class="is-credit">1,102,800.00</td><td class="is-count">+16.5%</td></tr>
+            <tr><td>Cost of sales</td><td class="is-debit">755,300.00</td><td class="is-debit">671,200.00</td><td class="is-count">+12.5%</td></tr>
+            <tr><td>Operating expenses</td><td class="is-debit">147,010.00</td><td class="is-debit">139,450.00</td><td class="is-count">+5.4%</td></tr>
+            <tr><td>Debtor days</td><td class="is-count">38</td><td class="is-count">44</td><td class="is-count">−6</td></tr>
+            <tr><td>Creditor days</td><td class="is-count">31</td><td class="is-count">29</td><td class="is-count">+2</td></tr>
+        </tbody>
+    </table>
+</section>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "accounting/module_base.html" %}
+
+{% comment %}
+  ============================================================================
+  accounting/templates/accounting/import_statement.html
+  ----------------------------------------------------------------------------
+  Upload a bank statement file. The module reads the lines, then you match each line on the Reconcile page. It is a shell: the data below is dummy data in the markup.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}banking{% endblock %}
+
+{% block title %}Import Statement · Accounting · Console{% endblock %}
+
+{% block toolbar %}{{ block.super }}{% endblock %}
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title">Import Statement</h1>
+        <p class="page__note">Upload a bank statement file. The module reads the lines, then you match each line on the Reconcile page.</p>
+    </div>
+
+    <form class="card" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="sheet__body sheet__body--split">
+            <div class="field">
+                <label class="field__label" for="f-account">Bank account</label>
+                <select class="field__control" id="f-account" name="account"><option>FNB · Main Current</option><option>Nedbank · Savings</option><option>Standard Bank · Payroll</option></select>
+            </div>
+            <div class="field">
+                <label class="field__label" for="f-format">File format</label>
+                <select class="field__control" id="f-format" name="format"><option>CSV</option><option>OFX</option><option>QIF</option></select>
+            </div>
+            <div class="field">
+                <label class="field__label" for="f-file">Statement file</label>
+                <input class="field__control" id="f-file" name="file" type="file" value="">
+            </div>
+        </div>
+        <div class="sheet__foot">
+            <button class="tool tool--primary" type="submit">Import</button>
+            <button class="tool tool--ghost" type="reset">Cancel</button>
+        </div>
+    </form>
+
+    <h2 class="page__subtitle">Last imports</h2>
+    <table class="table">
+        <thead>
+            <tr><th>Date</th><th>Account</th><th>File</th><th>Lines</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>2026-02-01</td><td>FNB · Main Current</td><td>jan-2026.csv</td><td class="is-count">142</td><td><span class="status status--ok">Imported</span></td></tr>
+            <tr><td>2026-01-02</td><td>FNB · Main Current</td><td>dec-2025.csv</td><td class="is-count">156</td><td><span class="status status--ok">Imported</span></td></tr>
+        </tbody>
+    </table>
+</section>
+{% endblock %}

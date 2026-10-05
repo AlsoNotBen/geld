@@ -1,0 +1,143 @@
+{% comment %}
+  The New Lead overlay. module_base.html shows it on each page with the
+  lead_form tag, so the Leads page and the customer "+" of the Quote and
+  Invoice overlays use the same form. lead_form.js gives the behaviour.
+{% endcomment %}
+<dialog class="sheet sheet--wide" id="lead-dialog" aria-labelledby="lead-dialog-title">
+    <form method="post" action="{% url 'accounting:lead_create' %}">
+        {% csrf_token %}
+        <div class="sheet__head">
+            <h2 class="sheet__title" id="lead-dialog-title">Create New Lead</h2>
+        </div>
+        <div class="sheet__body sheet__body--split">
+            <div class="field">
+                <label class="field__label" for="ld-name">Name</label>
+                <input class="field__control" id="ld-name" name="name" type="text" maxlength="255" required>
+            </div>
+            <div class="field">
+                <label class="field__label" for="ld-type">Type</label>
+                <select class="field__control" id="ld-type" name="type" required>
+                    <option value="I">Individual</option>
+                    <option value="O" selected>Organization</option>
+                </select>
+            </div>
+
+            {# Individual fields. leads.js shows them when Type is Individual. #}
+            <div class="field" data-for-type="I">
+                <label class="field__label" for="ld-lastname">Last name</label>
+                <input class="field__control" id="ld-lastname" name="lastname" type="text" maxlength="100" required>
+            </div>
+            <div class="field" data-for-type="I">
+                <label class="field__label" for="ld-birthdate">Date of birth</label>
+                <input class="field__control" id="ld-birthdate" name="birthdate" type="date">
+            </div>
+            <div class="field" data-for-type="I">
+                <label class="field__label" for="ld-role">Role</label>
+                <select class="field__control" id="ld-role" name="role">
+                    <option value="">No role</option>
+                    {% for role in roles %}<option value="{{ role.pk }}">{{ role }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="field" data-for-type="I">
+                <label class="field__label" for="ld-title">Title</label>
+                <select class="field__control" id="ld-title" name="title">
+                    <option value="">No title</option>
+                    {% for title in titles %}<option value="{{ title.pk }}">{{ title }}</option>{% endfor %}
+                </select>
+            </div>
+
+            {# Organization fields. leads.js shows them when Type is Organization. #}
+            <div class="field" data-for-type="O">
+                <label class="field__label" for="ld-taxnumber">Tax number</label>
+                <input class="field__control" id="ld-taxnumber" name="taxnumber" type="text" maxlength="50">
+            </div>
+            <div class="field" data-for-type="O">
+                <label class="field__label" for="ld-registration">Registration number</label>
+                <input class="field__control" id="ld-registration" name="registration" type="text" maxlength="50">
+            </div>
+            <div class="field" data-for-type="O">
+                <label class="field__label" for="ld-url">Website</label>
+                <input class="field__control" id="ld-url" name="url" type="text" maxlength="250">
+            </div>
+            <div class="field" data-for-type="O">
+                <label class="field__label" for="ld-industry">Industry</label>
+                <select class="field__control" id="ld-industry" name="industry">
+                    <option value="">No industry</option>
+                    {% for industry in industries %}<option value="{{ industry.pk }}">{{ industry }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="field">
+                <label class="field__label" for="ld-owner">Owner</label>
+                <select class="field__control" id="ld-owner" name="owner">
+                    <option value="">No owner</option>
+                    {% for person in owners %}
+                    <option value="{{ person.pk }}" {% if person.pk == request.user.pk %}selected{% endif %}>{{ person.get_full_name|default:person.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="field">
+                <label class="field__label" for="ld-turn">Next step</label>
+                <select class="field__control" id="ld-turn" name="turn">
+                    <option value="theirs">Their turn</option>
+                    <option value="yours">Your turn</option>
+                </select>
+            </div>
+            <div class="field">
+                <label class="field__label" for="ld-stage">Stage</label>
+                <select class="field__control" id="ld-stage" name="stage" required>
+                    {% for value, label in stages %}
+                    <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="field">
+                <label class="field__label" for="ld-status">Status</label>
+                <select class="field__control" id="ld-status" name="status" required>
+                    {% for value, label in statuses %}
+                    <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="field">
+                <label class="field__label" for="ld-size">Size (1 to 1000)</label>
+                <input class="field__control" id="ld-size" name="size" type="number" min="1" max="1000" value="1">
+            </div>
+            <div class="field">
+                <label class="field__label" for="ld-score">Qualifying score (0 to 100)</label>
+                <input class="field__control" id="ld-score" name="qualifying_score" type="number" min="0" max="100">
+            </div>
+            <div class="field">
+                <label class="field__label" for="ld-temp">Temperature</label>
+                <select class="field__control" id="ld-temp" name="temperature" required>
+                    {% for value, label in temperatures %}
+                    <option value="{{ value }}" {% if value == "N" %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="field">
+                <label class="field__label" for="ld-resp">Last response</label>
+                <input class="field__control" id="ld-resp" name="responsiveness" type="datetime-local">
+            </div>
+            <div class="field">
+                <label class="field__label" for="ld-email">Email</label>
+                <input class="field__control" id="ld-email" name="email" type="email" maxlength="254">
+            </div>
+            <div class="field">
+                <label class="field__label" for="ld-phone">Phone</label>
+                <input class="field__control" id="ld-phone" name="phone" type="tel" maxlength="50">
+            </div>
+            <div class="field field--wide">
+                <label class="field__label" for="ld-address">Address</label>
+                <input class="field__control" id="ld-address" name="address" type="text" maxlength="500">
+            </div>
+            <div class="field field--wide">
+                <label class="field__label" for="ld-desc">Description</label>
+                <input class="field__control" id="ld-desc" name="description" type="text" maxlength="1000">
+            </div>
+        </div>
+        <div class="sheet__foot">
+            <button class="tool" type="button" data-dialog-cancel>Cancel</button>
+            <button class="tool tool--primary" type="submit">Save</button>
+        </div>
+    </form>
+</dialog>

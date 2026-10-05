@@ -33,4 +33,45 @@ urlpatterns = [
     path("incomestatement/",views.incomestatement,name="incomestatement"),
     path("cashflow/",views.cashflow,name="cashflow"),
     path("equity/",views.equity,name="equity"),
+
+    # Analysis
+    path("analytics/", views.analytics, name="analytics"),
+    path("reports/", views.reports, name="reports"),
+
+    # Cost Centre
+    path("bills/", views.bills, name="bills"),
+    path("claims/", views.claims, name="claims"),
+
+    # General
+    path("settings/accounting/", views.accounting_settings, name="accounting_settings"),
+    path("settings/module/", views.module_settings, name="module_settings"),
+
+    # Customers
+    path("customers/", views.customers, name="customers"),
+    path("customers/new/", views.customer_new, name="customer_new"),
+    path("customers/receivables/", views.receivables, name="receivables"),
+    path("customers/aging/", views.aging_receivables, name="aging_receivables"),
+    path("customers/dashboard/", views.customer_dashboard, name="customer_dashboard"),
+
+    # Suppliers
+    path("suppliers/", views.suppliers, name="suppliers"),
+    path("suppliers/new/", views.supplier_new, name="supplier_new"),
+    path("suppliers/payables/", views.payables, name="payables"),
+    path("suppliers/aging/", views.aging_payables, name="aging_payables"),
+    path("suppliers/dashboard/", views.supplier_dashboard, name="supplier_dashboard"),
+
+    # Banking
+    path("banking/", views.bank_accounts, name="bank_accounts"),
+    path("banking/new/", views.bank_account_new, name="bank_account_new"),
+    path("banking/cards/", views.cards, name="cards"),
+    path("banking/import/", views.import_statement, name="import_statement"),
+    path("banking/reconcile/", views.reconcile, name="reconcile"),
+    path("banking/payments/", views.payment_runs, name="payment_runs"),
+
+    # Taxes
+    path("taxes/income/", views.income_tax, name="income_tax"),
+    path("taxes/provisional/", views.provisional_tax, name="provisional_tax"),
+    path("taxes/vat/", views.vat, name="vat"),
+    path("taxes/paye/", views.paye, name="paye"),
+    path("taxes/dashboard/", views.tax_dashboard, name="tax_dashboard"),
 ]

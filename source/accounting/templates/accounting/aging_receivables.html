@@ -1,0 +1,53 @@
+{% extends "accounting/module_base.html" %}
+
+{% comment %}
+  ============================================================================
+  accounting/templates/accounting/aging_receivables.html
+  ----------------------------------------------------------------------------
+  This report puts the money that customers owe into groups by the age of the invoice. It is a shell: the data below is dummy data in the markup.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}customers{% endblock %}
+
+{% block title %}Aging Receivables · Accounting · Console{% endblock %}
+
+{% block toolbar %}{{ block.super }}{% endblock %}
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title">Aging Receivables</h1>
+        <p class="page__note">This report puts the money that customers owe into groups by the age of the invoice.</p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Page controls">
+        <div class="actionbar__group">
+            <button class="tool" type="button" data-print>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+                Print
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+        </div>
+        <p class="actionbar__hint">The ages are at today's date.</p>
+    </div>
+
+    <table class="table">
+        <thead>
+            <tr><th>Name</th><th>Current</th><th>1–30 days</th><th>31–60 days</th><th>61–90 days</th><th>90+ days</th><th>Total</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>Karoo Fresh Produce</td><td class="is-credit">4,780.00</td><td class="is-credit">0.00</td><td class="is-credit">0.00</td><td class="is-credit">0.00</td><td class="is-credit">0.00</td><td class="is-credit">4,780.00</td></tr>
+            <tr><td>Bergrivier Logistics</td><td class="is-credit">0.00</td><td class="is-overdue">7,400.00</td><td class="is-credit">0.00</td><td class="is-credit">0.00</td><td class="is-credit">0.00</td><td class="is-overdue">7,400.00</td></tr>
+            <tr><td>Sandton Data Centre</td><td class="is-credit">88,000.00</td><td class="is-credit">0.00</td><td class="is-credit">0.00</td><td class="is-credit">0.00</td><td class="is-credit">0.00</td><td class="is-credit">88,000.00</td></tr>
+        </tbody>
+        <tfoot>
+            <tr><td colspan="6">Total</td><td class="is-credit">100,180.00</td></tr>
+        </tfoot>
+    </table>
+</section>
+{% endblock %}

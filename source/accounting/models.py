@@ -446,7 +446,7 @@ class BudgetLine(models.Model):
     class Meta:
         unique_together = [("budget", "account", "period", "cost_centre")]
 
-class Lead(CompanyOwned):
+class Lead(CompanyOwned,TimeStamped):
     # Temperature scale to measure (subjectively qualify) a lead's enthusiasm about the product
     class Temperature(models.TextChoices):
         ICE         = "I"   ,"Ice"
@@ -474,6 +474,7 @@ class Lead(CompanyOwned):
         CLOSED      = "C", "Closed"
 
     entity              = models.ForeignKey(Entity,on_delete=models.PROTECT,related_name="leads")
+    source              = models.ForeignKey(Source,on_delete=models.SET_NULL,null=True,blank=True)
     description         = models.TextField(max_length=1000, null=True, blank=True)
     status              = models.CharField(choices=LeadStatus.choices, default=LeadStatus.NEW)
     stage               = models.CharField(choices=SaleStage.choices, default=SaleStage.NEW)

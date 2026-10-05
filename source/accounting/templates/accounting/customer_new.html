@@ -1,0 +1,67 @@
+{% extends "accounting/module_base.html" %}
+
+{% comment %}
+  ============================================================================
+  accounting/templates/accounting/customer_new.html
+  ----------------------------------------------------------------------------
+  Fill in the fields below to add a customer. It is a shell: the data below is dummy data in the markup.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}customers{% endblock %}
+
+{% block title %}New Customer · Accounting · Console{% endblock %}
+
+{% block toolbar %}{{ block.super }}{% endblock %}
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title">New Customer</h1>
+        <p class="page__note">Fill in the fields below to add a customer.</p>
+    </div>
+
+    <form class="card" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="sheet__body sheet__body--split">
+            <div class="field">
+                <label class="field__label" for="f-name">Name</label>
+                <input class="field__control" id="f-name" name="name" type="text" value="">
+            </div>
+            <div class="field">
+                <label class="field__label" for="f-code">Code</label>
+                <input class="field__control" id="f-code" name="code" type="text" value="CUS-005">
+            </div>
+            <div class="field">
+                <label class="field__label" for="f-contact">Contact person</label>
+                <input class="field__control" id="f-contact" name="contact" type="text" value="">
+            </div>
+            <div class="field">
+                <label class="field__label" for="f-email">Email</label>
+                <input class="field__control" id="f-email" name="email" type="email" value="">
+            </div>
+            <div class="field">
+                <label class="field__label" for="f-phone">Phone</label>
+                <input class="field__control" id="f-phone" name="phone" type="tel" value="">
+            </div>
+            <div class="field">
+                <label class="field__label" for="f-vat_number">VAT number</label>
+                <input class="field__control" id="f-vat_number" name="vat_number" type="text" value="">
+            </div>
+            <div class="field">
+                <label class="field__label" for="f-terms">Payment terms</label>
+                <select class="field__control" id="f-terms" name="terms"><option>30 days</option><option>15 days</option><option>60 days</option><option>On receipt</option></select>
+            </div>
+            <div class="field">
+                <label class="field__label" for="f-credit_limit">Credit limit</label>
+                <input class="field__control" id="f-credit_limit" name="credit_limit" type="number" value="50000">
+            </div>
+        </div>
+        <div class="sheet__foot">
+            <button class="tool tool--primary" type="submit">Save Customer</button>
+            <button class="tool tool--ghost" type="reset">Cancel</button>
+        </div>
+    </form>
+</section>
+{% endblock %}

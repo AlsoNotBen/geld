@@ -45,6 +45,32 @@ class ExchangeRate(models.Model):
             ),
         ]
 
+# Dropdown List Tables
+class Source(models.Model):
+    name = models.CharField(max_length=250, unique=True)
+    
+    def __str__(self):
+        return self.name
+
+class Industry(models.Model):
+    sector = models.CharField(max_length=255, unique=True)
+
+    def __str__(self):
+        return self.sector
+
+class Title(models.Model):
+    job_title = models.CharField(max_length=250,unique=True)
+
+    def __str__(self):
+        return self.job_title
+
+class BusinessRole(models.Model):
+    role = models.CharField(max_length=250,unique=True) 
+    
+    def __str__(self):
+        return self.role
+
+    
 # Table used for multi-tenancy support (i.e owned/managed companies), not be be confused with Entity -> Organizations (Customers/Suppliers)
 class Company(models.Model):
     name            = models.CharField(max_length=255)
@@ -98,12 +124,8 @@ class Entity(CompanyOwned, TimeStamped):
     class EntityType(models.TextChoices):
         INDIVIDUAL      = "I", "Individual"
         ORGANIZATION    = "O", "Organization"
-        SUPPLIER        = "S", "Supplier"
-        PARTNER         = "P", "Partner"
-        DISTRIBUTOR     = "D", "Distributor"
-        RETAILER        = "R", "Retailer"
 
-    name                = models.CharField(max_length=255,null=True)
+    name                = models.CharField(max_length=255)
     type                = models.CharField(max_length=1, choices=EntityType.choices)
     display_name        = models.CharField(max_length=100,null=True,blank=True)   
     description         = models.TextField(max_length=1000,null=True,blank=True)      
@@ -124,19 +146,21 @@ class Entity(CompanyOwned, TimeStamped):
 
 
 class IndividualProfile(models.Model):
-    entity              = models.OneToOneField(Entity,on_delete=models.CASCADE,related_name="individual_profile",primary_key=True,)
+    entity              = models.OneToOneField(Entity,on_delete=models.CASCADE,related_name="individual_profile",primary_key=True)
     first_name          = models.CharField(max_length=100)
     last_name           = models.CharField(max_length=100)
     date_of_birth       = models.DateField(null=True, blank=True)
-    #TODO: complete this
+    role                = models.ForeignKey(BusinessRole,on_delete=models.SET_NULL,null=True,blank=True)
+    title               = models.ForeignKey(Title,on_delete=models.SET_NULL,null=True,blank=True)
 
 
 class OrganizationProfile(models.Model):
     entity              = models.OneToOneField(Entity,on_delete=models.CASCADE,related_name="organization_profile",primary_key=True,)
     legal_name          = models.CharField(max_length=255)
-    tax_number          = models.CharField(max_length=50, blank=True)
-    registration_number = models.CharField(max_length=50, blank=True)
-    #TODO: complete this
+    tax_number          = models.CharField(max_length=50,null=True,blank=True)
+    registration_number = models.CharField(max_length=50,null=True,blank=True)
+    url                 = models.CharField(max_length=250,null=True,blank=True)
+    industry            = models.ForeignKey(Industry,on_delete=models.SET_NULL,null=True,blank=True)
 
 class Project(CompanyOwned):
     code       = models.CharField(max_length=20)

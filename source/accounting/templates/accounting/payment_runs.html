@@ -1,0 +1,53 @@
+{% extends "accounting/module_base.html" %}
+
+{% comment %}
+  ============================================================================
+  accounting/templates/accounting/payment_runs.html
+  ----------------------------------------------------------------------------
+  A payment run pays many bills at one time. Make a run, examine it, then send the file to the bank. It is a shell: the data below is dummy data in the markup.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}banking{% endblock %}
+
+{% block title %}Payment Runs · Accounting · Console{% endblock %}
+
+{% block toolbar %}{{ block.super }}{% endblock %}
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title">Payment Runs</h1>
+        <p class="page__note">A payment run pays many bills at one time. Make a run, examine it, then send the file to the bank.</p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Page controls">
+        <div class="actionbar__group">
+            <button class="tool tool--primary" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                New Payment Run
+            </button>
+            <button class="tool" type="button" data-print>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+                Print
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+        </div>
+    </div>
+
+    <table class="table">
+        <thead>
+            <tr><th>Date</th><th>Run</th><th>Account</th><th>Bills</th><th>Status</th><th>Amount</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>2026-02-25</td><td>PR-0019</td><td>FNB · Main Current</td><td class="is-count">7</td><td><span class="status status--idle">Draft</span></td><td class="is-debit">41,300.00</td></tr>
+            <tr><td>2026-01-25</td><td>PR-0018</td><td>FNB · Main Current</td><td class="is-count">9</td><td><span class="status status--ok">Paid</span></td><td class="is-debit">58,720.00</td></tr>
+            <tr><td>2025-12-23</td><td>PR-0017</td><td>FNB · Main Current</td><td class="is-count">6</td><td><span class="status status--ok">Paid</span></td><td class="is-debit">33,410.00</td></tr>
+        </tbody>
+    </table>
+</section>
+{% endblock %}
