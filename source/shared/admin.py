@@ -19,7 +19,7 @@ class ExchangeRateAdmin(admin.ModelAdmin):
 
 @admin.register(Company)
 class CompanyAdmin(admin.ModelAdmin):
-    list_display = ("name", "slug", "tax_number", "base_currency", "is_active", "created_at")
+    list_display = ("name", "slug", "tax_number", "base_currency", "accounting_basis", "is_active", "created_at")
     list_filter = ("is_active", "base_currency")
     search_fields = ("name", "slug", "tax_number")
     prepopulated_fields = {"slug": ("name",)}

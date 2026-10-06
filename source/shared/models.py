@@ -73,10 +73,16 @@ class BusinessRole(models.Model):
     
 # Table used for multi-tenancy support (i.e owned/managed companies), not be be confused with Entity -> Organizations (Customers/Suppliers)
 class Company(models.Model):
+    # The reports show the journal entries of this basis (see JournalEntry.Basis)
+    class Basis(models.TextChoices):
+        ACCRUAL = "A", "Accrual"
+        CASH    = "C", "Cash"
+
     name            = models.CharField(max_length=255)
     slug            = models.SlugField(unique=True)
     tax_number      = models.CharField(max_length=50, blank=True)
     base_currency   = models.ForeignKey(Currency, on_delete=models.PROTECT, related_name="+")
+    accounting_basis = models.CharField(max_length=1, choices=Basis.choices, default=Basis.ACCRUAL)
     is_active       = models.BooleanField(default=True)
     created_at      = models.DateTimeField(auto_now_add=True)
 

@@ -6,7 +6,7 @@ def pending_entries(request):
     if not getattr(request, "company", None):
         return {}
     key, start, end = get_range(request)
-    return {"pending_count": JournalEntry.objects.filter(status=JournalEntry.Status.DRAFT,date__range=(start, end)).count()}
+    return {"pending_count": JournalEntry.objects.filter(company=request.company, status=JournalEntry.Status.DRAFT, date__range=(start, end)).count()}
 
 def date_range(request):
     """Template context for the date-range button in the module bar.

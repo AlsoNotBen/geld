@@ -1,0 +1,150 @@
+{% extends "sales/module_base.html" %}
+
+{% comment %}
+  ============================================================================
+  sales/templates/sales/dashboard.html
+  ----------------------------------------------------------------------------
+  The first page of the Sales section. It is a shell: the figures and the
+  rows below are dummy data in the markup.
+
+  The page follows the pattern of the overview page:
+      .page__head    the title and the note
+      .actionbar     Print and Export
+      .cards         five figures (the grid has five tracks)
+      .table         the last sales documents
+      .notes         two short notes below the table
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}sales_dashboard{% endblock %}
+
+{% block title %}Sales Dashboard · Sales · Console{% endblock %}
+
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title">Sales Dashboard</h1>
+        <p class="page__note">
+            The dashboard shows the position of the sales section today: the
+            value of the open quotes, the money that customers owe, the money
+            that is late, and the credit that the business gave back. The
+            table below shows the last sales documents. Use this page to find
+            an item that needs an action.
+        </p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Dashboard controls">
+        <div class="actionbar__group">
+            <button class="tool" type="button" data-print>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+                Print
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+        </div>
+
+        <p class="actionbar__hint">The figures show the accepted documents of {{ period|default:"FY 2026" }}.</p>
+    </div>
+
+    <div class="cards">
+        {% comment %} Credit tone: this money can come in. {% endcomment %}
+        <div class="card">
+            <span class="card__label">Open Quotes</span>
+            <div class="card__value is-credit" data-unit="ZAR">77,330.00</div>
+        </div>
+
+        {% comment %} Credit tone: this money will come in. {% endcomment %}
+        <div class="card">
+            <span class="card__label">Unpaid Invoices</span>
+            <div class="card__value is-credit" data-unit="ZAR">131,300.00</div>
+        </div>
+
+        {% comment %} Overdue tone: this money is late. {% endcomment %}
+        <div class="card">
+            <span class="card__label">Overdue</span>
+            <div class="card__value is-overdue" data-unit="ZAR">7,400.00</div>
+        </div>
+
+        {% comment %} Debit tone: this money goes back to the customer. {% endcomment %}
+        <div class="card">
+            <span class="card__label">Credit Notes</span>
+            <div class="card__value is-debit" data-unit="ZAR">6,200.00</div>
+        </div>
+
+        {% comment %} Count: a quantity of partners, not a sum of money. {% endcomment %}
+        <div class="card">
+            <span class="card__label">Active Partners</span>
+            <div class="card__value is-count">48</div>
+        </div>
+    </div>
+
+    <h2 class="page__subtitle">Recent sales documents</h2>
+    <table class="table">
+        <thead>
+            <tr><th>Date</th><th>Number</th><th>Customer</th><th>Status</th><th>Amount</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>2026-02-12</td>
+                <td>IN-01044</td>
+                <td>Karoo Fresh Produce</td>
+                <td><span class="status status--idle">Draft</span></td>
+                <td class="is-credit">4,780.00</td>
+            </tr>
+            <tr>
+                <td>2026-02-11</td>
+                <td>QU-00118</td>
+                <td>Bergrivier Logistics</td>
+                <td><span class="status status--idle">Draft</span></td>
+                <td class="is-credit">18,400.00</td>
+            </tr>
+            <tr>
+                <td>2026-02-10</td>
+                <td>CN-00231</td>
+                <td>Halcyon Interiors</td>
+                <td><span class="status status--ok">Applied</span></td>
+                <td class="is-debit">1,850.00</td>
+            </tr>
+            <tr>
+                <td>2026-02-09</td>
+                <td>QU-00117</td>
+                <td>Karoo Fresh Produce</td>
+                <td><span class="status status--busy">Sent</span></td>
+                <td class="is-credit">6,250.00</td>
+            </tr>
+            <tr>
+                <td>2026-02-06</td>
+                <td>IN-01030</td>
+                <td>Umhlanga Coastal Hotels</td>
+                <td><span class="status status--ok">Paid</span></td>
+                <td class="is-credit">31,450.00</td>
+            </tr>
+            <tr>
+                <td>2026-02-03</td>
+                <td>IN-01042</td>
+                <td>Sandton Data Centre</td>
+                <td><span class="status status--busy">Sent</span></td>
+                <td class="is-credit">88,000.00</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2 class="page__subtitle">Items that need an action</h2>
+    <div class="notes">
+        <div class="card">
+            <span class="card__label">Late payments</span>
+            <p class="notes__text">Three invoices are more than 14 days late. The total is 7,400.00 ZAR.</p>
+            <p class="notes__text">Garden Route Timber is 55 days late. Stop new sales to this partner.</p>
+        </div>
+        <div class="card">
+            <span class="card__label">Open credit</span>
+            <p class="notes__text">Two credit notes have no invoice. The total is 2,730.00 ZAR.</p>
+            <p class="notes__text">Apply them to an invoice, or give the money back to the customer.</p>
+        </div>
+    </div>
+</section>
+{% endblock %}

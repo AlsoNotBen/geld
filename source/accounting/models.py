@@ -134,10 +134,18 @@ class JournalEntry(CompanyOwned, TimeStamped):
         PAYMENT   = "CP", "Payments"
         GENERAL   = "G", "General"
 
+    # BOTH shows in each report. ACCRUAL and CASH show only when the company uses that basis.
+    # The ACCRUAL and CASH codes are the same as Company.Basis.
+    class Basis(models.TextChoices):
+        BOTH    = "B", "Both"
+        ACCRUAL = "A", "Accrual only"
+        CASH    = "C", "Cash only"
+
     date       = models.DateField()
     period     = models.ForeignKey(Period, on_delete=models.PROTECT, related_name="entries")
     entry_type = models.CharField(max_length=2, choices=EntryType.choices, default=EntryType.GENERAL)
     status     = models.CharField(max_length=1, choices=Status.choices, default=Status.DRAFT)
+    basis      = models.CharField(max_length=1, choices=Basis.choices, default=Basis.BOTH)
     reference  = models.CharField(max_length=255)
     narration  = models.TextField(blank=True)
     source     = models.ForeignKey(Attachment, on_delete=models.PROTECT, null=True, blank=True, related_name="entries")
@@ -150,6 +158,11 @@ class JournalEntry(CompanyOwned, TimeStamped):
             models.Index(fields=["company", "date"]),
             models.Index(fields=["company", "status", "date"]),
         ]
+
+    @classmethod
+    def bases_of(cls, company):
+        """The basis values that the reports of the company show."""
+        return [cls.Basis.BOTH, company.accounting_basis]
 
     @property
     def is_balanced(self):
@@ -337,7 +350,8 @@ class Payment(CompanyOwned, TimeStamped):
     exchange_rate = models.DecimalField(max_digits=18, decimal_places=8, default=1)
     amount        = models.DecimalField(max_digits=13, decimal_places=2)
     reference     = models.CharField(max_length=255, blank=True)
-    journal_entry = models.OneToOneField(JournalEntry, on_delete=models.PROTECT, null=True, blank=True, related_name="payment")
+    journal_entry = models.OneToOneField(JournalEntry, on_delete=models.PROTECT, null=True, blank=True, related_name="payment")      # ACCRUAL: Dr Bank / Cr AR
+    cash_entry    = models.OneToOneField(JournalEntry, on_delete=models.PROTECT, null=True, blank=True, related_name="cash_payment") # CASH: see accounting/posting.py
 
     class Meta:
         unique_together = [("company", "number")]
@@ -403,7 +417,7 @@ class DepreciationSchedule(models.Model):
     class Meta:
         unique_together = [("asset", "period")]
 
-
+# TODO: this doesn't have anything to do with accounting, move to Inventory
 class StockMovement(CompanyOwned):
     class Method(models.TextChoices):
         FIFO    = "FIFO", "First in, first out"
@@ -446,6 +460,7 @@ class BudgetLine(models.Model):
     class Meta:
         unique_together = [("budget", "account", "period", "cost_centre")]
 
+# TODO: move this model to the Sales app
 class Lead(CompanyOwned,TimeStamped):
     # Temperature scale to measure (subjectively qualify) a lead's enthusiasm about the product
     class Temperature(models.TextChoices):

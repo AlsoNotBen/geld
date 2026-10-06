@@ -22,142 +22,6 @@ def dashboard(request):
     return render(request, "accounting/overview.html")
 
 
-# ___________________________________LEADS___________________________________________#
-RESPONSE_WINDOW = timedelta(days=7)     # The Responsiveness gauge is empty after this time.
-TEMPERATURES = Lead.Temperature.values  # From Ice to Hot, thus the index gives the level.
-STATUS_TONE = {
-    Lead.LeadStatus.NEW:         "busy",
-    Lead.LeadStatus.OPEN:        "ok",
-    Lead.LeadStatus.QUOTED:      "ok",
-    Lead.LeadStatus.IN_PROGRESS: "low",
-    Lead.LeadStatus.LOST:        "idle",
-    Lead.LeadStatus.WON:         "ok",
-}
-
-def card_data(lead, now):
-    """Put the data of the card on the lead: the names, the status tone,
-    the values of the edit form, and the level (0 to 100) and the text
-    of each gauge."""
-    entity, owner = lead.entity, lead.entity.owner
-    ind = getattr(entity, "individual_profile", None)
-    org = getattr(entity, "organization_profile", None)
-    lead.name = entity.display_name or entity.name
-    lead.owner_name = (owner.get_full_name() or owner.username) if owner else ""
-    lead.form_json = json.dumps({
-        "name": entity.name, "type": entity.type, "owner": entity.owner_id,
-        "email": entity.email, "phone": entity.phone, "address": entity.address,
-        "description": lead.description, "stage": lead.stage, "status": lead.status,
-        "size": lead.size, "qualifying_score": lead.qualifying_score,
-        "temperature": lead.temperature, "turn": "yours" if lead.turn else "theirs",
-        "responsiveness": timezone.localtime(lead.responsiveness).strftime("%Y-%m-%dT%H:%M")
-                          if lead.responsiveness else None,
-        # The values of the profile fields. The form shows them by type.
-        "lastname": ind and ind.last_name, "birthdate": ind and ind.date_of_birth,
-        "role": ind and ind.role_id, "title": ind and ind.title_id,
-        "taxnumber": org and org.tax_number, "registration": org and org.registration_number,
-        "url": org and org.url, "industry": org and org.industry_id,
-    }, default=str)
-    lead.tone = STATUS_TONE.get(lead.status, "idle")
-    if lead.size is not None:
-        lead.size_level = min(100, round(lead.size / 10))       # 1 to 1000
-    lead.temp_level = TEMPERATURES.index(lead.temperature) * 100 // (len(TEMPERATURES) - 1)
-    if lead.responsiveness:
-        left = lead.responsiveness + RESPONSE_WINDOW - now
-        lead.resp_level = min(100, max(0, round(left / RESPONSE_WINDOW * 100)))
-        lead.resp_left = f"{left.days}d {left.seconds // 3600}h" if left > timedelta(0) else "Expired"
-
-def leads(request):
-    now = timezone.now()
-    rows = list(Lead.objects.select_related(
-        "entity__owner", "entity__individual_profile", "entity__organization_profile").order_by("-id"))
-    for lead in rows:
-        card_data(lead, now)
-
-    return render(request, "accounting/leads.html", {
-        "page_title":   "Leads",
-        "columns":      [{"title": label, "leads": [l for l in rows if l.stage == key]}
-                         for key, label in Lead.SaleStage.choices if key != Lead.SaleStage.CLOSED],
-        "closed_leads": [l for l in rows if l.stage == Lead.SaleStage.CLOSED],
-    })
-
-def save_lead(lead, post):
-    """Copy the lead form to the lead and its entity, then save both. The
-    New Lead overlay and the Edit Lead overlay use the same form."""
-    when                = post.get("responsiveness")
-    entity              = lead.entity
-    entity.name         = post["name"]
-    entity.description  = post.get("description","")
-    entity.type         = post["type"]
-    entity.owner_id     = post.get("owner") or None
-    entity.email        = post.get("email", "")
-    entity.phone        = post.get("phone", "")
-    entity.address      = post.get("address", "")
-
-    lead.description        = post.get("description", "")
-    lead.stage              = post["stage"]
-    lead.status             = post["status"]
-    lead.size               = post.get("size") or 1
-    lead.qualifying_score   = post.get("qualifying_score") or None
-    lead.temperature        = post["temperature"]
-    lead.responsiveness     = timezone.make_aware(datetime.fromisoformat(when)) if when else None
-    lead.turn               = post.get("turn") == "yours"
-
-    if lead.status in (Lead.LeadStatus.LOST, Lead.LeadStatus.WON):
-        lead.stage = Lead.SaleStage.CLOSED 
-
-    with transaction.atomic():
-        entity.save()
-        if entity.type == Entity.EntityType.INDIVIDUAL:
-            OrganizationProfile.objects.filter(entity=entity).delete()
-            IndividualProfile.objects.update_or_create(entity=entity, defaults={
-                "first_name":    entity.name,
-                "last_name":     post.get("lastname", ""),
-                "date_of_birth": post.get("birthdate") or None,
-                "role_id":       post.get("role") or None,
-                "title_id":      post.get("title") or None,
-            })
-        else:
-            IndividualProfile.objects.filter(entity=entity).delete()
-            OrganizationProfile.objects.update_or_create(entity=entity, defaults={
-                "legal_name":          entity.name,
-                "tax_number":          post.get("taxnumber", ""),
-                "registration_number": post.get("registration", ""),
-                "url":                 post.get("url", ""),
-                "industry_id":         post.get("industry") or None,
-            })
-        lead.save()
-
-def lead_create(request):
-    """The Save button of the New Lead overlay. It makes the entity and its lead."""
-    if request.method == "POST":
-        entity = Entity(company=request.company, created_by=request.user)   # Add to every function that creates a CompanyOwned record
-        save_lead(Lead(company=request.company, entity=entity), request.POST)
-        # The Quote and Invoice overlays send JSON. They select the new customer.
-        if "application/json" in request.headers.get("Accept", ""):
-            return JsonResponse({"id": entity.pk, "name": entity.name})
-    return redirect("accounting:leads")
-
-def lead_update(request, pk):
-    """The Save button of the Edit Lead overlay."""
-    if request.method == "POST":
-        save_lead(get_object_or_404(Lead.objects.select_related("entity"), pk=pk), request.POST)
-    return redirect("accounting:leads")
-
-def sales_dashboard(request):
-    return render(request, "accounting/sales_dashboard.html")
-
-def sales_quotes(request):
-    return render(request, "accounting/sales_quotes.html")
-
-def credit_notes(request):
-    return render(request, "accounting/sales_crnotes.html")
-
-def sales_invoices(request):
-    return render(request, "accounting/sales_invoices.html")
-
-def sales_partners(request):
-    return render(request, "accounting/sales_partners.html")
-
 def journal_rows(lines):
     return [{
         "date": line.entry.date,
@@ -218,15 +82,17 @@ def journals(request):
     # The global date range keeps only the entries of the selected period.
     key, start, end = get_range(request)
 
+    company = request.company
     lines = (JournalLine.objects
-             .filter(entry__date__range=(start, end))
+             .filter(entry__company=company, entry__date__range=(start, end),
+                     entry__basis__in=JournalEntry.bases_of(company))
              .select_related("entry", "account")
              .order_by("entry__date", "entry_id", "id"))
 
     posted = list(lines.filter(entry__status=JournalEntry.Status.POSTED))
     drafts = draft_rows(
         JournalEntry.objects
-        .filter(status=JournalEntry.Status.DRAFT, date__range=(start, end))
+        .filter(company=company, status=JournalEntry.Status.DRAFT, date__range=(start, end))
         .prefetch_related("lines__account")
         .order_by("date", "id")
     )
@@ -235,10 +101,10 @@ def journals(request):
         "draft_entries": drafts,
         "pending_count": len(drafts),
         "entry_types": JournalEntry.EntryType.choices,
-        "periods": Period.objects.filter(is_closed=False),
-        "accounts": Account.objects.filter(is_active=True),
+        "periods": Period.objects.filter(company=company, is_closed=False),
+        "accounts": Account.objects.filter(company=company, is_active=True),
         "currencies": Currency.objects.all(),
-        "tax_codes": TaxCode.objects.all(),
+        "tax_codes": TaxCode.objects.filter(company=company),
     }
     for key, types in JOURNAL_TABS.items():
         context[key] = journal_rows([l for l in posted if l.entry.entry_type in types])
@@ -263,7 +129,7 @@ def journalentry_update(request, pk):
     """The Edit button sends the overlay here. The form holds one debit and
     one credit, thus the view makes the lines again."""
     if request.method == "POST":
-        entry = get_object_or_404(JournalEntry, pk=pk, status=JournalEntry.Status.DRAFT)
+        entry = get_object_or_404(JournalEntry, pk=pk, company=request.company, status=JournalEntry.Status.DRAFT)
         entry.date = request.POST["date"]
         entry.period_id = request.POST["period"]
         entry.entry_type = request.POST["entry_type"]
@@ -277,7 +143,7 @@ def journalentry_update(request, pk):
 def journalentry_post(request, pk):
     """The Accept button. It moves one draft entry to the Posted status."""
     if request.method == "POST":
-        JournalEntry.objects.filter(pk=pk, status=JournalEntry.Status.DRAFT).update(
+        JournalEntry.objects.filter(pk=pk, company=request.company, status=JournalEntry.Status.DRAFT).update(
             status=JournalEntry.Status.POSTED, posted_at=timezone.now(),
         )
     return redirect("accounting:journals")
@@ -285,7 +151,7 @@ def journalentry_post(request, pk):
 def journalentry_post_all(request):
     """The Accept All button. It moves each draft entry to the Posted status."""
     if request.method == "POST":
-        JournalEntry.objects.filter(status=JournalEntry.Status.DRAFT).update(
+        JournalEntry.objects.filter(company=request.company, status=JournalEntry.Status.DRAFT).update(
             status=JournalEntry.Status.POSTED, posted_at=timezone.now(),
         )
     return redirect("accounting:journals")
@@ -293,7 +159,7 @@ def journalentry_post_all(request):
 def journalentry_void(request, pk):
     """The Void button of the entry overlay. It stops a draft entry."""
     if request.method == "POST":
-        JournalEntry.objects.filter(pk=pk, status=JournalEntry.Status.DRAFT).update(
+        JournalEntry.objects.filter(pk=pk, company=request.company, status=JournalEntry.Status.DRAFT).update(
             status=JournalEntry.Status.VOID,
         )
     return redirect("accounting:journals")
@@ -340,14 +206,17 @@ def category_of(account):
 def chartaccounts(request):
     # The balance of an account uses only the lines of the date range.
     key, start, end = get_range(request)
-    in_range = Q(lines__entry__date__range=(start, end))
+    company = request.company
+    in_range = Q(lines__entry__date__range=(start, end),
+                 lines__entry__status=JournalEntry.Status.POSTED,
+                 lines__entry__basis__in=JournalEntry.bases_of(company))
 
-    accounts = list(Account.objects.annotate(
+    accounts = list(Account.objects.filter(company=company).annotate(
         debits=Coalesce(Sum("lines__base_debit", filter=in_range), ZERO, output_field=DecimalField()),
         credits=Coalesce(Sum("lines__base_credit", filter=in_range), ZERO, output_field=DecimalField()),
     ).order_by("code"))
  
-    parent_ids = set(Account.objects.exclude(parent=None).values_list("parent_id", flat=True))
+    parent_ids = set(Account.objects.filter(company=company).exclude(parent=None).values_list("parent_id", flat=True))
  
     for account in accounts:
         account.signed = account.debits - account.credits
@@ -390,10 +259,16 @@ PROFIT_TYPES = [
     Account.AccountType.EXPENSES, Account.AccountType.INCOME_TAX,
 ]
 
-def movements(start=None, end=None):
+def posted_lines(company):
+    """The posted lines of the company, for the basis of the company."""
+    return JournalLine.objects.filter(entry__company=company,
+                                      entry__status=JournalEntry.Status.POSTED,
+                                      entry__basis__in=JournalEntry.bases_of(company))
+
+def movements(company, start=None, end=None):
     """The signed movement (debits less credits) of each account, from the
     posted entries in the date range. Returns {account_id: Decimal}."""
-    lines = JournalLine.objects.filter(entry__status=JournalEntry.Status.POSTED)
+    lines = posted_lines(company)
     if start:
         lines = lines.filter(entry__date__gte=start)
     if end:
@@ -438,18 +313,20 @@ def statement_context(request):
     """The dates that each statement shows."""
     key, start, end = get_range(request)
     prev_start, prev_end = previous_range(start, end)
-    company = getattr(request, "company", None)
+    company = request.company
     return {
         "start": start, "end": end, "prev_start": prev_start, "prev_end": prev_end,
-        "currency": company.base_currency_id if company else "",
+        "company": company,
+        "currency": company.base_currency_id,
+        "basis": company.get_accounting_basis_display().lower(),
     }
 
 def ledger(request):
     ctx = statement_context(request)
-    opening = movements(end=ctx["start"] - timedelta(days=1))
-    lines = (JournalLine.objects
-             .filter(entry__status=JournalEntry.Status.POSTED,
-                     entry__date__range=(ctx["start"], ctx["end"]))
+    company = ctx["company"]
+    opening = movements(company, end=ctx["start"] - timedelta(days=1))
+    lines = (posted_lines(company)
+             .filter(entry__date__range=(ctx["start"], ctx["end"]))
              .select_related("entry", "account")
              .order_by("account__code", "entry__date", "entry_id", "id"))
 
@@ -490,9 +367,10 @@ def ledger(request):
 
 def balancesheet(request):
     ctx = statement_context(request)
-    accounts = list(Account.objects.all())
-    this = movements(end=ctx["end"])
-    last = movements(end=ctx["prev_end"])
+    company = ctx["company"]
+    accounts = list(Account.objects.filter(company=company))
+    this = movements(company, end=ctx["end"])
+    last = movements(company, end=ctx["prev_end"])
     groups = by_type(accounts)
     T = Account.AccountType
 
@@ -530,9 +408,10 @@ def balancesheet(request):
 
 def incomestatement(request):
     ctx = statement_context(request)
-    groups = by_type(Account.objects.all())
-    this = movements(ctx["start"], ctx["end"])
-    last = movements(ctx["prev_start"], ctx["prev_end"])
+    company = ctx["company"]
+    groups = by_type(Account.objects.filter(company=company))
+    this = movements(company, ctx["start"], ctx["end"])
+    last = movements(company, ctx["prev_start"], ctx["prev_end"])
     T = Account.AccountType
 
     def part(title, account_type, total_label):
@@ -569,7 +448,8 @@ def cashflow(request):
 
 def equity(request):
     ctx = statement_context(request)
-    accounts = list(Account.objects.all())
+    company = ctx["company"]
+    accounts = list(Account.objects.filter(company=company))
     columns = [a for a in accounts if a.type == Account.AccountType.SHAREHOLDER_EQUITY]
     column_ids = [a.id for a in columns]
     size = len(columns) + 1
@@ -580,20 +460,20 @@ def equity(request):
                 "row_class": row_class + (" is-prior" if prior else "")}
 
     def balance_row(end, prior):
-        bal = movements(end=end)
+        bal = movements(company, end=end)
         values = [-bal.get(a.id, ZERO) for a in columns] + [profit_of(bal, accounts)]
         return row(f"Balance at {end:%d %b %Y}", values, "is-sum", prior=prior)
 
     def period_rows(start, end, prior):
         """The group row of one period, its profit, and one row for each
         posted entry that touched an equity account."""
-        mv = movements(start, end)
+        mv = movements(company, start, end)
         rows = [{"group": True, "start": start, "end": end,
                  "row_class": "is-group" + (" is-prior" if prior else "")}]
         rows.append(row("Profit for the period", [ZERO] * (size - 1) + [profit_of(mv, accounts)], "is-nest", prior=prior))
         entries = (JournalEntry.objects
-                   .filter(status=JournalEntry.Status.POSTED, date__range=(start, end),
-                           lines__account__in=columns)
+                   .filter(company=company, status=JournalEntry.Status.POSTED, date__range=(start, end),
+                           basis__in=JournalEntry.bases_of(company), lines__account__in=columns)
                    .distinct().prefetch_related("lines").order_by("date", "id"))
         for entry in entries:
             values = [ZERO] * size
@@ -635,13 +515,22 @@ def accounting_settings(request):
     return render(request, "accounting/accounting_settings.html")
 
 def module_settings(request):
+    company = request.company
+    membership = request.user.memberships.filter(company=company).first()
+    can_post = bool(membership and membership.can_post)
     if request.method == "POST":
-        # Only the viewing mode is kept at this time.
+        # The viewing mode goes into a cookie. The basis goes onto the company.
+        basis = request.POST.get("accounting_basis")
+        if can_post and basis in Company.Basis.values:
+            company.accounting_basis = basis
+            company.save(update_fields=["accounting_basis"])
         mode = "easy" if request.POST.get("easy_view") else "standard"
         response = redirect("accounting:module_settings")
         response.set_cookie("view_mode", mode, max_age=365 * 24 * 3600, samesite="Lax")
         return response
-    return render(request, "accounting/module_settings.html")
+    return render(request, "accounting/module_settings.html", {
+        "bases": Company.Basis.choices, "can_set_basis": can_post,
+    })
 
 # Customers
 def customers(request):

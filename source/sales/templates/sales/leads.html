@@ -1,0 +1,242 @@
+{% extends "sales/module_base.html" %}
+{% load static %}
+
+{% block page_key %}leads{% endblock %}
+
+{% block title %}Leads · Sales · Console{% endblock %}
+
+{% comment %} block.super keeps the buttons of the module base. {% endcomment %}
+
+{% block content %}
+
+<section class="page">
+
+<div class="page__head">
+    <h1 class="page__title">Leads</h1>
+    <p class="page__note">
+        A lead is an entity that is not yet a customer. The board shows the
+        open stages of the sales cycle: New, Prospected, Qualified, Engaged
+        and Awaiting. The table below the board shows the closed leads. A card
+        moves to the right as the lead moves through the cycle, and the
+        gauges of the card fill. A green dot means that the next step is
+        yours. A yellow dot means that you wait for the lead. Click a card to
+        see the full record.
+    </p>
+</div>
+
+<div class="actionbar" role="group" aria-label="Lead controls">
+    <div class="actionbar__group">
+        <button class="tool tool--primary" type="button" data-lead-new>
+            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+            New Lead
+        </button>
+
+        <span class="tool__sep" aria-hidden="true"></span>
+        <button class="tool" type="button" data-print>
+            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+            Print
+        </button>
+        <button class="tool" type="button">
+            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Export
+        </button>
+    </div>
+
+    <p class="actionbar__hint">Click a card to open the lead.</p>
+</div>
+
+{% comment %}
+  ------------------------------------------------------------------
+  THE BOARD
+  The view gives one column for each open stage of Lead.SaleStage. The
+  Closed stage is a table below the board. Each card holds its data in
+  the data-* attributes of _lead_attrs.html. leads.js copies them into
+  the overlay. A gauge appears only if the lead has a value for it:
+      Size            1 to 1000
+      Qualifying      0 to 100
+      Temperature     one step for each choice, Ice to Hot
+      Response        full at the last response, empty after 7 days
+
+  A column shows five cards. A card after the fifth carries the hidden
+  attribute, and the button at the foot of the column shows the rest.
+  The count pill sits next to that button, thus a short column shows no
+  count.
+  ------------------------------------------------------------------
+{% endcomment %}
+<div class="board">
+{% for col in columns %}
+    <div class="board__col" data-stage="{{ col.title }}">
+        <div class="board__head">
+            <span class="board__title">{{ col.title }}</span>
+            <button class="board__filter" type="button" data-board-filter
+                    aria-label="Filter the {{ col.title }} column">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 5h16l-6 7v6l-4 2v-8L4 5z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+        </div>
+        <div class="board__list">
+        {% for lead in col.leads %}
+            <button class="card lead" type="button"
+                    {% include "sales/_lead_attrs.html" %}
+                    {% if forloop.counter > 5 %}hidden{% endif %}>
+                <span class="lead__top">
+                    <span class="lead__name">{{ lead.name }}</span>
+                    <span class="status status--{{ lead.tone }}">{{ lead.get_status_display }}</span>
+                    <span class="turn turn--{{ lead.turn|yesno:'yours,theirs' }}"><span class="visually-hidden">{{ lead.turn|yesno:"Your turn,Their turn" }}</span></span>
+                </span>
+                {% if lead.description %}<span class="lead__desc">{{ lead.description }}</span>{% endif %}
+                <span class="lead__meta">
+                    <span>{{ lead.owner_name|default:"No owner" }}</span>
+                    <span class="lead__when">{{ lead.responsiveness|date:"m-d" }}</span>
+                </span>
+                <span class="lead__gauges">
+                    {% if lead.size is not None %}
+                    <span class="gauge gauge--size" style="--v: {{ lead.size_level }}%">
+                        <span class="gauge__label">Size</span>
+                        <span class="gauge__value">{{ lead.size }}</span>
+                        <span class="gauge__track"><span class="gauge__fill"></span></span>
+                    </span>
+                    {% endif %}
+                    {% if lead.qualifying_score is not None %}
+                    <span class="gauge gauge--score" style="--v: {{ lead.qualifying_score }}%">
+                        <span class="gauge__label">Qualifying</span>
+                        <span class="gauge__value">{{ lead.qualifying_score }}</span>
+                        <span class="gauge__track"><span class="gauge__fill"></span></span>
+                    </span>
+                    {% endif %}
+                    <span class="gauge gauge--temp" style="--v: {{ lead.temp_level }}%">
+                        <span class="gauge__label">Temperature</span>
+                        <span class="gauge__value">{{ lead.get_temperature_display }}</span>
+                        <span class="gauge__track"><span class="gauge__fill"></span></span>
+                    </span>
+                    {% if lead.responsiveness %}
+                    <span class="gauge gauge--resp" style="--v: {{ lead.resp_level }}%">
+                        <span class="gauge__label">Response</span>
+                        <span class="gauge__value">{{ lead.resp_left }}</span>
+                        <span class="gauge__track"><span class="gauge__fill"></span></span>
+                    </span>
+                    {% endif %}
+                </span>
+            </button>
+        {% endfor %}
+        </div>
+
+        {% if col.leads|length > 5 %}
+        {# The column holds more than five cards. The button shows the rest. #}
+        <div class="board__foot">
+            <button class="board__more" type="button" data-board-more
+                    aria-label="Show all {{ col.leads|length }} leads" aria-expanded="false">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 10l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <span class="tabset__count">{{ col.leads|length }}</span>
+        </div>
+        {% endif %}
+    </div>
+{% endfor %}
+</div>
+
+{# ------------------------ CLOSED #}
+{# The name is a button. It opens the lead overlay, the same as a card. #}
+<div class="review">
+    <div class="review__head">
+        <h2 class="review__title">Closed <span class="tabset__count">{{ closed_leads|length }}</span></h2>
+    </div>
+    <table class="table table--closed">
+        <thead>
+            <tr><th>Name</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+        {% for lead in closed_leads %}
+            <tr>
+                <td><button class="lead__name" type="button" {% include "sales/_lead_attrs.html" %}>{{ lead.name }}</button></td>
+                <td><span class="status status--{{ lead.tone }}">{{ lead.get_status_display }}</span></td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="2">No lead is closed.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{# ------------------------- LEAD OVERLAY ----------------------------- #}
+
+<dialog class="sheet sheet--wide" id="lead-view" aria-labelledby="lead-view-title">
+    <div class="sheet__head">
+        <h2 class="sheet__title" id="lead-view-title" data-field="name">Lead</h2>
+    </div>
+
+    <div class="sheet__body sheet__body--split">
+        <div class="field">
+            <span class="field__label">Stage</span>
+            <p class="lead__read" data-field="stage"></p>
+        </div>
+        <div class="field">
+            <span class="field__label">Status</span>
+            <p class="lead__read" data-field="status"></p>
+        </div>
+        <div class="field">
+            <span class="field__label">Owner</span>
+            <p class="lead__read" data-field="owner"></p>
+        </div>
+        <div class="field">
+            <span class="field__label">Next step</span>
+            <p class="lead__read" data-field="turn"></p>
+        </div>
+        <div class="field field--wide">
+            <span class="field__label">Last response</span>
+            <p class="lead__read" data-field="when"></p>
+        </div>
+        <div class="field">
+            <span class="field__label">Email</span>
+            <p class="lead__read" data-field="email"></p>
+        </div>
+        <div class="field">
+            <span class="field__label">Phone</span>
+            <p class="lead__read" data-field="phone"></p>
+        </div>
+        <div class="field field--wide">
+            <span class="field__label">Description</span>
+            <p class="lead__read" data-field="desc"></p>
+        </div>
+
+        <div class="field field--wide">
+            <span class="field__label">Progress</span>
+            <div class="lead__gauges lead__gauges--wide">
+                <span class="gauge gauge--size" data-gauge="size">
+                    <span class="gauge__label">Size</span>
+                    <span class="gauge__value"></span>
+                    <span class="gauge__track"><span class="gauge__fill"></span></span>
+                </span>
+                <span class="gauge gauge--score" data-gauge="score">
+                    <span class="gauge__label">Qualifying Score</span>
+                    <span class="gauge__value"></span>
+                    <span class="gauge__track"><span class="gauge__fill"></span></span>
+                </span>
+                <span class="gauge gauge--temp" data-gauge="temp">
+                    <span class="gauge__label">Temperature</span>
+                    <span class="gauge__value"></span>
+                    <span class="gauge__track"><span class="gauge__fill"></span></span>
+                </span>
+                <span class="gauge gauge--resp" data-gauge="resp">
+                    <span class="gauge__label">Responsiveness</span>
+                    <span class="gauge__value"></span>
+                    <span class="gauge__track"><span class="gauge__fill"></span></span>
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="sheet__foot">
+        <button class="tool" type="button" data-dialog-cancel>Close</button>
+        <button class="tool tool--primary" type="button" data-lead-edit>Edit</button>
+    </div>
+</dialog>
+
+</section>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+
+<script src="{% static 'sales/js/leads.js' %}"></script>
+<script src="{% static 'accounting/js/journals.js' %}"></script>
+{% endblock %}

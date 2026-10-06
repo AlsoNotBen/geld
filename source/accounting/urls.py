@@ -7,16 +7,6 @@ urlpatterns = [
     path("", views.dashboard, name="dashboard"),
     path("invoices/", views.invoices, name = "invoices"),
 
-    # Sales
-    path("leads/", views.leads, name = "leads"),
-    path("leads/new/", views.lead_create, name = "lead_create"),
-    path("leads/<int:pk>/edit/", views.lead_update, name="lead_update"),
-    path("sales/", views.sales_dashboard, name = "sales_dashboard"),
-    path("sales/invoices", views.sales_invoices, name = "sales_invoices"),
-    path("sales/quotes", views.sales_quotes, name = "sales_quotes"),
-    path("sales/crnotes", views.credit_notes, name = "credit_notes"),
-    path("sales/partners", views.sales_partners, name = "sales_partners"),
-
     # Journals
     path("journals/", views.journals, name = "journals"),
     path("journals/new/", views.journalentry_create, name="journalentry_create"),

@@ -27,6 +27,7 @@ urlpatterns = [
     path('',views.index, name='index'),
     path('inventory/',include('inventory.urls')),
     path('accounting/',include('accounting.urls')),
+    path('sales/', include('sales.urls')),
     path('documents/',include('documents.urls')),
     path('files/', include('filestore.urls')),
     path('messaging/', include('messaging.urls')),

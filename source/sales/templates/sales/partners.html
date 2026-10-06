@@ -1,0 +1,110 @@
+{% extends "sales/module_base.html" %}
+
+{% comment %}
+  ============================================================================
+  sales/templates/sales/partners.html
+  ----------------------------------------------------------------------------
+  The partners page of the Sales section. It is a shell: the rows below are
+  dummy data in the markup.
+
+  The table uses the table--leads variant, because the columns are the same
+  shape as the leads page: a wide name, soft columns, a status pill, a mono
+  figure and a button at the right.
+      Name · Type · Status · Contact · Balance · [Open]
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}sales_partners{% endblock %}
+
+{% block title %}Partners · Sales · Console{% endblock %}
+
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title">Partners</h1>
+        <p class="page__note">
+            A partner is a company or a person that buys from the business.
+            The Balance column shows the money that the partner owes today.
+            A negative balance shows that the partner paid too much, or that
+            an open credit note is on the account.
+        </p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Partner controls">
+        <div class="actionbar__group">
+            <button class="tool tool--primary" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                New Partner
+            </button>
+            <button class="tool" type="button" data-print>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+                Print
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+        </div>
+
+        <p class="actionbar__hint">The list shows 6 of 48 partners.</p>
+    </div>
+
+    <table class="table table--leads">
+        <thead>
+            <tr><th>Name</th><th>Type</th><th>Status</th><th>Contact</th><th>Balance</th><th><span class="visually-hidden">Actions</span></th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Sandton Data Centre</td>
+                <td>Customer</td>
+                <td><span class="status status--ok">Active</span></td>
+                <td>t.molefe@sandtondc.co.za</td>
+                <td>88,000.00</td>
+                <td><button class="tool tool--sm" type="button">Open</button></td>
+            </tr>
+            <tr>
+                <td>Halcyon Interiors</td>
+                <td>Customer</td>
+                <td><span class="status status--ok">Active</span></td>
+                <td>accounts@halcyon.co.za</td>
+                <td>21,450.00</td>
+                <td><button class="tool tool--sm" type="button">Open</button></td>
+            </tr>
+            <tr>
+                <td>Vaal Metal Press</td>
+                <td>Customer</td>
+                <td><span class="status status--out">On hold</span></td>
+                <td>j.duplessis@vaalmetal.co.za</td>
+                <td>3,900.00</td>
+                <td><button class="tool tool--sm" type="button">Open</button></td>
+            </tr>
+            <tr>
+                <td>Karoo Fresh Produce</td>
+                <td>Customer</td>
+                <td><span class="status status--low">Limit near</span></td>
+                <td>orders@karoofresh.co.za</td>
+                <td>6,250.00</td>
+                <td><button class="tool tool--sm" type="button">Open</button></td>
+            </tr>
+            <tr>
+                <td>Protea Print Works</td>
+                <td>Customer and supplier</td>
+                <td><span class="status status--ok">Active</span></td>
+                <td>n.abrahams@proteaprint.co.za</td>
+                <td>15,600.00</td>
+                <td><button class="tool tool--sm" type="button">Open</button></td>
+            </tr>
+            <tr>
+                <td>Garden Route Timber</td>
+                <td>Customer</td>
+                <td><span class="status status--idle">Inactive</span></td>
+                <td>info@grtimber.co.za</td>
+                <td>1,320.00</td>
+                <td><button class="tool tool--sm" type="button">Open</button></td>
+            </tr>
+        </tbody>
+    </table>
+</section>
+{% endblock %}

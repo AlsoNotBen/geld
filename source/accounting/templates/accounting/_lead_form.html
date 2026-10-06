@@ -4,7 +4,7 @@
   Invoice overlays use the same form. lead_form.js gives the behaviour.
 {% endcomment %}
 <dialog class="sheet sheet--wide" id="lead-dialog" aria-labelledby="lead-dialog-title">
-    <form method="post" action="{% url 'accounting:lead_create' %}">
+    <form method="post" action="{% url 'sales:lead_create' %}">
         {% csrf_token %}
         <div class="sheet__head">
             <h2 class="sheet__title" id="lead-dialog-title">Create New Lead</h2>

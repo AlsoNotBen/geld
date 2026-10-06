@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'shared.apps.SharedConfig',
     'filestore.apps.FilestoreConfig',
     'messaging.apps.MessagingConfig',
+    'sales.apps.SalesConfig',
     # -- Add your app here --
 
     'django.contrib.admin',

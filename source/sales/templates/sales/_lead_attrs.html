@@ -1,0 +1,21 @@
+{% comment %}
+  The data-* attributes of one lead. The board card and the Closed table
+  use them. leads.js copies them into the lead overlay, and data-form
+  into the edit form.
+{% endcomment %}
+data-lead-open
+data-name="{{ lead.name }}"
+data-stage="{{ lead.get_stage_display }}"
+data-status="{{ lead.get_status_display }}"
+data-owner="{{ lead.owner_name }}"
+data-turn="{{ lead.turn|yesno:'yours,theirs' }}"
+data-desc="{{ lead.description|default:'' }}"
+data-when="{{ lead.responsiveness|date:'Y-m-d H:i' }}"
+data-email="{{ lead.entity.email }}"
+data-phone="{{ lead.entity.phone }}"
+{% if lead.size is not None %}data-size="{{ lead.size_level }}" data-size-label="{{ lead.size }}"{% endif %}
+{% if lead.qualifying_score is not None %}data-score="{{ lead.qualifying_score }}"{% endif %}
+data-temp="{{ lead.temp_level }}" data-temp-label="{{ lead.get_temperature_display }}"
+{% if lead.responsiveness %}data-resp="{{ lead.resp_level }}" data-resp-label="{{ lead.resp_left }}"{% endif %}
+data-edit-url="{% url 'sales:lead_update' lead.pk %}"
+data-form="{{ lead.form_json }}"

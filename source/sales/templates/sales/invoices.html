@@ -1,0 +1,230 @@
+{% extends "sales/module_base.html" %}
+{% load static %}
+
+{% comment %}
+  ============================================================================
+  sales/templates/sales/invoices.html
+  ----------------------------------------------------------------------------
+  The invoices page of the Sales section. It is a shell: the rows below are
+  dummy data in the markup.
+
+  The page follows the pattern of the module:
+      .page__head    the title and the note
+      .actionbar     New Invoice, Print and Export
+      .tabset        one panel for each status (journals.js)
+      .table         Date · Number · Customer · Status · Amount
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}sales_invoices{% endblock %}
+
+{% block title %}Invoices · Sales · Console{% endblock %}
+
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title">Invoices</h1>
+        <p class="page__note">
+            An invoice is a request for money from a customer. When you
+            approve an invoice, the module makes the journal entry. The
+            amounts show in the credit tone, because this money comes in.
+            Money that is late shows in the Overdue tab.
+        </p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Invoice controls">
+        <div class="actionbar__group">
+            <button class="tool tool--primary" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                New Invoice
+            </button>
+            <button class="tool" type="button" data-print>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+                Print
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+        </div>
+
+        <p class="actionbar__hint">The list shows the invoices of {{ period|default:"FY 2026" }}.</p>
+    </div>
+
+    <div data-tabset data-tabset-param="status">
+
+        <div class="tabset__list" role="tablist" aria-label="Invoices by status">
+            <button class="tabset__tab" type="button" role="tab" data-tab="unpaid"
+                    id="itab-unpaid" aria-controls="ipanel-unpaid" aria-selected="true">
+                Unpaid <span class="tabset__count">4</span>
+            </button>
+            <button class="tabset__tab" type="button" role="tab" data-tab="overdue"
+                    id="itab-overdue" aria-controls="ipanel-overdue" aria-selected="false">
+                Overdue <span class="tabset__count">3</span>
+            </button>
+            <button class="tabset__tab" type="button" role="tab" data-tab="paid"
+                    id="itab-paid" aria-controls="ipanel-paid" aria-selected="false">
+                Paid <span class="tabset__count">3</span>
+            </button>
+            <button class="tabset__tab" type="button" role="tab" data-tab="draft"
+                    id="itab-draft" aria-controls="ipanel-draft" aria-selected="false">
+                Draft <span class="tabset__count">2</span>
+            </button>
+        </div>
+
+        <!-- -------------------------------------------------------- Unpaid -->
+        <div class="tabset__panel" id="ipanel-unpaid" role="tabpanel" data-panel="unpaid"
+             aria-labelledby="itab-unpaid" hidden>
+            <h2 class="tabset__print-title">Unpaid invoices</h2>
+
+            <table class="table">
+                <thead>
+                    <tr><th>Due</th><th>Number</th><th>Customer</th><th>Status</th><th>Amount</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>2026-03-12</td>
+                        <td>IN-01042</td>
+                        <td>Sandton Data Centre</td>
+                        <td><span class="status status--busy">Sent</span></td>
+                        <td class="is-credit">88,000.00</td>
+                    </tr>
+                    <tr>
+                        <td>2026-03-05</td>
+                        <td>IN-01039</td>
+                        <td>Halcyon Interiors</td>
+                        <td><span class="status status--low">Part paid</span></td>
+                        <td class="is-credit">21,450.00</td>
+                    </tr>
+                    <tr>
+                        <td>2026-02-28</td>
+                        <td>IN-01037</td>
+                        <td>Protea Print Works</td>
+                        <td><span class="status status--busy">Sent</span></td>
+                        <td class="is-credit">15,600.00</td>
+                    </tr>
+                    <tr>
+                        <td>2026-02-25</td>
+                        <td>IN-01035</td>
+                        <td>Karoo Fresh Produce</td>
+                        <td><span class="status status--busy">Sent</span></td>
+                        <td class="is-credit">6,250.00</td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr><td colspan="4">Total of the unpaid invoices</td><td class="is-credit">131,300.00</td></tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- ------------------------------------------------------- Overdue -->
+        <div class="tabset__panel" id="ipanel-overdue" role="tabpanel" data-panel="overdue"
+             aria-labelledby="itab-overdue" hidden>
+            <h2 class="tabset__print-title">Overdue invoices</h2>
+
+            <table class="table">
+                <thead>
+                    <tr><th>Due</th><th>Number</th><th>Customer</th><th>Days late</th><th>Amount</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>2026-01-30</td>
+                        <td>IN-01021</td>
+                        <td>Vaal Metal Press</td>
+                        <td><span class="status status--out">14 days</span></td>
+                        <td class="is-credit">3,900.00</td>
+                    </tr>
+                    <tr>
+                        <td>2026-01-18</td>
+                        <td>IN-01016</td>
+                        <td>Table Bay Marine</td>
+                        <td><span class="status status--out">26 days</span></td>
+                        <td class="is-credit">2,180.00</td>
+                    </tr>
+                    <tr>
+                        <td>2025-12-20</td>
+                        <td>IN-00994</td>
+                        <td>Garden Route Timber</td>
+                        <td><span class="status status--out">55 days</span></td>
+                        <td class="is-credit">1,320.00</td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr><td colspan="4">Total of the overdue invoices</td><td class="is-credit">7,400.00</td></tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- ---------------------------------------------------------- Paid -->
+        <div class="tabset__panel" id="ipanel-paid" role="tabpanel" data-panel="paid"
+             aria-labelledby="itab-paid" hidden>
+            <h2 class="tabset__print-title">Paid invoices</h2>
+
+            <table class="table">
+                <thead>
+                    <tr><th>Date</th><th>Number</th><th>Customer</th><th>Status</th><th>Amount</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>2026-02-06</td>
+                        <td>IN-01030</td>
+                        <td>Umhlanga Coastal Hotels</td>
+                        <td><span class="status status--ok">Paid</span></td>
+                        <td class="is-credit">31,450.00</td>
+                    </tr>
+                    <tr>
+                        <td>2026-01-29</td>
+                        <td>IN-01024</td>
+                        <td>Bergrivier Logistics</td>
+                        <td><span class="status status--ok">Paid</span></td>
+                        <td class="is-credit">12,700.00</td>
+                    </tr>
+                    <tr>
+                        <td>2026-01-12</td>
+                        <td>IN-01011</td>
+                        <td>Protea Print Works</td>
+                        <td><span class="status status--ok">Paid</span></td>
+                        <td class="is-credit">8,940.00</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- --------------------------------------------------------- Draft -->
+        <div class="tabset__panel" id="ipanel-draft" role="tabpanel" data-panel="draft"
+             aria-labelledby="itab-draft" hidden>
+            <h2 class="tabset__print-title">Draft invoices</h2>
+
+            <table class="table">
+                <thead>
+                    <tr><th>Date</th><th>Number</th><th>Customer</th><th>Status</th><th>Amount</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>2026-02-12</td>
+                        <td>IN-01044</td>
+                        <td>Karoo Fresh Produce</td>
+                        <td><span class="status status--idle">Draft</span></td>
+                        <td class="is-credit">4,780.00</td>
+                    </tr>
+                    <tr>
+                        <td>2026-02-10</td>
+                        <td>IN-01043</td>
+                        <td>Halcyon Interiors</td>
+                        <td><span class="status status--idle">Draft</span></td>
+                        <td class="is-credit">2,300.00</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script src="{% static 'accounting/js/journals.js' %}"></script>
+{% endblock %}

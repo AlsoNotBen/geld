@@ -1,0 +1,58 @@
+{% extends "accounting/module_base.html" %}
+
+{% comment %}
+  ============================================================================
+  sales/templates/sales/module_base.html
+  ----------------------------------------------------------------------------
+  This template is the base of the Sales module. It extends the Accounting
+  base, thus it uses the same layout, styles, date range and New Lead
+  overlay. It replaces the module key, the toolbar and the side panel.
+
+  All Sales pages extend this file. Example:
+
+      {% verbatim %}{% extends "sales/module_base.html" %}{% endverbatim %}
+
+  page_key values: sales_dashboard, leads, sales_quotes, sales_invoices,
+  sales_crnotes or sales_partners.
+  ============================================================================
+{% endcomment %}
+
+{% block module_key %}sales{% endblock %}
+
+{% block title %}{{ page_title|default:"Sales Dashboard" }} · Sales · Console{% endblock %}
+
+{% block toolbar %}
+    <button class="tool tool--primary" type="button"
+            data-doc-overlay="{% url 'documents:panel' 'accounting' 'quote' %}">
+        <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+        New Quote
+    </button>
+    <button class="tool tool--primary" type="button"
+            data-doc-overlay="{% url 'documents:panel' 'accounting' 'invoice' %}">
+        <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+        New Invoice
+    </button>
+    <span class="tool__sep" aria-hidden="true"></span>
+    <button class="tool" type="button">
+        <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Export
+    </button>
+{% endblock %}
+
+{% block sidebar %}
+<div class="sidebar__title">Sales</div>
+
+<nav class="nav">
+    <div class="nav__group">Analysis</div>
+    <a class="nav__item" data-nav="sales_dashboard" href="{% url 'sales:dashboard' %}">Sales Dashboard</a>
+
+    <div class="nav__group">Sales</div>
+    <a class="nav__item" data-nav="leads" href="{% url 'sales:leads' %}">Leads</a>
+    <a class="nav__item" data-nav="sales_quotes" href="{% url 'sales:quotes' %}">Quotes</a>
+    <a class="nav__item" data-nav="sales_invoices" href="{% url 'sales:invoices' %}">Invoices</a>
+    <a class="nav__item" data-nav="sales_crnotes" href="{% url 'sales:credit_notes' %}">Credit Notes</a>
+    <a class="nav__item" data-nav="sales_partners" href="{% url 'sales:partners' %}">Partners</a>
+</nav>
+
+{% block sidebar_extra %}{% endblock %}
+{% endblock %}

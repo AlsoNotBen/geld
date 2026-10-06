@@ -1,0 +1,192 @@
+{% extends "sales/module_base.html" %}
+{% load static %}
+
+{% comment %}
+  ============================================================================
+  sales/templates/sales/quotes.html
+  ----------------------------------------------------------------------------
+  The quotes page of the Sales section. It is a shell: the rows below are
+  dummy data in the markup. Replace them with a loop when the view is ready.
+
+  The page follows the pattern of the module:
+      .page__head    the title and the note
+      .actionbar     New Quote, Print and Export
+      .tabset        one panel for each status (journals.js gives the
+                     behaviour; the URL keeps the choice)
+      .table         Date · Number · Customer · Status · Amount
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}sales_quotes{% endblock %}
+
+{% block title %}Quotes · Sales · Console{% endblock %}
+
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title">Quotes</h1>
+        <p class="page__note">
+            A quote is an offer to a customer. It does not make an entry in
+            the books. When the customer accepts the quote, make an invoice
+            from it. Use the tabs to see the quotes of one status only.
+        </p>
+    </div>
+
+    <div class="actionbar" role="group" aria-label="Quote controls">
+        <div class="actionbar__group">
+            <button class="tool" type="button" data-print>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
+                Print
+            </button>
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Export
+            </button>
+        </div>
+
+        <p class="actionbar__hint">The list shows the quotes of {{ period|default:"FY 2026" }}.</p>
+    </div>
+
+    {% comment %} The tab control comes from journals.js. The markup contract
+         is: [data-tabset] on the container, [role="tab"][data-tab=KEY] on the
+         button, and [data-panel=KEY] on the panel. {% endcomment %}
+    <div data-tabset data-tabset-param="status">
+
+        <div class="tabset__list" role="tablist" aria-label="Quotes by status">
+            <button class="tabset__tab" type="button" role="tab" data-tab="open"
+                    id="qtab-open" aria-controls="qpanel-open" aria-selected="true">
+                Open <span class="tabset__count">4</span>
+            </button>
+            <button class="tabset__tab" type="button" role="tab" data-tab="accepted"
+                    id="qtab-accepted" aria-controls="qpanel-accepted" aria-selected="false">
+                Accepted <span class="tabset__count">3</span>
+            </button>
+            <button class="tabset__tab" type="button" role="tab" data-tab="closed"
+                    id="qtab-closed" aria-controls="qpanel-closed" aria-selected="false">
+                Closed <span class="tabset__count">2</span>
+            </button>
+        </div>
+
+        <!-- ---------------------------------------------------------- Open -->
+        <div class="tabset__panel" id="qpanel-open" role="tabpanel" data-panel="open"
+             aria-labelledby="qtab-open" hidden>
+            <h2 class="tabset__print-title">Open quotes</h2>
+
+            <table class="table">
+                <thead>
+                    <tr><th>Date</th><th>Number</th><th>Customer</th><th>Status</th><th>Amount</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>2026-02-11</td>
+                        <td>QU-00118</td>
+                        <td>Bergrivier Logistics</td>
+                        <td><span class="status status--idle">Draft</span></td>
+                        <td class="is-credit">18,400.00</td>
+                    </tr>
+                    <tr>
+                        <td>2026-02-09</td>
+                        <td>QU-00117</td>
+                        <td>Karoo Fresh Produce</td>
+                        <td><span class="status status--busy">Sent</span></td>
+                        <td class="is-credit">6,250.00</td>
+                    </tr>
+                    <tr>
+                        <td>2026-02-04</td>
+                        <td>QU-00116</td>
+                        <td>Halcyon Interiors</td>
+                        <td><span class="status status--busy">Sent</span></td>
+                        <td class="is-credit">42,900.00</td>
+                    </tr>
+                    <tr>
+                        <td>2026-01-28</td>
+                        <td>QU-00114</td>
+                        <td>Table Bay Marine</td>
+                        <td><span class="status status--low">Expires soon</span></td>
+                        <td class="is-credit">9,780.00</td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr><td colspan="4">Total of the open quotes</td><td class="is-credit">77,330.00</td></tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- ------------------------------------------------------ Accepted -->
+        <div class="tabset__panel" id="qpanel-accepted" role="tabpanel" data-panel="accepted"
+             aria-labelledby="qtab-accepted" hidden>
+            <h2 class="tabset__print-title">Accepted quotes</h2>
+
+            <table class="table">
+                <thead>
+                    <tr><th>Date</th><th>Number</th><th>Customer</th><th>Status</th><th>Amount</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>2026-01-22</td>
+                        <td>QU-00112</td>
+                        <td>Protea Print Works</td>
+                        <td><span class="status status--ok">Accepted</span></td>
+                        <td class="is-credit">15,600.00</td>
+                    </tr>
+                    <tr>
+                        <td>2026-01-15</td>
+                        <td>QU-00109</td>
+                        <td>Sandton Data Centre</td>
+                        <td><span class="status status--ok">Invoiced</span></td>
+                        <td class="is-credit">88,000.00</td>
+                    </tr>
+                    <tr>
+                        <td>2026-01-08</td>
+                        <td>QU-00107</td>
+                        <td>Umhlanga Coastal Hotels</td>
+                        <td><span class="status status--ok">Invoiced</span></td>
+                        <td class="is-credit">31,450.00</td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr><td colspan="4">Total of the accepted quotes</td><td class="is-credit">135,050.00</td></tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- -------------------------------------------------------- Closed -->
+        <div class="tabset__panel" id="qpanel-closed" role="tabpanel" data-panel="closed"
+             aria-labelledby="qtab-closed" hidden>
+            <h2 class="tabset__print-title">Closed quotes</h2>
+
+            <table class="table">
+                <thead>
+                    <tr><th>Date</th><th>Number</th><th>Customer</th><th>Status</th><th>Amount</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>2025-12-19</td>
+                        <td>QU-00103</td>
+                        <td>Vaal Metal Press</td>
+                        <td><span class="status status--out">Declined</span></td>
+                        <td class="is-credit">23,900.00</td>
+                    </tr>
+                    <tr>
+                        <td>2025-12-02</td>
+                        <td>QU-00098</td>
+                        <td>Garden Route Timber</td>
+                        <td><span class="status status--idle">Expired</span></td>
+                        <td class="is-credit">4,120.00</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+</section>
+{% endblock %}
+
+{% comment %} journals.js holds the general tab control. block.super keeps
+     daterange.js from the module base. {% endcomment %}
+{% block extra_js %}
+{{ block.super }}
+<script src="{% static 'accounting/js/journals.js' %}"></script>
+{% endblock %}

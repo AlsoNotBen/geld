@@ -58,7 +58,7 @@
             the balance sheet or the income statement. An auditor reads the
             ledger to trace a figure in a statement back to its entry. The
             period is {{ start|date:"j F Y" }} to {{ end|date:"j F Y" }}.
-            All figures in {{ currency }}.
+            All figures in {{ currency }}, on the {{ basis }} basis.
         </p>
     </div>
 
@@ -72,6 +72,11 @@
             <span class="tool__sep" aria-hidden="true"></span>
             {% comment %} base.js must call window.print() for a button with
                  the data-print attribute. {% endcomment %}
+            <button class="tool" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 4h9l3 3v13H6V4z" stroke-linejoin="round"/><path d="M15 4v4h4" stroke-linejoin="round"/><path d="M9 13h6M12 10v6" stroke-linecap="round"/>
+                </svg>
+                Note
+            </button>
             <button class="tool" type="button" data-print>
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
                 Print

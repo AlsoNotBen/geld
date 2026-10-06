@@ -36,6 +36,16 @@
                     <span class="switch__text">{% if request.COOKIES.view_mode != "standard" %}Easy Viewing{% else %}Accounting Standard Viewing{% endif %}</span>
                 </label>
             </div>
+            {% comment %} The accounting basis of the company. Only an owner or an
+                 accountant can change it. The data does not change, only the reports. {% endcomment %}
+            <div class="field">
+                <label class="field__label" for="f-accounting_basis">Accounting basis</label>
+                <select class="field__control" id="f-accounting_basis" name="accounting_basis" {% if not can_set_basis %}disabled{% endif %}>
+                    {% for value, label in bases %}
+                    <option value="{{ value }}" {% if value == request.company.accounting_basis %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
             <div class="field">
                 <label class="field__label" for="f-landing">Default landing page</label>
                 <select class="field__control" id="f-landing" name="landing"><option>Overview</option><option>Journal Entries</option><option>Sales Dashboard</option></select>
