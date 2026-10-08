@@ -43,7 +43,16 @@ class NumberSequence(CompanyOwned):
 
             seq.save(update_fields=["next_number"])
 
-        return f"{seq.prefix}{str(number).zfill(seq.padding)}"
+        return seq.format_number(number)
+
+    @classmethod
+    def peek(cls, company, name, prefix=""):
+        """Return the next number, but do not take it. Make the sequence when it does not exist."""
+        seq, _ = cls.objects.get_or_create(company=company, name=name, defaults={"prefix": prefix})
+        return seq.format_number(seq.next_number)
+
+    def format_number(self, number):
+        return f"{self.prefix}{str(number).zfill(self.padding)}"
 
 class Attachment(CompanyOwned):
     content_type    = models.ForeignKey(ContentType, on_delete=models.CASCADE)

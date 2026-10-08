@@ -25,11 +25,12 @@ urlpatterns = [
     path("equity/",views.equity,name="equity"),
 
     # Analysis
-    path("analytics/", views.analytics, name="analytics"),
     path("reports/", views.reports, name="reports"),
 
     # Cost Centre
     path("bills/", views.bills, name="bills"),
+    path("bills/<int:pk>/approve/", views.bill_approve, name="bill_approve"),
+    path("bills/<int:pk>/deny/", views.bill_deny, name="bill_deny"),
     path("claims/", views.claims, name="claims"),
 
     # General

@@ -63,7 +63,7 @@
                 New Entries
                 <span class="review__count">{{ pending_count }}</span>
             </h2>
-            <p class="review__hint">These entries wait for a review. Accept or edit each one.</p>
+            <p class="review__hint">These entries wait for a review. Accept or view each one.</p>
         </div>
 
         <table class="table table--review" data-num>
@@ -106,8 +106,8 @@
                             {% comment %} journals.js reads these attributes and
                                  fills the overlay. {% endcomment %}
                             <button class="tool tool--sm tool--neutral" type="button"
-                                    aria-label="Edit {{ entry.reference }}"
-                                    data-entry-edit
+                                    aria-label="View {{ entry.reference }}"
+                                    data-entry-view
                                     data-url="{% url 'accounting:journalentry_update' entry.id %}"
                                     data-post-url="{% url 'accounting:journalentry_post' entry.id %}"
                                     data-void-url="{% url 'accounting:journalentry_void' entry.id %}"
@@ -122,8 +122,8 @@
                                     data-tax="{{ entry.tax_id }}"
                                     data-description="{{ entry.description }}"
                                     data-narration="{{ entry.narration }}">
-                                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 20h4L18 10l-4-4L4 16v4z" stroke-linejoin="round"/><path d="M14 6l4 4" stroke-linecap="round"/></svg>
-                                Edit
+                                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" stroke-linejoin="round"/><circle cx="12" cy="12" r="3"/></svg>
+                                View
                             </button>
                         </div>
                     </td>
@@ -358,7 +358,7 @@
 
             <div class="sheet__foot">
                 <button class="tool" type="button" data-dialog-cancel>Cancel</button>
-                {% comment %} journals.js opens these two buttons for an edit
+                {% comment %} journals.js opens these two buttons for a view
                      only, and it gives each one its formaction. The attribute
                      formnovalidate lets them send an empty form, because the
                      views read the entry from the URL. {% endcomment %}

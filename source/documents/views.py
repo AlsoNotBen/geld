@@ -34,8 +34,8 @@ def _resolve_options(document, request):
     the first preview, before the user changes an option.
     """
     if not request.GET:
-        return document.get_options_form().defaults()
-    form = document.get_options_form(data=request.GET)
+        return document.get_options_form(request=request).defaults()
+    form = document.get_options_form(data=request.GET, request=request)
     if form.is_valid():
         return form.cleaned_data
     return None
@@ -47,7 +47,7 @@ def panel(request, module, key):
     document = _get_document(module, key)
     return render(request, "documents/panel.html", {
         "document": document,
-        "form": document.get_options_form(),
+        "form": document.get_options_form(request=request),
     })
 
 
@@ -74,7 +74,10 @@ def _pdf_response(request, module, key, inline):
 
     if options is None:
         return HttpResponseBadRequest("One or more options are not valid.")
-    
+
+    if not inline:  # Download and Send use the download view. The preview does not issue.
+        document.issue(request, options)
+
     context     = document.get_context(request, options)
     pdf         = render_pdf(document.template_name, context)
     disposition = "inline" if inline else "attachment"

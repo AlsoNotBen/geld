@@ -70,11 +70,6 @@
             {% comment %} The data-doc-overlay attribute opens the document
                  overlay. documents.js reads it (see static/documents/js). {% endcomment %}
             <button class="tool tool--primary" type="button"
-                    data-doc-overlay="{% url 'documents:panel' 'accounting' 'quote' %}">
-                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
-                New Quote
-            </button>
-            <button class="tool tool--primary" type="button"
                     data-doc-overlay="{% url 'documents:panel' 'accounting' 'invoice' %}">
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
                 New Invoice
@@ -216,7 +211,6 @@
         <nav class="nav">
             <div class="nav__group">Analysis</div>
             <a class="nav__item" data-nav="dashboard" href="{% url 'accounting:dashboard' %}">Overview</a>
-            <a class="nav__item" data-nav="analytics" href="{% url 'accounting:analytics' %}">Analytics</a>
             <a class="nav__item" data-nav="reports" href="{% url 'accounting:reports' %}">Reports</a>
 
 

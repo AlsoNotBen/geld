@@ -125,9 +125,11 @@
    The entry overlay. It uses the same pattern as accounts.js.
 
    The New Entry button opens an empty form, which goes to the create URL.
-   The Edit button opens the same form with the data of its row, and it
+   The View button opens the same form with the data of its row, and it
    sends the form to the update URL of that entry. The data comes from the
-   data-* attributes of the button (see journals.html).
+   data-* attributes of the button (see journals.html). In the view, the
+   user can change the line description only. The other fields are
+   disabled.
    ========================================================================== */
 (function () {
     const dialog = document.getElementById("entry-dialog");
@@ -140,10 +142,16 @@
     const postBtn = dialog.querySelector("[data-entry-post]");
     const createUrl = form.getAttribute("action");
     const field = form.elements;
+    const locked = dialog.querySelectorAll(".field__control:not([name=description])");
+
+    function lock(isLocked) {
+        locked.forEach(function (control) { control.disabled = isLocked; });
+    }
 
     const openBtn = document.querySelector("[data-entry-new]");
     if (openBtn) openBtn.onclick = function () {
         form.reset();
+        lock(false);
         form.setAttribute("action", createUrl);
         title.textContent = "New Journal Entry";
         submit.textContent = "Post Entry";
@@ -152,7 +160,7 @@
         dialog.showModal();
     };
 
-    document.querySelectorAll("[data-entry-edit]").forEach(function (btn) {
+    document.querySelectorAll("[data-entry-view]").forEach(function (btn) {
         btn.onclick = function () {
             const data = btn.dataset;
             form.setAttribute("action", data.url);
@@ -167,7 +175,8 @@
             field.tax_code.value = data.tax;
             field.description.value = data.description;
             field.narration.value = data.narration;
-            title.textContent = "Edit Journal Entry";
+            lock(true);
+            title.textContent = "View Journal Entry";
             submit.textContent = "Save as Draft";
             /* Each button sends the form to its own view. The view reads the
                entry from the URL, thus it ignores the fields. */

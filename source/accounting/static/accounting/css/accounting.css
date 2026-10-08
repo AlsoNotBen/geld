@@ -585,6 +585,7 @@
     font-size: 13px;
 }
 .field__control:focus { outline: none; border-color: var(--gold-line); }
+.field__control:disabled { opacity: 0.55; cursor: not-allowed; }
 
 /* ================================================================== */
 /*  PAGE                                                              */
@@ -763,6 +764,49 @@
 /* A count is not money. The figure then loses the currency spacing. */
 .card__value.is-count,
 .card--count .card__value { font-size: 26px; letter-spacing: 0; }
+
+/* The area graph below the value. The negative margins cancel the
+   padding of the card, thus the graph touches the left, right and
+   bottom edges. overflow: hidden clips it to the round corners. */
+.card:has(.card__spark) { overflow: hidden; }
+.card__spark {
+    display: block;
+    width: calc(100% + 36px);
+    height: 44px;
+    margin: 12px -18px -18px;
+    color: var(--ink-soft);
+}
+.card__spark .spark__area { fill: currentColor; fill-opacity: 0.16; }
+.card__spark .spark__line { fill: none; stroke: currentColor; stroke-width: 1.5; }
+.card__spark.is-debit   { color: var(--debit); }
+.card__spark.is-credit  { color: var(--credit); }
+.card__spark.is-overdue { color: var(--overdue); }
+
+/* ---- Overview parts ------------------------------------------------ */
+/* The Overview has three parts: Balance, Income and Cash Flow. The head
+   of a part holds the title, the date and a link to the statement. */
+.overview-part__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 14px;
+    margin: 34px 0 14px;
+}
+.overview-part__head .page__subtitle { margin: 0; }
+.overview-part__hint {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+}
+.overview-part__link {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--gold);
+    text-decoration: none;
+}
+.overview-part__link::after { content: " \2192"; }
+.overview-part__link:hover { text-decoration: underline; }
+.overview-part .table { margin-top: 14px; }
 
 /* ================================================================== */
 /*  TABLE  (the base of every table of the module)                    */
@@ -1007,6 +1051,14 @@
     white-space: nowrap;
     border: 0;
 }
+
+/* The Unpaid and Paid tables of the Bills page use the columns of the
+   review table: Date · Number · Due · Supplier · Amount. Thus column 4
+   (Supplier) takes the free space, not column 3. */
+.table--bills th:nth-child(3),
+.table--bills td:nth-child(3) { width: auto; white-space: nowrap; }
+.table--bills th:nth-child(4),
+.table--bills td:nth-child(4) { width: 100%; white-space: normal; }
 
 /* ================================================================== */
 /*  REVIEW LIST  (the head above the review table)                    */
@@ -1443,6 +1495,7 @@
     .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     .card { padding: 13px 14px 15px; }
     .card__value { font-size: 19px; padding-top: 8px; }
+    .card__spark { width: calc(100% + 28px); margin: 10px -14px -15px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -5,13 +5,21 @@
   ============================================================================
   accounting/templates/accounting/overview.html
   ----------------------------------------------------------------------------
-  The first page of the module. It shows five figures and the last entries.
+  The first page of the module. It also replaces the Analytics page.
 
   The page follows the pattern of the module:
       .page__head    the title and the note
       .actionbar     Print and Export
-      .cards         the five figures
+      .cards         the position today: invoices, payables and cash
+      .overview-part three parts, each with a link to its statement:
+                       Balance     the results of the balance sheet
+                       Income      the results of the income statement,
+                                   and the period comparison
+                       Cash Flow   the results of the cash flow statement
       .table         the last entries: Date · Reference · Account · Amount
+
+  Each card has an area graph of the last 7 days (the sparkline filter of
+  fin.py). The view gives the series in "trends".
   ============================================================================
 {% endcomment %}
 
@@ -31,9 +39,11 @@
             The overview is the first page of the Accounting module. It shows
             the position of the business today: the money that customers owe,
             the money that is late, the money that the business owes to
-            suppliers, and the cash in the bank. The table below shows the
-            last entries in the books. Use this page to see if an item needs
-            an action before you open a report.
+            suppliers, and the cash in the bank. The Balance, Income and
+            Cash Flow parts show the results of the three statements and
+            compare this period with the last period. The table at the
+            bottom shows the last entries in the books. Use this page to see
+            if an item needs an action before you open a report.
         </p>
     </div>
 
@@ -64,32 +74,176 @@
         <div class="card">
             <span class="card__label">Open Invoices</span>
             <div class="card__value is-credit" data-unit="ZAR">{{ open_total|default:"48,120.00" }}</div>
+            {{ trends.open|sparkline:"is-credit" }}
         </div>
 
         {% comment %} Overdue tone: this money is late. {% endcomment %}
         <div class="card">
             <span class="card__label">Overdue</span>
             <div class="card__value is-overdue" data-unit="ZAR">{{ overdue_total|default:"7,400.00" }}</div>
+            {{ trends.overdue|sparkline:"is-overdue" }}
         </div>
 
         {% comment %} Debit tone: this money goes out. {% endcomment %}
         <div class="card">
             <span class="card__label">Payables</span>
             <div class="card__value is-debit" data-unit="ZAR">{{ payable_total|default:"12,905.00" }}</div>
+            {{ trends.payable|sparkline:"is-debit" }}
         </div>
 
         {% comment %} Credit tone: this money is in the bank. {% endcomment %}
         <div class="card">
             <span class="card__label">Cash on Hand</span>
             <div class="card__value is-credit" data-unit="ZAR">{{ cash_total|default:"93,517.00" }}</div>
+            {{ trends.cash|sparkline:"is-credit" }}
         </div>
 
         {% comment %} Count: a quantity of invoices, not a sum of money. {% endcomment %}
         <div class="card">
             <span class="card__label">Active Invoices</span>
             <div class="card__value is-count">{{ active_invoice_count|default:"34" }}</div>
+            {{ trends.active|sparkline }}
         </div>
     </div>
+
+    {# ============================== BALANCE ============================== #}
+    <section class="overview-part" aria-labelledby="ov-balance">
+        <div class="overview-part__head">
+            <h2 class="page__subtitle" id="ov-balance">Balance</h2>
+            <span class="overview-part__hint">At {{ as_of|date:"j M Y" }}</span>
+            <a class="overview-part__link" href="{% url 'accounting:balancesheet' %}">Balance Sheet</a>
+        </div>
+        <div class="cards">
+            <div class="card">
+                <span class="card__label">Total assets</span>
+                <div class="card__value" data-unit="{{ currency }}">{{ balance.assets_this|money }}</div>
+                {{ trends.assets_this|sparkline }}
+            </div>
+            <div class="card">
+                <span class="card__label">Total equity</span>
+                <div class="card__value is-credit" data-unit="{{ currency }}">{{ balance.equity_this|money }}</div>
+                {{ trends.equity_this|sparkline:"is-credit" }}
+            </div>
+            <div class="card">
+                <span class="card__label">Total liabilities</span>
+                <div class="card__value is-debit" data-unit="{{ currency }}">{{ balance.liabilities_this|money }}</div>
+                {{ trends.liabilities_this|sparkline:"is-debit" }}
+            </div>
+            <div class="card">
+                <span class="card__label">Working capital</span>
+                <div class="card__value" data-unit="{{ currency }}">{{ balance.working_capital|money }}</div>
+                {{ trends.working_capital|sparkline }}
+            </div>
+            <div class="card">
+                <span class="card__label">Current ratio</span>
+                <div class="card__value is-count">{% if balance.current_ratio %}{{ balance.current_ratio|floatformat:2 }}{% else %}—{% endif %}</div>
+                {{ trends.current_ratio|sparkline }}
+            </div>
+        </div>
+    </section>
+
+    {# =============================== INCOME ============================== #}
+    <section class="overview-part" aria-labelledby="ov-income">
+        <div class="overview-part__head">
+            <h2 class="page__subtitle" id="ov-income">Income</h2>
+            <span class="overview-part__hint">{{ start|date:"j M Y" }} – {{ as_of|date:"j M Y" }}</span>
+            <a class="overview-part__link" href="{% url 'accounting:incomestatement' %}">Income Statement</a>
+        </div>
+        <div class="cards">
+            <div class="card">
+                <span class="card__label">Revenue</span>
+                <div class="card__value is-credit" data-unit="{{ currency }}">{{ income.revenue|money }}</div>
+                {{ trends.revenue|sparkline:"is-credit" }}
+            </div>
+            <div class="card">
+                <span class="card__label">Gross profit</span>
+                <div class="card__value" data-unit="{{ currency }}">{{ income.gross_profit|money }}</div>
+                {{ trends.gross_profit|sparkline }}
+            </div>
+            <div class="card">
+                <span class="card__label">Operating profit</span>
+                <div class="card__value" data-unit="{{ currency }}">{{ income.operating_profit|money }}</div>
+                {{ trends.operating_profit|sparkline }}
+            </div>
+            <div class="card">
+                <span class="card__label">Income tax</span>
+                <div class="card__value is-debit" data-unit="{{ currency }}">{{ income.tax|money }}</div>
+                {{ trends.tax|sparkline:"is-debit" }}
+            </div>
+            <div class="card">
+                <span class="card__label">Profit for the period</span>
+                <div class="card__value {% if income.profit_this >= 0 %}is-credit{% else %}is-debit{% endif %}" data-unit="{{ currency }}">{{ income.profit_this|money }}</div>
+                {% if income.profit_this >= 0 %}{{ trends.profit_this|sparkline:"is-credit" }}{% else %}{{ trends.profit_this|sparkline:"is-debit" }}{% endif %}
+            </div>
+        </div>
+
+        {% comment %} The period comparison of the old Analytics page. The
+             view gives the money rows. {% endcomment %}
+        <table class="table" data-num>
+            <thead>
+                <tr><th>Measure</th><th>This period</th><th>Last period</th><th>Change</th></tr>
+            </thead>
+            <tbody>
+                {% for row in comparison %}
+                <tr>
+                    <td>{{ row.name }}</td>
+                    <td class="{{ row.tone }}">{{ row.this|money }}</td>
+                    <td class="{{ row.tone }}">{{ row.last|money }}</td>
+                    <td class="is-count">{% if row.change != None %}{{ row.change|floatformat:"1" }}%{% else %}—{% endif %}</td>
+                </tr>
+                {% endfor %}
+                <tr>
+                    <td>Gross margin</td>
+                    <td class="is-count">{% if margin_this != None %}{{ margin_this|floatformat:1 }}%{% else %}—{% endif %}</td>
+                    <td class="is-count">{% if margin_last != None %}{{ margin_last|floatformat:1 }}%{% else %}—{% endif %}</td>
+                    <td class="is-count">{% if margin_change != None %}{{ margin_change|floatformat:1 }} pts{% else %}—{% endif %}</td>
+                </tr>
+                {% comment %} TODO: Sample data. Calculate the debtor days and
+                     the creditor days when the receivables and the payables
+                     accounts are known. {% endcomment %}
+                <tr><td>Debtor days</td><td class="is-count">38</td><td class="is-count">44</td><td class="is-count">−6</td></tr>
+                <tr><td>Creditor days</td><td class="is-count">31</td><td class="is-count">29</td><td class="is-count">+2</td></tr>
+            </tbody>
+        </table>
+    </section>
+
+    {# ============================= CASH FLOW ============================= #}
+    {% comment %} TODO: Sample data, the same as the Cash Flow Statement.
+         The statement has no view yet. {% endcomment %}
+    <section class="overview-part" aria-labelledby="ov-cashflow">
+        <div class="overview-part__head">
+            <h2 class="page__subtitle" id="ov-cashflow">Cash Flow</h2>
+            <span class="overview-part__hint">FY 2026</span>
+            <a class="overview-part__link" href="{% url 'accounting:cashflow' %}">Cash Flow Statement</a>
+        </div>
+        <div class="cards">
+            <div class="card">
+                <span class="card__label">Cash at the start</span>
+                <div class="card__value" data-unit="ZAR">128,940</div>
+                {{ trends.cf_start|sparkline }}
+            </div>
+            <div class="card">
+                <span class="card__label">Operating activities</span>
+                <div class="card__value is-credit" data-unit="ZAR">175,420</div>
+                {{ trends.cf_operating|sparkline:"is-credit" }}
+            </div>
+            <div class="card">
+                <span class="card__label">Investing activities</span>
+                <div class="card__value is-debit" data-unit="ZAR">(70,440)</div>
+                {{ trends.cf_investing|sparkline:"is-debit" }}
+            </div>
+            <div class="card">
+                <span class="card__label">Financing activities</span>
+                <div class="card__value is-debit" data-unit="ZAR">(34,600)</div>
+                {{ trends.cf_financing|sparkline:"is-debit" }}
+            </div>
+            <div class="card">
+                <span class="card__label">Cash at the end</span>
+                <div class="card__value" data-unit="ZAR">199,320</div>
+                {{ trends.cf_end|sparkline }}
+            </div>
+        </div>
+    </section>
 
     <h2 class="page__subtitle">Recent entries</h2>
     <table class="table">

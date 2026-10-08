@@ -18,8 +18,71 @@ JOURNAL_TABS = {
     "cash_entries":     [JournalEntry.EntryType.RECEIPT, JournalEntry.EntryType.PAYMENT],
 }
 
+#TODO: Sample data, like the card values of overview.html. Replace each list
+# with the closing figure of each day of the last 7 days (oldest first).
+WEEK_TRENDS = {
+    "open":    [44210, 45080, 43900, 46350, 47020, 46480, 48120],
+    "overdue": [5200, 5200, 6100, 6100, 6850, 7400, 7400],
+    "payable": [14320, 13980, 15110, 14200, 13460, 13050, 12905],
+    "cash":    [88140, 89560, 87920, 90310, 91880, 92640, 93517],
+    "active":  [31, 32, 32, 33, 33, 34, 34],
+    # The cash flow statement has no view yet. These follow its cards.
+    "cf_start":     [128940] * 7,
+    "cf_operating": [161200, 163850, 166020, 168400, 171230, 173060, 175420],
+    "cf_investing": [-62100, -62100, -66800, -66800, -68950, -70440, -70440],
+    "cf_financing": [-31200, -31200, -32900, -32900, -34600, -34600, -34600],
+    "cf_end":       [196840, 199490, 195260, 197640, 196620, 197900, 199320],
+}
+
+BALANCE_KEYS = ["assets_this", "equity_this", "liabilities_this", "working_capital", "current_ratio"]
+INCOME_KEYS = ["revenue", "gross_profit", "operating_profit", "tax", "profit_this"]
+
+def change(this, last):
+    """The change from last to this, in percent. None if last is zero."""
+    if this is None or not last:
+        return None
+    return (this - last) / abs(last) * 100
+
 def dashboard(request):
-    return render(request, "accounting/overview.html")
+    """The overview. The Balance and Income parts show the figures of the
+    statements at the last day of the range (today at the latest), with
+    the 7 days to that day."""
+    ctx = statement_context(request)
+    company = ctx["company"]
+    accounts = list(Account.objects.filter(company=company))
+    as_of = min(ctx["end"], timezone.localdate())
+    days = [as_of - timedelta(days=n) for n in range(6, -1, -1)]
+
+    balance = [balance_data(accounts, movements(company, end=day), {}) for day in days]
+    income = [income_data(accounts, movements(company, ctx["start"], day), {}) for day in days]
+    trends = dict(WEEK_TRENDS)
+    for key in BALANCE_KEYS:
+        trends[key] = [figures[key] for figures in balance]
+    for key in INCOME_KEYS:
+        trends[key] = [figures[key] for figures in income]
+
+    # The comparison table: this period against the last period.
+    full = income_data(accounts, movements(company, ctx["start"], ctx["end"]),
+                       movements(company, ctx["prev_start"], ctx["prev_end"]))
+    comparison = [
+        ("Revenue", full["revenue"], full["revenue_last"], "is-credit"),
+        ("Cost of sales", full["cost_of_sales"], full["cost_of_sales_last"], "is-debit"),
+        ("Operating expenses", full["expenses"], full["expenses_last"], "is-debit"),
+        ("Profit for the period", full["profit_this"], full["profit_last"], "is-credit"),
+    ]
+    ctx.update({
+        "as_of": as_of,
+        "balance": balance[-1],
+        "income": income[-1],
+        "trends": trends,
+        "comparison": [{"name": n, "this": t, "last": l, "tone": c, "change": change(t, l)}
+                       for n, t, l, c in comparison],
+        "margin_this": full["margin_this"],
+        "margin_last": full["margin_last"],
+        "margin_change": (full["margin_this"] - full["margin_last"]
+                          if full["margin_this"] is not None and full["margin_last"] is not None else None),
+    })
+    return render(request, "accounting/overview.html", ctx)
 
 
 def journal_rows(lines):
@@ -126,18 +189,11 @@ def journalentry_create(request):
     return redirect("accounting:journals")
 
 def journalentry_update(request, pk):
-    """The Edit button sends the overlay here. The form holds one debit and
-    one credit, thus the view makes the lines again."""
+    """The View button sends the overlay here. The user can change the line
+    description only, thus the view ignores the other fields."""
     if request.method == "POST":
         entry = get_object_or_404(JournalEntry, pk=pk, company=request.company, status=JournalEntry.Status.DRAFT)
-        entry.date = request.POST["date"]
-        entry.period_id = request.POST["period"]
-        entry.entry_type = request.POST["entry_type"]
-        entry.reference = request.POST["reference"]
-        entry.narration = request.POST.get("narration", "")
-        entry.save()
-        entry.lines.all().delete()
-        make_lines(entry, request.POST)
+        entry.lines.update(description=request.POST.get("description", ""))
     return redirect("accounting:journals")
 
 def journalentry_post(request, pk):
@@ -365,12 +421,9 @@ def ledger(request):
         ctx[f"{key}_accounts"] = [a for a in blocks.values() if category_of(a["account"]) == key]
     return render(request, "accounting/ledger.html", ctx)
 
-def balancesheet(request):
-    ctx = statement_context(request)
-    company = ctx["company"]
-    accounts = list(Account.objects.filter(company=company))
-    this = movements(company, end=ctx["end"])
-    last = movements(company, end=ctx["prev_end"])
+def balance_data(accounts, this, last):
+    """The figures of the balance sheet. this and last are the balances
+    (see movements) at the end of this period and of the last period."""
     groups = by_type(accounts)
     T = Account.AccountType
 
@@ -392,7 +445,7 @@ def balancesheet(request):
 
     assets_this, assets_last = nca_this + ca_this, nca_last + ca_last
     liabilities_this, liabilities_last = ncl_this + cl_this, ncl_last + cl_last
-    ctx.update({
+    return {
         "asset_rows": nca + ca,
         "equity_rows": eq + ncl + cl,
         "assets_this": assets_this, "assets_last": assets_last,
@@ -403,15 +456,19 @@ def balancesheet(request):
         "working_capital": ca_this - cl_this,
         "current_ratio": ca_this / cl_this if cl_this else None,
         "is_balanced": assets_this == eq_this + liabilities_this,
-    })
-    return render(request, "accounting/balance_sheet.html", ctx)
+    }
 
-def incomestatement(request):
+def balancesheet(request):
     ctx = statement_context(request)
     company = ctx["company"]
-    groups = by_type(Account.objects.filter(company=company))
-    this = movements(company, ctx["start"], ctx["end"])
-    last = movements(company, ctx["prev_start"], ctx["prev_end"])
+    accounts = list(Account.objects.filter(company=company))
+    ctx.update(balance_data(accounts, movements(company, end=ctx["end"]), movements(company, end=ctx["prev_end"])))
+    return render(request, "accounting/balance_sheet.html", ctx)
+
+def income_data(accounts, this, last):
+    """The figures of the income statement. this and last are the
+    movements (see movements) of this period and of the last period."""
+    groups = by_type(accounts)
     T = Account.AccountType
 
     def part(title, account_type, total_label):
@@ -428,11 +485,16 @@ def incomestatement(request):
     operating_last = gross_last + other_last + exp_last
     profit_this, profit_last = operating_this + tax_this, operating_last + tax_last
 
-    ctx.update({
+    return {
         "rows": (revenue + cost + [sum_row("Gross profit", gross_this, gross_last)]
                  + other + expenses + [sum_row("Operating profit", operating_this, operating_last)]
                  + tax),
         "revenue": rev_this,
+        "revenue_last": rev_last,
+        "cost_of_sales": cost_this,
+        "cost_of_sales_last": cost_last,
+        "expenses": exp_this,
+        "expenses_last": exp_last,
         "gross_profit": gross_this,
         "operating_profit": operating_this,
         "tax": tax_this,
@@ -440,7 +502,14 @@ def incomestatement(request):
         "profit_last": profit_last,
         "margin_this": gross_this / rev_this * 100 if rev_this else None,
         "margin_last": gross_last / rev_last * 100 if rev_last else None,
-    })
+    }
+
+def incomestatement(request):
+    ctx = statement_context(request)
+    company = ctx["company"]
+    accounts = list(Account.objects.filter(company=company))
+    ctx.update(income_data(accounts, movements(company, ctx["start"], ctx["end"]),
+                           movements(company, ctx["prev_start"], ctx["prev_end"])))
     return render(request, "accounting/income_statement.html", ctx)
 
 def cashflow(request):
@@ -496,14 +565,47 @@ def equity(request):
 # ___________________________________UI SHELLS_______________________________________#
 # These pages show dummy data from the template only.
 
-def analytics(request):
-    return render(request, "accounting/analytics.html")
 
 def reports(request):
     return render(request, "accounting/reports.html")
 
+def bill_list(request, *statuses, **filters):
+    """The bills of the company with one of the statuses, the next due first."""
+    return list(Document.objects
+                .filter(company=request.company, direction=Document.Direction.PURCHASE,
+                        doc_type=Document.DocType.BILL, status__in=statuses, **filters)
+                .select_related("entity").prefetch_related("lines__tax_code")
+                .order_by("due", "date"))
+
 def bills(request):
-    return render(request, "accounting/bills.html")
+    """Review: the draft bills. Unpaid: the approved bills that are not
+    paid in full. Paid: the paid bills of the date range."""
+    _, start, end = get_range(request)
+    S = Document.Status
+    review = bill_list(request, S.DRAFT)
+    unpaid = bill_list(request, S.SENT, S.APPROVED, S.PART_PAID)
+    paid = bill_list(request, S.PAID, date__range=(start, end))
+    return render(request, "accounting/bills.html", {
+        "review_bills": review,
+        "unpaid_bills": unpaid,
+        "paid_bills": paid,
+        "unpaid_total": sum((b.gross for b in unpaid), ZERO),
+        "paid_total": sum((b.gross for b in paid), ZERO),
+        "today": timezone.localdate(),
+    })
+
+def bill_review(request, pk, status):
+    """The Approve and Deny buttons. They change a draft bill only."""
+    if request.method == "POST":
+        Document.objects.filter(pk=pk, company=request.company, doc_type=Document.DocType.BILL,
+                                status=Document.Status.DRAFT).update(status=status)
+    return redirect("accounting:bills")
+
+def bill_approve(request, pk):
+    return bill_review(request, pk, Document.Status.APPROVED)
+
+def bill_deny(request, pk):
+    return bill_review(request, pk, Document.Status.VOID)
 
 def suppliers(request):
     return render(request, "accounting/suppliers.html")

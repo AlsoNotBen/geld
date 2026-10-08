@@ -5,21 +5,20 @@
   ============================================================================
   accounting/templates/accounting/cash_flow.html
   ----------------------------------------------------------------------------
-  The page shows the movement of cash in one period. It has four parts:
+  The page shows the movement of cash in one period. It has three parts:
 
       1. The page head.    The title and the note below it.
-      2. The card band.    Cash at the start, the three activity groups
-                           and cash at the end. The band reads from left
-                           to right as a sum.
-      3. The statement.    The same three groups, with their lines and
+      2. The statement.    The three activity groups, with their lines and
                            their subtotals. The last column shows the
                            period before.
-      4. The notes.        One card for each group, in plain words.
+      3. The notes.        One card for each group, in plain words.
+
+  The results (cash at the start, the three groups and cash at the end)
+  are in the Cash Flow part of the Overview page.
 
   The page follows the pattern of the module:
       .page__head    the title and the note
       .actionbar     Print, Export, New note
-      .cards         the band
       .table--fin    Line · Note · This period · Last period
       .notes         the notes
 
@@ -98,29 +97,6 @@
         </div>
 
         <p class="actionbar__hint">The statement uses the accepted journal entries of FY 2026.</p>
-    </div>
-
-    <div class="cards">
-        <div class="card">
-            <span class="card__label">Cash at the start</span>
-            <div class="card__value" data-unit="ZAR">128,940</div>
-        </div>
-        <div class="card">
-            <span class="card__label">Operating activities</span>
-            <div class="card__value is-credit" data-unit="ZAR">175,420</div>
-        </div>
-        <div class="card">
-            <span class="card__label">Investing activities</span>
-            <div class="card__value is-debit" data-unit="ZAR">(70,440)</div>
-        </div>
-        <div class="card">
-            <span class="card__label">Financing activities</span>
-            <div class="card__value is-debit" data-unit="ZAR">(34,600)</div>
-        </div>
-        <div class="card">
-            <span class="card__label">Cash at the end</span>
-            <div class="card__value" data-unit="ZAR">199,320</div>
-        </div>
     </div>
 
     <h2 class="page__subtitle" id="cf-title">Statement</h2>

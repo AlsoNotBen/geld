@@ -28,9 +28,12 @@ class DocumentType:
     template_name       = ""
     options_form_class  = DocumentOptionsForm
 
-    def get_options_form(self, data=None):
+    def get_options_form(self, data=None, request=None):
         """Return the options form. Bind it to data when data is given."""
         return self.options_form_class(data=data)
+
+    def issue(self, request, options):
+        """The user downloads or sends the document. Override this in a subclass."""
 
     def get_context(self, request, options):
         """Return the template context. Override this in a subclass.

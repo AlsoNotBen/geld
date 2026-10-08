@@ -1,10 +1,17 @@
 {% extends "accounting/module_base.html" %}
+{% load static fin %}
 
 {% comment %}
   ============================================================================
   accounting/templates/accounting/bills.html
   ----------------------------------------------------------------------------
-  A bill is an invoice that a supplier sends to the business. Record each bill here, then pay it before the due date. It is a shell: the data below is dummy data in the markup.
+  A bill is an invoice that a supplier sends to the business. The page has
+  two parts:
+      .review      the draft bills. Approve or deny each one.
+      .tabset      the approved bills: Unpaid (the default) and Paid.
+
+  Columns of each table: Date · Number · Due · Supplier · Amount
+  The Unpaid tab shows an overdue amount in the overdue color.
   ============================================================================
 {% endcomment %}
 
@@ -19,7 +26,7 @@
 
     <div class="page__head">
         <h1 class="page__title">Bills</h1>
-        <p class="page__note">A bill is an invoice that a supplier sends to the business. Record each bill here, then pay it before the due date.</p>
+        <p class="page__note">A bill is an invoice that a supplier sends to the business. Review each new bill, then pay it before the due date.</p>
     </div>
 
     <div class="actionbar" role="group" aria-label="Page controls">
@@ -37,22 +44,145 @@
                 Export
             </button>
         </div>
-        <p class="actionbar__hint">The list shows the bills of {{ period|default:"FY 2026" }}.</p>
+        <p class="actionbar__hint">The Paid tab shows the bills of {{ range_label|default:"the current financial year" }}.</p>
     </div>
 
-    <table class="table">
-        <thead>
-            <tr><th>Date</th><th>Number</th><th>Supplier</th><th>Due</th><th>Status</th><th>Amount</th></tr>
-        </thead>
-        <tbody>
-            <tr><td>2026-02-11</td><td>BL-00412</td><td>Cape Office Supplies</td><td>2026-03-13</td><td><span class="status status--busy">Open</span></td><td class="is-debit">3,240.00</td></tr>
-            <tr><td>2026-02-05</td><td>BL-00411</td><td>Highveld Fuel Services</td><td>2026-02-20</td><td><span class="status status--out">Overdue</span></td><td class="is-overdue">12,880.00</td></tr>
-            <tr><td>2026-01-28</td><td>BL-00410</td><td>Drakensberg Print Co.</td><td>2026-02-27</td><td><span class="status status--ok">Paid</span></td><td class="is-debit">5,615.00</td></tr>
-            <tr><td>2026-01-20</td><td>BL-00409</td><td>Atlantic Cloud Hosting</td><td>2026-02-19</td><td><span class="status status--idle">Draft</span></td><td class="is-debit">1,990.00</td></tr>
-        </tbody>
-        <tfoot>
-            <tr><td colspan="5">Total of the bills</td><td class="is-debit">23,725.00</td></tr>
-        </tfoot>
-    </table>
+    {# ============================== REVIEW ============================== #}
+    <section class="review" aria-labelledby="review-title">
+
+        <div class="review__head">
+            <h2 class="review__title" id="review-title">Review</h2>
+            <p class="review__hint">These bills wait for a review. Approve or deny each one.</p>
+        </div>
+
+        <table class="table table--review" data-num>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Number</th>
+                    <th>Due</th>
+                    <th>Supplier</th>
+                    <th>Amount</th>
+                    <th><span class="visually-hidden">Review</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for bill in review_bills %}
+                <tr>
+                    <td>{{ bill.date }}</td>
+                    <td>{{ bill.number }}</td>
+                    <td>{{ bill.due|default:"—" }}</td>
+                    <td>{{ bill.entity.name }}</td>
+                    <td class="is-debit">{{ bill.gross|money }}</td>
+                    <td>
+                        <div class="review__buttons">
+                            <form method="post" action="{% url 'accounting:bill_approve' bill.id %}">
+                                {% csrf_token %}
+                                <button class="tool tool--sm tool--accept" type="submit" aria-label="Approve {{ bill.number }}">
+                                    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    Approve
+                                </button>
+                            </form>
+                            <form method="post" action="{% url 'accounting:bill_deny' bill.id %}">
+                                {% csrf_token %}
+                                <button class="tool tool--sm tool--danger" type="submit" aria-label="Deny {{ bill.number }}">
+                                    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>
+                                    Deny
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6">There are no bills to review.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    {# ========================== UNPAID AND PAID ========================== #}
+    {% comment %} journals.js runs the tabs. {% endcomment %}
+    <div class="tabset" data-tabset data-tabset-param="bills">
+
+        <div class="tabset__list" role="tablist" aria-label="Bills by payment">
+            <button class="tabset__tab" type="button" role="tab" data-tab="unpaid"
+                    id="tab-unpaid" aria-controls="panel-unpaid"
+                    aria-selected="true" tabindex="0">
+                Unpaid
+            </button>
+            <button class="tabset__tab" type="button" role="tab" data-tab="paid"
+                    id="tab-paid" aria-controls="panel-paid"
+                    aria-selected="false" tabindex="-1">
+                Paid
+            </button>
+        </div>
+
+        <div class="tabset__panel" role="tabpanel" data-panel="unpaid"
+             id="panel-unpaid" aria-labelledby="tab-unpaid" tabindex="0">
+            <h2 class="tabset__print-title">Unpaid bills</h2>
+            <table class="table table--bills" data-num>
+                <thead>
+                    <tr><th>Date</th><th>Number</th><th>Due</th><th>Supplier</th><th>Amount</th></tr>
+                </thead>
+                <tbody>
+                    {% for bill in unpaid_bills %}
+                    <tr>
+                        <td>{{ bill.date }}</td>
+                        <td>{{ bill.number }}</td>
+                        <td>{{ bill.due|default:"—" }}</td>
+                        <td>{{ bill.entity.name }}</td>
+                        <td class="{% if bill.due and bill.due < today %}is-overdue{% else %}is-debit{% endif %}">{{ bill.gross|money }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5">There are no unpaid bills.</td></tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr><td colspan="4">Total of the unpaid bills</td><td class="is-debit">{{ unpaid_total|money }}</td></tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div class="tabset__panel" role="tabpanel" data-panel="paid"
+             id="panel-paid" aria-labelledby="tab-paid" tabindex="0" hidden>
+            <h2 class="tabset__print-title">Paid bills</h2>
+            <table class="table table--bills" data-num>
+                <thead>
+                    <tr><th>Date</th><th>Number</th><th>Due</th><th>Supplier</th><th>Amount</th></tr>
+                </thead>
+                <tbody>
+                    {% for bill in paid_bills %}
+                    <tr>
+                        <td>{{ bill.date }}</td>
+                        <td>{{ bill.number }}</td>
+                        <td>{{ bill.due|default:"—" }}</td>
+                        <td>{{ bill.entity.name }}</td>
+                        <td class="is-debit">{{ bill.gross|money }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5">There are no paid bills in this period.</td></tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr><td colspan="4">Total of the paid bills</td><td class="is-debit">{{ paid_total|money }}</td></tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    {% comment %} Without JavaScript, both panels show. See journals.html. {% endcomment %}
+    <noscript>
+        <style>
+            .tabset__list { display: none; }
+            .tabset__panel[hidden] { display: block; }
+            .tabset__panel + .tabset__panel { margin-top: 30px; }
+            .tabset__print-title { display: block; margin: 0 0 14px; font-size: 15px; font-weight: 600; color: var(--ink); }
+        </style>
+    </noscript>
 </section>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script src="{% static 'accounting/js/journals.js' %}"></script>
 {% endblock %}

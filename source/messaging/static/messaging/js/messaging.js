@@ -15,8 +15,10 @@
        </button>
 
    The script puts the form into its own <dialog>. The dialog can open
-   above the document overlay. On submit, the script adds the file to the
-   form data and posts all to the compose view. The answer (the form with
+   above the document overlay. On submit, the script downloads the file,
+   adds it to the form data and posts all to the compose view. The file
+   loads on submit only, because a download can issue a document (e.g.
+   an invoice gets its journal entry). The answer (the form with
    the errors, or the confirmation) replaces the content of the dialog.
    ========================================================================== */
 
@@ -63,8 +65,9 @@
     }
 
     // Put a fragment into the dialog, and connect its form if it has one.
-    // The argument "file" is a promise. It gives the attachment or null.
-    function show(html, url, file) {
+    // The argument "file" is a promise that gives the attachment or null.
+    // It is null until the first submit.
+    function show(html, url, attachUrl, file) {
         dialog.innerHTML = html;
         var form = dialog.querySelector("[data-message-form]");
         if (!form) return;
@@ -73,13 +76,18 @@
         var submit = form.querySelector('[type="submit"]');
         var line = form.querySelector("[data-message-attachment]");
 
-        file.then(function (f) {
-            if (!f || !line) return;
-            line.querySelector("span").textContent = f.name;
-            line.hidden = false;
-        }, function () {
-            status.textContent = "The attachment did not load.";
-        });
+        function load() {
+            if (!file) file = attachUrl ? fetchFile(attachUrl) : Promise.resolve(null);
+            file.then(function (f) {
+                if (!f || !line) return;
+                line.querySelector("span").textContent = f.name;
+                line.hidden = false;
+            }, function () {
+                status.textContent = "The attachment did not load.";
+            });
+            return file;
+        }
+        if (file) load();
 
         form.addEventListener("submit", function (e) {
             e.preventDefault();
@@ -87,12 +95,12 @@
             submit.disabled = true;
             status.textContent = "The server sends the message\u2026";
 
-            file.then(function (f) {
+            load().then(function (f) {
                 if (f) data.append("attachment", f.blob, f.name);
                 return fetch(url, { method: "POST", body: data });
             })
                 .then(readHtml)
-                .then(function (answer) { show(answer, url, file); })
+                .then(function (answer) { show(answer, url, attachUrl, file); })
                 .catch(function () {
                     submit.disabled = false;
                     status.textContent = "The message did not go. Try again.";
@@ -108,12 +116,9 @@
         d.innerHTML = '<div class="msg-overlay__note"><p>The form loads&hellip;</p></div>';
         d.showModal();
 
-        // Start the download now. Thus the file is ready at submit.
-        var file = attachUrl ? fetchFile(attachUrl) : Promise.resolve(null);
-
         fetch(url)
             .then(readHtml)
-            .then(function (html) { show(html, url, file); })
+            .then(function (html) { show(html, url, attachUrl, null); })
             .catch(function () {
                 d.innerHTML =
                     '<div class="msg-overlay__note">' +

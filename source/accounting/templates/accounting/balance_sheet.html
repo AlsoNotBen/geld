@@ -13,7 +13,6 @@
   The page follows the pattern of the module:
       .page__head    the title and the note
       .actionbar     Print, Export, Change period
-      .cards         the five results
       .table--fin    Line · Note · This period · Last period
 
   The last column is the last period. accounting.css makes it dim, with
@@ -82,30 +81,6 @@
             {% if is_balanced %}Total assets agree with total equity and liabilities.
             {% else %}Total assets do not agree with total equity and liabilities. Examine the posted entries.{% endif %}
         </p>
-    </div>
-
-    {% comment %} The five cards give the result of the two tables below. {% endcomment %}
-    <div class="cards">
-        <div class="card">
-            <span class="card__label">Total assets</span>
-            <div class="card__value" data-unit="{{ currency }}">{{ assets_this|money }}</div>
-        </div>
-        <div class="card">
-            <span class="card__label">Total equity</span>
-            <div class="card__value is-credit" data-unit="{{ currency }}">{{ equity_this|money }}</div>
-        </div>
-        <div class="card">
-            <span class="card__label">Total liabilities</span>
-            <div class="card__value is-debit" data-unit="{{ currency }}">{{ liabilities_this|money }}</div>
-        </div>
-        <div class="card">
-            <span class="card__label">Working capital</span>
-            <div class="card__value" data-unit="{{ currency }}">{{ working_capital|money }}</div>
-        </div>
-        <div class="card">
-            <span class="card__label">Current ratio</span>
-            <div class="card__value is-count">{% if current_ratio %}{{ current_ratio|floatformat:2 }}{% else %}—{% endif %}</div>
-        </div>
     </div>
 
     {# ------------------------------ ASSETS ------------------------------ #}

@@ -20,6 +20,8 @@ from decimal import Decimal, ROUND_HALF_UP
 from django import forms
 from documents.forms import (DocumentOptionsForm, LineItemsField, SelectWithAddButton)
 from documents.registry import DocumentType, register
+from accounting.models import NumberSequence
+from accounting.posting import post_invoice_entry
 
 
 CENT = Decimal("0.01")
@@ -122,7 +124,7 @@ def _build_lines(lines, tax_rate, discount_rate=Decimal("0")):
 
 
 class SalesDocumentOptionsForm(DocumentOptionsForm):
-    """Options that the invoice and the quote share."""
+    """Options that the invoice and the quote share. The quote is in sales/documents.py."""
 
     muted_field_names = (
         "number", "issue_date", "due_date", "valid_until",
@@ -170,7 +172,7 @@ class InvoiceOptionsForm(SalesDocumentOptionsForm):
 
     pro_forma = forms.BooleanField(label="Pro-Forma", required=False, initial=False)
     recurring = forms.BooleanField(label="Recurring Invoice", required=False, initial=False)
-    number = forms.CharField(label="Invoice number", initial="INV-2026-0042")
+    number = forms.CharField(label="Invoice number")
     issue_date = _date_field("Issue Date")
     due_date = _date_field("Due Date", days_ahead=30)
     payment_details = forms.CharField(
@@ -181,28 +183,30 @@ class InvoiceOptionsForm(SalesDocumentOptionsForm):
     )
 
 
-class QuoteOptionsForm(SalesDocumentOptionsForm):
-    field_order = [
-        "number", "issue_date", "valid_until", "customer", "line_items",
-        "currency", "tax_rate", "discount_rate", "notes",
-    ]
+class SalesDocument(DocumentType):
+    """The invoice and the quote. The number comes from a NumberSequence with the name of the key."""
+    module = "accounting"
+    prefix = ""
 
-    number = forms.CharField(label="Quote number", initial="QUO-2026-0017")
-    issue_date = _date_field("Issue date")
-    valid_until = _date_field("Valid until", days_ahead=14)
-    discount_rate = forms.DecimalField(
-        label="Discount (%)",
-        initial=Decimal("0"),
-        min_value=Decimal("0"),
-        max_value=Decimal("100"),
-        decimal_places=2,
-    )
+    def get_options_form(self, data=None, request=None):
+        form = super().get_options_form(data, request)
+        if request:
+            form.fields["number"].initial = NumberSequence.peek(request.company, self.key, self.prefix)
+        return form
+
+    def issue(self, request, options):
+        # Take the number only when the document uses the next number. Thus a second download takes no number.
+        if options["number"] == NumberSequence.peek(request.company, self.key, self.prefix):
+            NumberSequence.take(request.company, self.key)
+
+    def get_filename(self, options):
+        return f"{options['number']}.pdf"
 
 
 @register
-class InvoiceDocument(DocumentType):
-    module = "accounting"
+class InvoiceDocument(SalesDocument):
     key = "invoice"
+    prefix = "INV-"
     label = "New Invoice"
     description = "A tax invoice with line items, totals and payment details."
     template_name = "accounting/pdf/invoice.html"
@@ -212,24 +216,11 @@ class InvoiceDocument(DocumentType):
         money = _build_lines(options["line_items"], options["tax_rate"])
         return {"options": options, "customer": _customer(options), **money}
 
-    def get_filename(self, options):
-        return f"{options['number']}.pdf"
+    def issue(self, request, options):
+        if options["pro_forma"]:
+            return
+        super().issue(request, options)
+        money = _build_lines(options["line_items"], options["tax_rate"])
+        post_invoice_entry(request.company, options["number"], options["issue_date"],
+                           money["total"], money["tax"], narration=_customer(options)["name"])
 
-
-@register
-class QuoteDocument(DocumentType):
-    module = "accounting"
-    key = "quote"
-    label = "New Quote"
-    description = "A sales quote with line items, totals and an acceptance block."
-    template_name = "accounting/pdf/quote.html"
-    options_form_class = QuoteOptionsForm
-
-    def get_context(self, request, options):
-        money = _build_lines(
-            options["line_items"], options["tax_rate"], options["discount_rate"],
-        )
-        return {"options": options, "customer": _customer(options), **money}
-
-    def get_filename(self, options):
-        return f"{options['number']}.pdf"
