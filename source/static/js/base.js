@@ -117,7 +117,11 @@ window.App = window.App || {};      // Make the namespace before you fill it.
     var body = document.body, item;
     if (body.dataset.module) {
         item = document.querySelector('.modules [data-key="' + body.dataset.module + '"]');
-        if (item) { item.classList.add('is-active'); }
+        if (item) {
+            item.classList.add('is-active');
+            // On a small screen the row of modules scrolls. Show the active one.
+            item.scrollIntoView({ block: 'nearest', inline: 'center' });
+        }
     }
     if (body.dataset.page) {
         item = document.querySelector('[data-nav="' + body.dataset.page + '"]');

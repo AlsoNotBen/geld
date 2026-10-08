@@ -476,7 +476,7 @@
 /* The toolbar has no scroll. The menus therefore go away before the
    bar becomes too wide. The side panel holds the same links. */
 @media (max-width: 1100px) {
-    .tbar-menu { display: none; }
+    .toolbar .tbar-menu { display: none; }
     .toolbar .tool__sep:first-of-type { display: none; }
 }
 /* ================================================================== */
@@ -991,13 +991,14 @@
 /* ================================================================== */
 /* .cards puts five figures in one band. A chart needs
    more width than a figure. This grid puts as many cards in a row as
-   fit, thus it needs no breakpoint of its own. */
+   fit, thus it needs no breakpoint of its own. min() keeps a card
+   inside a screen that is narrower than the minimum width. */
 .panels {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(330px, 100%), 1fr));
     gap: 14px;
 }
-.panels--wide { grid-template-columns: repeat(auto-fit, minmax(520px, 1fr)); }
+.panels--wide { grid-template-columns: repeat(auto-fit, minmax(min(520px, 100%), 1fr)); }
 
 /* Two bands of figures stand above each other on the overview. */
 .cards + .cards { margin-top: 14px; }
@@ -1534,7 +1535,8 @@ form:has(input[name="depreciating_item"]:checked) .useful-life-hint { display: b
     }
     body[data-drawer="true"] .scrim { opacity: 1; visibility: visible; }
 
-    .main { padding: 20px; }
+    /* The full page scrolls on a small screen. Refer to base.css. */
+    .main { padding: 20px; overflow: visible; }
     .page__subtitle { margin-top: 28px; }
     .card__value { font-size: 22px; }
 
@@ -1543,6 +1545,20 @@ form:has(input[name="depreciating_item"]:checked) .useful-life-hint { display: b
 
     .bom { grid-template-columns: minmax(0, 1fr); }
     .bom__col--stock { grid-column: auto; }
+
+    /* Every table scrolls sideways. Thus each column keeps its content,
+       and no column takes the free width. The block display removes the
+       corner clip, thus the radius moves to a scroll frame that the
+       border makes. The relative position keeps a visually-hidden label
+       inside the scroll frame. */
+    .table {
+        display: block;
+        position: relative;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .table thead th { position: static; }
+    .table th, .table td { width: auto; white-space: nowrap; }
 }
 
 @media (max-width: 560px) {
@@ -1554,24 +1570,21 @@ form:has(input[name="depreciating_item"]:checked) .useful-life-hint { display: b
     .actionbar { padding: 11px 12px; }
     .actionbar__group { gap: 6px; }
 
-
-    /* Every table scrolls sideways. Thus each column keeps its content,
-       and no column takes the free width. The block display removes the
-       corner clip, thus the radius moves to a scroll frame that the
-       border makes. */
-    .table {
-        display: block;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-    .table thead th { position: static; }
-    .table th, .table td { width: auto; white-space: nowrap; }
     .table tbody tr.is-nest td:first-child { padding-left: 26px; }
-
 
     .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     .card { padding: 13px 14px 15px; }
-    .card__value { font-size: 19px; padding-top: 8px; }
+    /* A large amount pushes the unit to a second line. The amount
+       itself stays on one line. */
+    .card__value {
+        font-size: 19px;
+        padding-top: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        column-gap: 6px;
+    }
+    .card__value[data-unit]::after { margin-left: 0; }
 
     /* Each form of an action bar takes the full width. The fields then
        share the line and they stay operable with a thumb. */
@@ -1583,7 +1596,18 @@ form:has(input[name="depreciating_item"]:checked) .useful-life-hint { display: b
     .tree__branch > .tree__node { padding-left: 16px; }
     .tree__code { display: none; }
 
-    .seg-row__len { width: 60px; }
+    .seg-row__len { flex: none; width: 60px; }
+
+    /* A menu inside the page opens at the bottom of the screen, thus it
+       stays inside a narrow screen. */
+    .tbar-menu__panel {
+        position: fixed;
+        top: auto;
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+        margin-top: 0;
+    }
     .code-output { font-size: 17px; }
 
     .chart-cols { gap: 4px; }

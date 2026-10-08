@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#363b44">
+    <title>Offline · Pothos</title>
+    <!-- The page has no network, thus all styles are in the page. -->
+    <style>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            box-sizing: border-box;
+            background: #181A1F;
+            color: #E8E6DE;
+            font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            text-align: center;
+        }
+        .mark {
+            width: 56px;
+            height: 56px;
+            margin: 0 auto 20px;
+            border-radius: 14px;
+            background: #F0BE72;
+            color: #363b44;
+            display: grid;
+            place-items: center;
+            font-weight: 700;
+            font-size: 22px;
+        }
+        h1 { margin: 0 0 8px; font-size: 22px; }
+        p { margin: 0 0 24px; color: #A7ACB5; max-width: 32ch; }
+        button {
+            padding: 12px 24px;
+            border: 0;
+            border-radius: 10px;
+            background: #F0BE72;
+            color: #363b44;
+            font: inherit;
+            font-weight: 600;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <div class="mark" aria-hidden="true">PT</div>
+        <h1>You are offline</h1>
+        <p>Pothos cannot connect to the server. Make sure that your device has a network connection, then try again.</p>
+        <button type="button" onclick="location.reload()">Try again</button>
+    </main>
+</body>
+</html>

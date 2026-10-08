@@ -1,0 +1,11 @@
+{% load static %}
+{# The parts of the progressive web app. base.html and the login page include this file in the head. #}
+<link rel="manifest" href="{% static 'manifest.json' %}">
+<meta name="theme-color" content="#363b44">
+<link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/icons/favicon-32.png' %}">
+<link rel="apple-touch-icon" href="{% static 'img/icons/apple-touch-icon.png' %}">
+<script>
+    if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("{% url 'service_worker' %}");
+    }
+</script>

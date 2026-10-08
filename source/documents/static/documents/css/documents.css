@@ -284,3 +284,30 @@
         max-height: 40%;
     }
 }
+
+@media (max-width: 560px) {
+    /* The overlay fills the phone screen. The max values remove the
+       margin that the browser gives to a modal dialog. */
+    .doc-overlay {
+        width: 100vw;
+        height: 100dvh;
+        max-width: 100vw;
+        max-height: 100dvh;
+        border: 0;
+        border-radius: 0;
+    }
+    .doc-panel__head { padding: 12px 16px; }
+    .doc-panel__form { max-height: 55%; padding: 14px 16px 16px; }
+
+    /* The hint takes one line. The four buttons go into two rows of
+       two, thus each button is large enough for a thumb. */
+    .doc-panel__foot { flex-wrap: wrap; gap: 8px; padding: 10px 16px; }
+    .doc-panel__hint { width: 100%; }
+    .doc-panel__actions {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+    .doc-panel__foot .tool { justify-content: center; }
+}

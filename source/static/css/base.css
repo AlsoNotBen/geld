@@ -48,6 +48,9 @@
 
 html, body { height: 100%; }
 
+/* iOS makes the text larger when the phone turns to landscape. */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
 body {
     margin: 0;
     font-family: var(--font-sans);
@@ -78,8 +81,10 @@ button {
 
 /* The body is a column: ribbon · module bar · layout · footer.
    Put this class on the top element of the module layout. The element
-   then takes the free height, and the footer stays at the bottom. */
-.fill { flex: 1 1 auto; min-height: 0; }
+   then takes the free height, and the footer stays at the bottom. The
+   element scrolls if its content is higher, thus the content does not
+   go below the footer. */
+.fill { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 
 .ribbon, .context, .footer { flex: 0 0 auto; }
 
@@ -425,15 +430,42 @@ button {
 
 @media (max-width: 900px) {
     .ribbon { gap: 12px; padding: 0 14px; }
-    .module { padding: 0 12px; }
-    .context { padding: 0 16px; }
+    .context { padding: 0 16px; gap: 10px; }
+
+    /* The module switch shows only the icons. The text stays for a
+       screen reader. base.js scrolls the active module into view. */
+    .module { padding: 0 12px; gap: 0; font-size: 0; }
+    .module.is-active::after { left: 6px; right: 6px; }
+
+    /* A small screen scrolls the full page, not an inner panel. The
+       ribbon stays at the top, and the footer goes to the end of the
+       page. The module stylesheet also removes the scroll of .main. */
+    html, body { height: auto; }
+    body { min-height: 100dvh; }
+    .fill { overflow: visible; }
+
+    /* The toolbar scrolls sideways, thus it does not go below the
+       actions at the right of the module bar. The selector has two
+       classes, because a module stylesheet removes the scroll for its
+       drop-down menus. These menus are not visible at this width. */
+    .context .toolbar { overflow-x: auto; padding: 4px 0; }
+    .context__actions { flex: none; }
 }
 
 @media (max-width: 560px) {
+    .ribbon { gap: 8px; padding: 0 10px; }
+    .profile__btn .caret { display: none; }
+
     .search { display: none; }         /* replace with an icon trigger as needed */
     .crumbs a, .crumbs .sep { display: none; } /* keep the current page only */
     .footer { flex-wrap: wrap; gap: 8px; }
     .footer__links { gap: 12px; }
+}
+
+/* A touch screen. iOS Safari zooms into a field that has text smaller
+   than 16px, and the zoom stays after the field loses focus. */
+@media (pointer: coarse) {
+    input, select, textarea { font-size: 16px !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {

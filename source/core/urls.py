@@ -25,6 +25,8 @@ urlpatterns = [
     path('accounts/login/', RandomBackgroundLoginView.as_view(), name='login'),
     path('accounts/', include('django.contrib.auth.urls')),
     path('',views.index, name='index'),
+    path('sw.js', views.service_worker, name='service_worker'),
+    path('offline/', views.offline, name='offline'),
     path('inventory/',include('inventory.urls')),
     path('accounting/',include('accounting.urls')),
     path('sales/', include('sales.urls')),

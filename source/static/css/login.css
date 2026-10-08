@@ -275,6 +275,12 @@ button {
     .login__card { padding: 28px 20px 22px; }
 }
 
+/* A touch screen. iOS Safari zooms into a field that has text smaller
+   than 16px, and the zoom stays after the field loses focus. */
+@media (pointer: coarse) {
+    input { font-size: 16px !important; }
+}
+
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { transition: none !important; }
 }

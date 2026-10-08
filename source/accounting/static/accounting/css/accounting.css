@@ -522,7 +522,7 @@
 /* The toolbar has no scroll. The menus therefore go away before the
    bar becomes too wide. The side panel holds the same links. */
 @media (max-width: 1100px) {
-    .tbar-menu { display: none; }
+    .toolbar .tbar-menu { display: none; }
     .toolbar .tool__sep:first-of-type { display: none; }
 }
 
@@ -1456,13 +1456,28 @@
     }
     body[data-drawer="true"] .scrim { opacity: 1; visibility: visible; }
 
-    .main { padding: 20px; }
+    /* The full page scrolls on a small screen. Refer to base.css. */
+    .main { padding: 20px; overflow: visible; }
     .page__subtitle { margin-top: 28px; }
     .card__value { font-size: 22px; }
 
     .actionbar { gap: 10px; }
     .actionbar__hint { margin-left: 0; }
     .ledger-acct__bal { margin-left: 0; width: 100%; }
+
+    /* Every table scrolls sideways. Thus each column keeps its content,
+       and no column takes the free width. The block display removes the
+       corner clip, thus the radius moves to a scroll frame that the
+       border makes. The relative position keeps a visually-hidden label
+       inside the scroll frame. */
+    .table {
+        display: block;
+        position: relative;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .table thead th { position: static; }
+    .table th, .table td { width: auto; white-space: nowrap; }
 }
 
 @media (max-width: 560px) {
@@ -1477,25 +1492,35 @@
     .tabset__list { margin-bottom: 14px; }
     .tabset__tab { padding: 0 11px; font-size: 12px; }
 
-    /* Every table scrolls sideways. Thus each column keeps its content,
-       and no column takes the free width. The block display removes the
-       corner clip, thus the radius moves to a scroll frame that the
-       border makes. */
-    .table {
-        display: block;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-    .table thead th { position: static; }
-    .table th, .table td { width: auto; white-space: nowrap; }
     .table tbody tr.is-nest td:first-child { padding-left: 26px; }
 
     .review__hint { width: 100%; }
 
     .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     .card { padding: 13px 14px 15px; }
-    .card__value { font-size: 19px; padding-top: 8px; }
+    /* A large amount pushes the currency to a second line. The amount
+       itself stays on one line. */
+    .card__value {
+        font-size: 19px;
+        padding-top: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        column-gap: 6px;
+    }
+    .card__value[data-unit]::after { margin-left: 0; }
     .card__spark { width: calc(100% + 28px); margin: 10px -14px -15px; }
+
+    /* The date range button shows only its icon. The text stays for a
+       screen reader. */
+    .daterange [data-range-label] {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1577,7 +1602,10 @@
 
 @media (max-width: 900px) {
     .sheet--wide { width: calc(100vw - 32px); }
-    .sheet__body--split { grid-template-columns: 1fr; }
+    /* minmax(0, …) and min-width: 0 let a field with a long option
+       become narrower than its text. */
+    .sheet__body--split { grid-template-columns: minmax(0, 1fr); }
+    .sheet__body--split .field__control { min-width: 0; }
 }
 
 .switch {
@@ -2095,6 +2123,10 @@
 /* ---- Responsive --------------------------------------------------- */
 @media (max-width: 640px) {
     .lead__gauges--wide { grid-template-columns: minmax(0, 1fr); }
+
+    /* A swipe on the board stops at the start of a column. */
+    .board { scroll-snap-type: x mandatory; }
+    .board__col { scroll-snap-align: start; }
 }
 /* ================================================================== */
 /*  VIEWING MODE                                                      */
