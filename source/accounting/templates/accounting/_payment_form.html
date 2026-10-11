@@ -1,0 +1,33 @@
+{% comment %}
+  The Record Payment overlay. module_base.html shows it on each page with
+  the payment_form tag. A button with data-payment-new opens it, and
+  payment_form.js gives the behaviour. The upload field comes from the
+  filestore app. The files are optional.
+{% endcomment %}
+{% if form %}
+<dialog class="sheet sheet--wide" id="payment-dialog" aria-labelledby="payment-dialog-title">
+    <form method="post" action="{% url 'accounting:payment_create' %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="sheet__head">
+            <h2 class="sheet__title" id="payment-dialog-title">Record Payment</h2>
+        </div>
+        <div class="sheet__body sheet__body--split">
+            <div class="sheet__errors field--wide" role="alert" data-payment-errors hidden></div>
+            {% for field in form %}
+            <div class="field{% if field.name == 'reference' %} field--wide{% endif %}">
+                <label class="field__label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+            </div>
+            {% endfor %}
+            <div class="field field--wide">
+                <span class="field__label">Supporting File (Proof of Payment, Receipt etc)</span>
+                {% include "filestore/upload_field.html" with name="files" multiple=True accept=".pdf,.png,.jpg,.jpeg,.webp" hint="PDF or image, max. 20 MB each" %}
+            </div>
+        </div>
+        <div class="sheet__foot">
+            <button class="tool" type="button" data-dialog-cancel>Cancel</button>
+            <button class="tool tool--primary" type="submit">Save Payment</button>
+        </div>
+    </form>
+</dialog>
+{% endif %}

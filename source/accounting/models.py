@@ -361,6 +361,7 @@ class Payment(CompanyOwned, TimeStamped):
     reference     = models.CharField(max_length=255, blank=True)
     journal_entry = models.OneToOneField(JournalEntry, on_delete=models.PROTECT, null=True, blank=True, related_name="payment")      # ACCRUAL: Dr Bank / Cr AR
     cash_entry    = models.OneToOneField(JournalEntry, on_delete=models.PROTECT, null=True, blank=True, related_name="cash_payment") # CASH: see accounting/posting.py
+    files         = models.ManyToManyField("filestore.StoredFile", blank=True, related_name="+")                                    # Proof of payment
 
     class Meta:
         unique_together = [("company", "number")]

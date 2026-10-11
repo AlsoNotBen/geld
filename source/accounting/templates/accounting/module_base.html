@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static lead_tags %}
+{% load static lead_tags payment_tags %}
 
 {% comment %}
   ============================================================================
@@ -39,6 +39,7 @@
 
 {% block module_css %}
 <link rel="stylesheet" href="{% static 'accounting/css/accounting.css' %}">
+<link rel="stylesheet" href="{% static 'filestore/css/filestore.css' %}">
 {% endblock %}
 
 
@@ -73,6 +74,16 @@
                     data-doc-overlay="{% url 'documents:panel' 'accounting' 'invoice' %}">
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
                 New Invoice
+            </button>
+            <button class="tool tool--primary" type="button"
+                    data-doc-overlay="{% url 'documents:panel' 'accounting' 'statement' %}">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                Account Statement
+            </button>
+            {% comment %} payment_form.js opens the Record Payment overlay. {% endcomment %}
+            <button class="tool tool--primary" type="button" data-payment-new>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                Record Payment
             </button>
             <span class="tool__sep" aria-hidden="true"></span>
 
@@ -259,6 +270,9 @@
 {% comment %} The New Lead overlay. The Leads page and the customer "+" of
      the Quote and Invoice overlays use it. {% endcomment %}
 {% lead_form %}
+
+{% comment %} The Record Payment overlay. The button of the toolbar opens it. {% endcomment %}
+{% payment_form %}
 {% endblock %}
 
 {# ===================== MODULE SCRIPTS ===================== #}
@@ -266,4 +280,6 @@
 <script src="{% static 'accounting/js/daterange.js' %}"></script>
 <script src="{% static 'accounting/js/lead_form.js' %}"></script>
 <script src="{% static 'accounting/js/view_mode.js' %}"></script>
+<script src="{% static 'filestore/js/filestore.js' %}"></script>
+<script src="{% static 'accounting/js/payment_form.js' %}"></script>
 {% endblock %}

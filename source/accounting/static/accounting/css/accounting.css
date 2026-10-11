@@ -560,6 +560,19 @@
 .sheet__foot [data-entry-void]    { order: 3; margin-left: auto; }
 .sheet__foot [data-entry-post]    { order: 4; }
 
+/* The errors that the server sends back (see payment_form.js). */
+.sheet__errors {
+    display: grid;
+    gap: 4px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    background: rgba(224, 120, 94, 0.12);
+    color: #E0785E;
+    font-size: 12.5px;
+}
+.sheet__errors[hidden] { display: none; }
+.sheet__errors p { margin: 0; }
+
 
 /* ---- Form field --------------------------------------------------- */
 .field { display: grid; gap: 6px; }

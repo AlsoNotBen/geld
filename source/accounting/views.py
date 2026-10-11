@@ -1,14 +1,19 @@
 import json
+from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db import transaction
 from django.db.models import Sum, DecimalField, Q
 from django.db.models.functions import Coalesce
+from django.urls import reverse
 from django.utils import timezone
 from decimal import Decimal
 from accounting.models import *
 from accounting.date_range import get_range, previous_range
+from accounting.forms import PaymentForm
+from accounting.posting import post_payment
 from datetime import datetime, timedelta
+from filestore.services import save_upload, validate
 
 ZERO = Decimal("0")
 JOURNAL_TABS = {
@@ -222,6 +227,35 @@ def journalentry_void(request, pk):
 
 def invoices(request):
     return render(request, "accounting/invoices.html")
+
+def payment_create(request):
+    """The Save button of the Record Payment overlay. payment_form.js sends
+    the form with fetch() and reads the JSON answer: the errors, or the
+    page to go to. The draft entries of the payment wait on that page."""
+    if request.method != "POST":
+        return redirect("accounting:journals")
+    form = PaymentForm(request.POST, company=request.company)
+    uploads = request.FILES.getlist("files")
+    if form.is_valid():
+        try:
+            for upload in uploads:          # Validate every file first, so a bad file stores nothing.
+                validate(upload)
+            with transaction.atomic():
+                payment = form.save(commit=False)
+                payment.company = request.company       # Add to every function that creates a CompanyOwned record
+                payment.currency = payment.bank_account.currency
+                payment.created_by = request.user
+                payment.save()
+                post_payment(payment)
+                payment.files.add(*(save_upload(u, request.user) for u in uploads))
+                if payment.number == NumberSequence.peek(request.company, "payment", "PAY-"):
+                    NumberSequence.take(request.company, "payment")
+            return JsonResponse({"redirect": reverse("accounting:journals")})
+        except ValidationError as error:
+            form.add_error(None, error)
+    errors = [f"{form[name].label}: {message}" if name in form.fields else message
+              for name, field_errors in form.errors.items() for message in field_errors]
+    return JsonResponse({"errors": errors}, status=400)
 
 # ___________________________________CHART OF ACCOUNTS___________________________________________#
 # The account types of each tab. FLOATING_NOMINAL is not in this map,

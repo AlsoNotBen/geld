@@ -1,0 +1,188 @@
+{% extends "documents/base_pdf.html" %}
+{% load humanize %}
+
+{% block doc_title %}Statement {{ options.number }}{% endblock %}
+{% block doc_kind %}Statement{% endblock %}
+{% block footer_kind %}Statement {{ options.number }}{% endblock %}
+{% block doc_number %}{{ options.number }}{% endblock %}
+
+{% block styles %}
+    .meta__block--wide { width: 62mm; }
+    .meta__value + .meta__label { margin-top: 3mm; }
+    .nowrap { white-space: nowrap; }
+    .due {
+        align-self: flex-start;
+        margin-left: auto;
+        padding: 2.5mm 4mm;
+        background: {{ options.accent_color|default:"#F0BE72" }}22;
+        border-left: 2.5pt solid {{ options.accent_color|default:"#F0BE72" }};
+    }
+    .due .meta__value { font-size: 13pt; font-weight: 700; white-space: nowrap; }
+    .items { margin-bottom: 4mm; }
+    .items td { padding: 1.7mm 2.5mm; }
+    .items td:first-child { white-space: nowrap; }
+    .note { margin-top: 5mm; }
+    .closing { display: flex; gap: 10mm; align-items: flex-start; page-break-inside: avoid; }
+    .closing .note { flex: 1 1 auto; margin-top: 0; }
+    .closing .totals { flex: none; }
+    .section {
+        margin: 2mm 0 1mm;
+        font-size: 7pt;
+        font-weight: 700;
+        letter-spacing: 1pt;
+        text-transform: uppercase;
+        color: #8A8F98;
+        page-break-after: avoid;
+    }
+    .items .muted td { color: #6B7078; }
+    .items .sum td {
+        font-weight: 700;
+        border-top: 1.2pt solid #23272E;
+        border-bottom: 0;
+    }
+    .items .overdue { color: #B3261E; font-weight: 700; }
+    .fineprint { margin: -3mm 0 6mm; font-size: 7.5pt; color: #6B7078; }
+{% endblock %}
+
+{% block body %}
+<div class="meta">
+    <div class="meta__block meta__block--wide">
+        <div class="meta__label">Statement for</div>
+        <div class="meta__value"><strong>{{ customer.name }}</strong>{% if customer.details %}
+{{ customer.details }}{% endif %}{% if customer.email %}
+{{ customer.email }}{% endif %}{% if customer.vat_number %}
+VAT no. {{ customer.vat_number }}{% endif %}{% if customer.registration_number %}
+Reg. no. {{ customer.registration_number }}{% endif %}</div>
+    </div>
+    <div class="meta__block">
+        <div class="meta__label">Statement date</div>
+        <div class="meta__value">{{ options.end_date|date:"j F Y" }}</div>
+        <div class="meta__label">Period</div>
+        <div class="meta__value nowrap">{{ options.start_date|date:"j M Y" }} – {{ options.end_date|date:"j M Y" }}</div>
+    </div>
+    <div class="meta__block due">
+        <div class="meta__label">Amount due</div>
+        <div class="meta__value">{{ options.currency }} {{ total_due|floatformat:2|intcomma }}</div>
+    </div>
+</div>
+
+<table class="items">
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Reference</th>
+            <th>Description</th>
+            <th class="num">Debit</th>
+            <th class="num">Credit</th>
+            <th class="num">Balance</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr class="muted">
+            <td>{{ options.start_date|date:"j M Y" }}</td>
+            <td></td>
+            <td>Balance brought forward</td>
+            <td></td>
+            <td></td>
+            <td class="num">{{ brought_forward|floatformat:2|intcomma }}</td>
+        </tr>
+        {% for row in rows %}
+        <tr>
+            <td>{{ row.date|date:"j M Y" }}</td>
+            <td>{{ row.reference }}</td>
+            <td>{{ row.description }}</td>
+            <td class="num">{% if row.debit %}{{ row.debit|floatformat:2|intcomma }}{% endif %}</td>
+            <td class="num">{% if row.credit %}{{ row.credit|floatformat:2|intcomma }}{% endif %}</td>
+            <td class="num">{{ row.balance|floatformat:2|intcomma }}</td>
+        </tr>
+        {% empty %}
+        <tr class="muted"><td colspan="6">No transactions in this period.</td></tr>
+        {% endfor %}
+        <tr class="sum">
+            <td colspan="3">Closing balance</td>
+            <td class="num">{{ total_debit|floatformat:2|intcomma }}</td>
+            <td class="num">{{ total_credit|floatformat:2|intcomma }}</td>
+            <td class="num">{{ closing|floatformat:2|intcomma }}</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="section">Ageing</div>
+<table class="items">
+    <thead>
+        <tr>
+            {% for bucket in ageing %}<th class="num">{{ bucket.label }}</th>{% endfor %}
+            <th class="num">Total</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            {% for bucket in ageing %}
+            <td class="num{% if not forloop.first and bucket.amount %} overdue{% endif %}">{{ bucket.amount|floatformat:2|intcomma }}</td>
+            {% endfor %}
+            <td class="num"><strong>{{ closing|floatformat:2|intcomma }}</strong></td>
+        </tr>
+    </tbody>
+</table>
+
+{% if arrears %}
+<div class="section">Arrears</div>
+<table class="items">
+    <thead>
+        <tr>
+            <th>Reference</th>
+            <th>Date</th>
+            <th>Due date</th>
+            <th class="num">Days overdue</th>
+            <th class="num">Outstanding</th>
+            {% if options.interest_rate %}<th class="num">Interest</th>{% endif %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in arrears %}
+        <tr>
+            <td>{{ item.reference }}</td>
+            <td>{{ item.date|date:"j M Y" }}</td>
+            <td>{{ item.due|date:"j M Y" }}</td>
+            <td class="num">{{ item.days }}</td>
+            <td class="num">{{ item.outstanding|floatformat:2|intcomma }}</td>
+            {% if options.interest_rate %}<td class="num">{{ item.interest|floatformat:2|intcomma }}</td>{% endif %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% if options.interest_rate %}
+<p class="fineprint">Interest at {{ options.interest_rate|floatformat:"-2" }}% per year, calculated per day from the due date to the statement date.</p>
+{% endif %}
+{% endif %}
+
+<div class="closing">
+    {% if options.bank_details %}
+    <div class="note">
+        <div class="note__label">Bank details</div>{{ options.bank_details }}
+    </div>
+    {% endif %}
+    <table class="totals">
+        <tr>
+            <td>Closing balance</td>
+            <td class="num">{{ options.currency }} {{ closing|floatformat:2|intcomma }}</td>
+        </tr>
+        {% if interest %}
+        <tr>
+            <td>Interest on arrears</td>
+            <td class="num">{{ options.currency }} {{ interest|floatformat:2|intcomma }}</td>
+        </tr>
+        {% endif %}
+        <tr class="grand">
+            <td>Total due</td>
+            <td class="num">{{ options.currency }} {{ total_due|floatformat:2|intcomma }}</td>
+        </tr>
+    </table>
+</div>
+
+{% if options.notes %}
+<div class="note">
+    <div class="note__label">Notes</div>{{ options.notes }}
+</div>
+{% endif %}
+{% endblock %}
