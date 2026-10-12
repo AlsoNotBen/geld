@@ -1,0 +1,129 @@
+{% load static note_tags %}
+{% comment %}
+  The notes of a page. The notes_section tag (see note_tags.py) renders
+  this file at the end of the page. It has three parts:
+      .page-notes   the cards. Commentary starts closed, Footnotes starts open.
+      .note-sheet   one overlay for each note. A click on a card opens it.
+      #note-new     the New Note overlay. The Note button (data-note-new) opens it.
+  notes.js gives the behaviour. It makes the description field a Quill
+  editor. If Quill does not load, the plain text field stays.
+
+  Quill 2.0.3 is in accounting/static/accounting/vendor/quill, with its
+  license. Thus the page loads no CDN. The files are the files of the npm
+  package, without the sourceMappingURL comment.
+{% endcomment %}
+<link rel="stylesheet" href="{% static 'accounting/vendor/quill/quill.snow.css' %}">
+
+{% if notes %}
+<section class="page-notes" id="page-notes" aria-label="Notes">
+    {% for group in groups %}{% if group.notes %}
+    <details class="note-group note-group--{{ group.key }}"{% if group.open %} open{% endif %}>
+        <summary class="note-group__head">{{ group.title }} <span class="tabset__count">{{ group.notes|length }}</span></summary>
+        <div class="note-grid">
+            {% for note in group.notes %}
+            <article class="card note-card" data-note-open="note-{{ note.pk }}">
+                <h3 class="note-card__title"><button type="button" data-note-open="note-{{ note.pk }}">{{ note.title }}</button></h3>
+                {% if note.body %}<div class="note-text note-card__text">{{ note.body|rich_text }}</div>{% endif %}
+                {% for file in note.files.all %}
+                <a class="note-file" href="{% url 'filestore:download' file.pk %}?inline" target="_blank" rel="noopener">{{ file.original_name }}</a>
+                {% endfor %}
+                <p class="note-card__meta">
+                    <span>{{ note.created_by.get_full_name|default:note.created_by|default:"Unknown" }} · {{ note.created_at|date:"j M Y" }}</span>
+                    <span>{% if note.is_permanent %}Permanent{% else %}Expires {{ note.expires_on|date:"j M Y" }}{% endif %}</span>
+                </p>
+            </article>
+            {% endfor %}
+        </div>
+    </details>
+    {% endif %}{% endfor %}
+</section>
+
+{% for note in notes %}
+<dialog class="sheet sheet--wide note-sheet" id="note-{{ note.pk }}" aria-labelledby="note-{{ note.pk }}-title">
+    <div class="sheet__head">
+        <h2 class="sheet__title" id="note-{{ note.pk }}-title">{{ note.title }}</h2>
+    </div>
+    <div class="sheet__body sheet__body--split">
+        <div class="field field--wide">
+            <span class="field__label">{{ note.get_kind_display }}</span>
+            <div class="note-text">{{ note.body|rich_text|default:"No description." }}</div>
+        </div>
+        <div class="field">
+            <span class="field__label">Created</span>
+            <p class="note-read">{{ note.created_at|date:"j M Y, H:i" }} by {{ note.created_by.get_full_name|default:note.created_by|default:"Unknown" }}</p>
+        </div>
+        <div class="field">
+            <span class="field__label">Expires</span>
+            <p class="note-read">{% if note.is_permanent %}Never. The note is permanent.{% else %}{{ note.expires_on|date:"j M Y" }}{% endif %}</p>
+        </div>
+        <div class="field">
+            <span class="field__label">Period of the page</span>
+            <p class="note-read">{{ note.range_start|date:"j M Y" }} – {{ note.range_end|date:"j M Y" }}</p>
+        </div>
+        <div class="field">
+            <span class="field__label">Supporting files</span>
+            {% for file in note.files.all %}
+            <a class="note-file" href="{% url 'filestore:download' file.pk %}?inline" target="_blank" rel="noopener">{{ file.original_name }}</a>
+            {% empty %}
+            <p class="note-read">None</p>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="sheet__foot">
+        <button class="tool" type="button" data-dialog-cancel>Close</button>
+    </div>
+</dialog>
+{% endfor %}
+{% endif %}
+
+<dialog class="sheet sheet--wide note-sheet" id="note-new" aria-labelledby="note-new-title">
+    <form method="post" action="{% url 'accounting:note_create' %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.page }}
+        <div class="sheet__head">
+            <h2 class="sheet__title" id="note-new-title">New Note</h2>
+        </div>
+        <div class="sheet__body sheet__body--split">
+            <div class="sheet__errors field--wide" role="alert" data-note-errors hidden></div>
+            <p class="note-hint field--wide">
+                The note is for this page and the period {{ range_start|date:"j F Y" }} to {{ range_end|date:"j F Y" }}.
+                A comment shows on this page only. A footnote also goes into the annual financial statements.
+            </p>
+            <div class="field">
+                <label class="field__label" for="{{ form.kind.id_for_label }}">{{ form.kind.label }}</label>
+                {{ form.kind }}
+            </div>
+            <div class="field">
+                <label class="field__label" for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
+                {{ form.title }}
+            </div>
+            <div class="field field--wide">
+                <label class="field__label" for="{{ form.body.id_for_label }}">{{ form.body.label }}</label>
+                {{ form.body }}
+            </div>
+            <div class="field">
+                <label class="field__label" for="{{ form.expires_on.id_for_label }}">{{ form.expires_on.label }}</label>
+                {{ form.expires_on }}
+            </div>
+            <div class="field">
+                <label class="field__label" for="{{ form.is_permanent.id_for_label }}">Permanent</label>
+                <label class="switch">
+                    {{ form.is_permanent }}
+                    <span class="switch__track" aria-hidden="true"></span>
+                    <span class="switch__text">The note does not expire</span>
+                </label>
+            </div>
+            <div class="field field--wide">
+                <span class="field__label">Supporting files</span>
+                {% include "filestore/upload_field.html" with name="note_files" multiple=True accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.txt,.csv,.docx,.xlsx" hint="PDF, image, text, CSV, Word or Excel, max. 20 MB each" %}
+            </div>
+        </div>
+        <div class="sheet__foot">
+            <button class="tool" type="button" data-dialog-cancel>Cancel</button>
+            <button class="tool tool--primary" type="submit">Save Note</button>
+        </div>
+    </form>
+</dialog>
+
+<script defer src="{% static 'accounting/vendor/quill/quill.js' %}"></script>
+<script defer src="{% static 'accounting/js/notes.js' %}"></script>

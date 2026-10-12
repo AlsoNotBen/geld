@@ -1,6 +1,8 @@
+import calendar
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import models, transaction
+from django.utils import timezone
 from shared.models import *
 from inventory.models import Item
 from django.conf import settings
@@ -253,6 +255,7 @@ class Document(CompanyOwned, TimeStamped):
     notes           = models.TextField(blank=True)
     source_doc      = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name="related_docs")
     journal_entry   = models.OneToOneField(JournalEntry, on_delete=models.PROTECT, null=True, blank=True, related_name="document")
+    files           = models.ManyToManyField("filestore.StoredFile", blank=True, related_name="+")  # Supporting files, e.g. the receipt of a bill
 
     class Meta:
         unique_together = [("company", "direction", "doc_type", "number")]
@@ -546,3 +549,44 @@ class AuditLog(CompanyOwned):
     class Meta:
         indexes = [models.Index(fields=["content_type", "object_id", "-timestamp"])]
         ordering = ["-timestamp"]
+
+
+def in_one_month():
+    """The default expiry date of a note: the same day next month. If the
+    next month does not have that day, the date is its last day."""
+    today = timezone.localdate()
+    year, month = (today.year + 1, 1) if today.month == 12 else (today.year, today.month + 1)
+    return today.replace(year=year, month=month, day=min(today.day, calendar.monthrange(year, month)[1]))
+
+class Note(CompanyOwned, TimeStamped):
+    """A note on one page, e.g. the balance sheet. A comment shows on the
+    page only. A footnote also goes into the annual financial statements.
+    The note keeps the page and its date range at the time of capture.
+    It shows on that page until its expiry date, or always if it is permanent."""
+
+    class Kind(models.TextChoices):
+        COMMENT  = "C", "Comment"
+        FOOTNOTE = "F", "Footnote"
+
+    kind         = models.CharField(max_length=1, choices=Kind.choices, default=Kind.COMMENT)
+    page         = models.CharField(max_length=100)                    # The view name, e.g. "accounting:balancesheet"
+    range_start  = models.DateField()                                  # The date range of the page at capture
+    range_end    = models.DateField()
+    title        = models.CharField(max_length=255)
+    body         = models.TextField(blank=True)                        # Rich text (HTML). The rich_text filter cleans it.
+    expires_on   = models.DateField(default=in_one_month)
+    is_permanent = models.BooleanField(default=False)                  # A permanent note does not expire
+    files        = models.ManyToManyField("filestore.StoredFile", blank=True, related_name="+")  # Supporting files
+
+    class Meta:
+        ordering = ["created_at"]
+        indexes = [models.Index(fields=["company", "page"])]
+
+    def __str__(self):
+        return self.title
+
+    @classmethod
+    def active(cls, company, page):
+        """The notes of one page that did not expire."""
+        return cls.objects.filter(company=company, page=page).filter(
+            models.Q(is_permanent=True) | models.Q(expires_on__gte=timezone.localdate()))

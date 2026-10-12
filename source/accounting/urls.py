@@ -7,6 +7,7 @@ urlpatterns = [
     path("", views.dashboard, name="dashboard"),
     path("invoices/", views.invoices, name = "invoices"),
     path("payments/new/", views.payment_create, name="payment_create"),
+    path("notes/new/", views.note_create, name="note_create"),
 
     # Journals
     path("journals/", views.journals, name = "journals"),
@@ -30,6 +31,7 @@ urlpatterns = [
 
     # Cost Centre
     path("bills/", views.bills, name="bills"),
+    path("bills/new/", views.bill_create, name="bill_create"),
     path("bills/<int:pk>/approve/", views.bill_approve, name="bill_approve"),
     path("bills/<int:pk>/deny/", views.bill_deny, name="bill_deny"),
     path("claims/", views.claims, name="claims"),

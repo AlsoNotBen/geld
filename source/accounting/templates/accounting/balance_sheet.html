@@ -1,5 +1,5 @@
 {% extends "accounting/module_base.html" %}
-{% load static fin %}
+{% load static fin note_tags %}
 
 {% comment %}
   ============================================================================
@@ -44,7 +44,7 @@
 <section class="page page--statement">
 
     <div class="page__head">
-        <h1 class="page__title">Balance Sheet</h1>
+        <h1 class="page__title">Balance Sheet{% notes_pill %}</h1>
         <p class="page__note">
             The balance sheet is the statement of financial position. It shows
             what the business owns (the assets), what it owes (the liabilities)
@@ -62,7 +62,7 @@
         <div class="actionbar__group">
             {% comment %} base.js must call window.print() for a button with
                  the data-print attribute. {% endcomment %}
-            <button class="tool" type="button">
+            <button class="tool" type="button" data-note-new>
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 4h9l3 3v13H6V4z" stroke-linejoin="round"/><path d="M15 4v4h4" stroke-linejoin="round"/><path d="M9 13h6M12 10v6" stroke-linecap="round"/>
                 </svg>
                 Note
@@ -129,5 +129,6 @@
         </tfoot>
     </table>
 
+    {% notes_section %}
 </section>
 {% endblock %}

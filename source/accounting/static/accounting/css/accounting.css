@@ -1432,6 +1432,186 @@
 }
 
 /* ================================================================== */
+/*  PAGE NOTES  (the notes that users write, see _notes.html)          */
+/*  The Notes pill · the Commentary and Footnotes cards · the editor   */
+/* ================================================================== */
+
+/* The pill at the right end of the page title. It stays grey, because a
+   note is extra information, not an alert. */
+.notes-pill {
+    margin-left: auto;
+    align-self: center;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 3px 4px 3px 11px;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    line-height: 1.5;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--ink-soft);
+}
+.notes-pill__count {
+    min-width: 20px;
+    padding: 0 6px;
+    border-radius: 20px;
+    background: var(--line);
+    color: var(--ink);
+    text-align: center;
+    letter-spacing: 0;
+}
+.notes-pill[href]:hover { border-color: var(--line-strong); color: var(--ink); }
+
+/* The two groups below the content of the page. */
+.page-notes { display: grid; gap: 22px; margin-top: 34px; }
+
+.note-group__head {
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+}
+.note-group__head::marker { color: var(--ink-soft); }
+.note-group__head .tabset__count { margin-left: 6px; }
+
+/* A card stays small: the title, three lines of the description, the
+   files and one line of data. A click on the card opens the full note. */
+.note-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+}
+.note-card {
+    gap: 8px;
+    min-width: 0;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease;
+}
+.note-card:hover { background: var(--gold-soft); border-color: var(--gold-line); }
+
+.note-card__title { margin: 0; min-width: 0; font-size: 13px; font-weight: 600; }
+.note-card__title button {
+    display: block;
+    max-width: 100%;
+    padding: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+    font-weight: inherit;
+    color: var(--ink);
+}
+
+.note-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 2px 10px;
+    margin: auto 0 0;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+}
+
+/* The rich text of a note: the description in a card and in the overlay. */
+.note-text { font-size: 13px; line-height: 1.55; color: var(--ink); overflow-wrap: anywhere; }
+.note-text :is(p, ol, ul) { margin: 0 0 6px; }
+.note-text :is(ol, ul) { padding-left: 20px; }
+.note-text > :last-child { margin-bottom: 0; }
+.note-text a[href] { color: var(--gold); text-decoration: underline; }
+
+/* In a card, the description shows three lines at most. */
+.note-card__text {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    max-height: 4.65em;
+    overflow: hidden;
+    font-size: 12px;
+    color: var(--ink-soft);
+}
+.note-card__text :is(p, ol, ul) { margin: 0; }
+
+/* A supporting file. The icon is a paper clip. */
+.note-file {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    color: var(--gold);
+}
+.note-file::before {
+    content: "";
+    display: inline-block;
+    width: 13px;
+    height: 13px;
+    margin-right: 6px;
+    vertical-align: -2px;
+    background: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48'/%3E%3C/svg%3E") center / contain no-repeat;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.note-file:hover { text-decoration: underline; }
+
+/* The overlays: a value that the user reads, and the hint of the form. */
+.note-read { margin: 0; font-size: 13px; color: var(--ink); }
+.note-hint { margin: 0; font-size: 12px; line-height: 1.5; color: var(--ink-soft); }
+
+/* The plain text field shows only if Quill does not load. */
+#note-new textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
+
+/* The Quill editor. quill.snow.css has a light theme. These rules give
+   it the colors of the module. The id wins over the rules of Quill. */
+#note-new .ql-toolbar.ql-snow,
+#note-new .ql-container.ql-snow { border-color: var(--line); background: var(--cream); }
+#note-new .ql-toolbar.ql-snow { border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+#note-new .ql-container.ql-snow {
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--ink);
+}
+#note-new .ql-container.ql-snow:focus-within { border-color: var(--gold-line); }
+#note-new .ql-editor { min-height: 140px; }
+#note-new .ql-editor:focus-visible { outline: none; }
+#note-new .ql-editor.ql-blank::before { color: var(--ink-soft); font-style: normal; }
+#note-new .ql-snow .ql-stroke { stroke: var(--ink-soft); }
+#note-new .ql-snow .ql-fill { fill: var(--ink-soft); }
+#note-new .ql-snow button:hover .ql-stroke,
+#note-new .ql-snow button.ql-active .ql-stroke { stroke: var(--gold); }
+#note-new .ql-snow button:hover .ql-fill,
+#note-new .ql-snow button.ql-active .ql-fill { fill: var(--gold); }
+#note-new .ql-snow .ql-tooltip {
+    background: var(--white);
+    border-color: var(--line-strong);
+    box-shadow: var(--shadow-md);
+    color: var(--ink);
+}
+#note-new .ql-snow .ql-tooltip input[type=text] {
+    background: var(--cream);
+    border-color: var(--line);
+    color: var(--ink);
+}
+#note-new .ql-snow .ql-tooltip a { color: var(--gold); }
+
+/* Paper gets the footnotes only. A comment is for the screen. */
+@media print {
+    .notes-pill, .note-group--comments { display: none !important; }
+    .note-card { break-inside: avoid; }
+    .note-group__head, .note-card__title button, .note-text { color: #000000; }
+    .note-card__meta { color: #333333; }
+}
+
+/* ================================================================== */
 /*  RESPONSIVE                                                        */
 /* ================================================================== */
 @media (max-width: 1240px) {
@@ -2159,3 +2339,20 @@
 .shell[data-view="easy"] .main .is-debit   { color: var(--debit) !important; }
 .shell[data-view="easy"] .main .is-credit  { color: var(--credit) !important; }
 .shell[data-view="easy"] .main .is-overdue { color: var(--overdue) !important; }
+
+/* ---- Lines of the New Bill overlay (see bills.html) ---------------- */
+.bill-lines { width: 100%; border-collapse: collapse; }
+.bill-lines th {
+    padding: 0 6px 6px 0;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--ink);
+}
+.bill-lines td { padding: 0 6px 6px 0; }
+.bill-lines .field__control { width: 100%; min-width: 0; }
+.bill-lines td:nth-child(1) { width: 30%; }
+.bill-lines td:nth-child(2) { width: 30%; }
+.bill-lines td:nth-child(3) { width: 9%; }
+.bill-lines td:nth-child(4) { width: 14%; }
+.bill-lines td:nth-child(5) { width: 13%; }

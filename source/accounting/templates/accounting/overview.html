@@ -1,5 +1,5 @@
 {% extends "accounting/module_base.html" %}
-{% load fin %}
+{% load fin note_tags %}
 
 {% comment %}
   ============================================================================
@@ -34,7 +34,7 @@
 <section class="page">
 
     <div class="page__head">
-        <h1 class="page__title">Overview</h1>
+        <h1 class="page__title">Overview{% notes_pill %}</h1>
         <p class="page__note">
             The overview is the first page of the Accounting module. It shows
             the position of the business today: the money that customers owe,
@@ -51,7 +51,7 @@
         <div class="actionbar__group">
             {% comment %} base.js must call window.print() for a button with
                  the data-print attribute. {% endcomment %}
-            <button class="tool" type="button">
+            <button class="tool" type="button" data-note-new>
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 4h9l3 3v13H6V4z" stroke-linejoin="round"/><path d="M15 4v4h4" stroke-linejoin="round"/><path d="M9 13h6M12 10v6" stroke-linecap="round"/>
                 </svg>
                 Note
@@ -208,39 +208,39 @@
     </section>
 
     {# ============================= CASH FLOW ============================= #}
-    {% comment %} TODO: Sample data, the same as the Cash Flow Statement.
-         The statement has no view yet. {% endcomment %}
+    {% comment %} The results of the Cash Flow Statement, from the start of
+         the range to the as-of day. {% endcomment %}
     <section class="overview-part" aria-labelledby="ov-cashflow">
         <div class="overview-part__head">
             <h2 class="page__subtitle" id="ov-cashflow">Cash Flow</h2>
-            <span class="overview-part__hint">FY 2026</span>
+            <span class="overview-part__hint">{{ start|date:"j M Y" }} – {{ as_of|date:"j M Y" }}</span>
             <a class="overview-part__link" href="{% url 'accounting:cashflow' %}">Cash Flow Statement</a>
         </div>
         <div class="cards">
             <div class="card">
                 <span class="card__label">Cash at the start</span>
-                <div class="card__value" data-unit="ZAR">128,940</div>
-                {{ trends.cf_start|sparkline }}
+                <div class="card__value" data-unit="{{ currency }}">{{ cash.start_this|money }}</div>
+                {{ trends.start_this|sparkline }}
             </div>
             <div class="card">
                 <span class="card__label">Operating activities</span>
-                <div class="card__value is-credit" data-unit="ZAR">175,420</div>
-                {{ trends.cf_operating|sparkline:"is-credit" }}
+                <div class="card__value {% if cash.operating_this >= 0 %}is-credit{% else %}is-debit{% endif %}" data-unit="{{ currency }}">{{ cash.operating_this|money }}</div>
+                {{ trends.operating_this|sparkline:"is-credit" }}
             </div>
             <div class="card">
                 <span class="card__label">Investing activities</span>
-                <div class="card__value is-debit" data-unit="ZAR">(70,440)</div>
-                {{ trends.cf_investing|sparkline:"is-debit" }}
+                <div class="card__value {% if cash.investing_this >= 0 %}is-credit{% else %}is-debit{% endif %}" data-unit="{{ currency }}">{{ cash.investing_this|money }}</div>
+                {{ trends.investing_this|sparkline:"is-debit" }}
             </div>
             <div class="card">
                 <span class="card__label">Financing activities</span>
-                <div class="card__value is-debit" data-unit="ZAR">(34,600)</div>
-                {{ trends.cf_financing|sparkline:"is-debit" }}
+                <div class="card__value {% if cash.financing_this >= 0 %}is-credit{% else %}is-debit{% endif %}" data-unit="{{ currency }}">{{ cash.financing_this|money }}</div>
+                {{ trends.financing_this|sparkline:"is-debit" }}
             </div>
             <div class="card">
                 <span class="card__label">Cash at the end</span>
-                <div class="card__value" data-unit="ZAR">199,320</div>
-                {{ trends.cf_end|sparkline }}
+                <div class="card__value" data-unit="{{ currency }}">{{ cash.end_this|money }}</div>
+                {{ trends.end_this|sparkline }}
             </div>
         </div>
     </section>
@@ -264,5 +264,6 @@
             {% endfor %}
         </tbody>
     </table>
+    {% notes_section %}
 </section>
 {% endblock %}

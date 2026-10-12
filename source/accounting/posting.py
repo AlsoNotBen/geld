@@ -2,7 +2,8 @@
 from decimal import Decimal, ROUND_HALF_UP
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from accounting.models import Account, JournalEntry, JournalLine, Payment, Period
+from django.utils import timezone
+from accounting.models import Account, Document, JournalEntry, JournalLine, Payment, Period
 
 CENT = Decimal("0.01")
 
@@ -10,6 +11,7 @@ CENT = Decimal("0.01")
 RECEIVABLE = "Accounts Receivable"
 PAYABLE    = "Accounts Payable"
 SUSPENSE   = "Suspense"
+VAT        = "VAT Control"
 
 
 def _add(entry, account, amount, entity=None):
@@ -29,6 +31,15 @@ def _account(company, name):
     if account is None:
         raise ValidationError(f'The chart of accounts has no account "{name}". Add it first.')
     return account
+
+
+def _open_period(company, date):
+    """Return the open period that includes the date. Tell the user when there is none."""
+    period = Period.objects.filter(company=company, start_date__lte=date,
+                                   end_date__gte=date, is_closed=False).first()
+    if period is None:
+        raise ValidationError(f"No open period includes the date {date:%d %b %Y}.")
+    return period
 
 
 def post_cash_entry(payment, period, suspense):
@@ -70,10 +81,7 @@ def post_payment(payment):
     the Suspense account.
     """
     company = payment.company
-    period = Period.objects.filter(company=company, start_date__lte=payment.date,
-                                   end_date__gte=payment.date, is_closed=False).first()
-    if period is None:
-        raise ValidationError("No open period includes the payment date.")
+    period = _open_period(company, payment.date)
     received = payment.direction == Payment.Direction.IN
     control = _account(company, RECEIVABLE if received else PAYABLE)
     suspense = _account(company, SUSPENSE)
@@ -115,4 +123,35 @@ def post_invoice_entry(company, number, date, total, tax, narration="", entity=N
         _add(entry, account(RECEIVABLE), total, entity=entity)
         _add(entry, account("Sales"), -(total - tax))
         _add(entry, account("VAT Control"), -tax)
+    return entry
+
+
+def post_bill(bill):
+    """Approve a draft bill: write its ACCRUAL entry and post it.
+
+    Dr the account of each line (net) and the input tax account (tax),
+    Cr Accounts Payable (gross). The payable line keeps the supplier,
+    thus the statement of the supplier finds it. On the cash basis the
+    bill shows when it is paid (see post_cash_entry).
+    """
+    company = bill.company
+    period = _open_period(company, bill.date)
+    payable = _account(company, PAYABLE)
+
+    with transaction.atomic():
+        entry = JournalEntry.objects.create(
+            company=company, date=bill.date, period=period,
+            entry_type=JournalEntry.EntryType.PURCHASES, basis=JournalEntry.Basis.ACCRUAL,
+            status=JournalEntry.Status.POSTED, posted_at=timezone.now(),
+            reference=bill.number, narration=bill.entity.name,
+        )
+        total = Decimal(0)
+        for line in bill.lines.select_related("account", "tax_code__input_account"):
+            total += _add(entry, line.account, line.net_amount)
+            if line.tax_amount:
+                total += _add(entry, line.tax_code.input_account or _account(company, VAT), line.tax_amount)
+        _add(entry, payable, -total, entity=bill.entity)
+        bill.journal_entry = entry
+        bill.status = Document.Status.APPROVED
+        bill.save(update_fields=["journal_entry", "status"])
     return entry

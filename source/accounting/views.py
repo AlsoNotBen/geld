@@ -1,4 +1,5 @@
 import json
+from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
@@ -7,11 +8,11 @@ from django.db.models import Sum, DecimalField, Q
 from django.db.models.functions import Coalesce
 from django.urls import reverse
 from django.utils import timezone
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from accounting.models import *
 from accounting.date_range import get_range, previous_range
-from accounting.forms import PaymentForm
-from accounting.posting import post_payment
+from accounting.forms import BillForm, NoteForm, PaymentForm
+from accounting.posting import post_bill, post_payment
 from datetime import datetime, timedelta
 from filestore.services import save_upload, validate
 
@@ -31,16 +32,11 @@ WEEK_TRENDS = {
     "payable": [14320, 13980, 15110, 14200, 13460, 13050, 12905],
     "cash":    [88140, 89560, 87920, 90310, 91880, 92640, 93517],
     "active":  [31, 32, 32, 33, 33, 34, 34],
-    # The cash flow statement has no view yet. These follow its cards.
-    "cf_start":     [128940] * 7,
-    "cf_operating": [161200, 163850, 166020, 168400, 171230, 173060, 175420],
-    "cf_investing": [-62100, -62100, -66800, -66800, -68950, -70440, -70440],
-    "cf_financing": [-31200, -31200, -32900, -32900, -34600, -34600, -34600],
-    "cf_end":       [196840, 199490, 195260, 197640, 196620, 197900, 199320],
 }
 
 BALANCE_KEYS = ["assets_this", "equity_this", "liabilities_this", "working_capital", "current_ratio"]
 INCOME_KEYS = ["revenue", "gross_profit", "operating_profit", "tax", "profit_this"]
+CASH_KEYS = ["start_this", "operating_this", "investing_this", "financing_this", "end_this"]
 
 def change(this, last):
     """The change from last to this, in percent. None if last is zero."""
@@ -60,11 +56,19 @@ def dashboard(request):
 
     balance = [balance_data(accounts, movements(company, end=day), {}) for day in days]
     income = [income_data(accounts, movements(company, ctx["start"], day), {}) for day in days]
+    cash_ids = cash_account_ids(company, accounts)
+    dep_ids = depreciation_account_ids(company, accounts)
+    opening = movements(company, end=ctx["start"] - timedelta(days=1))
+    opening = sum((opening.get(i, ZERO) for i in cash_ids), ZERO)
+    cash = [cash_flow_data(accounts, cash_ids, dep_ids, movements(company, ctx["start"], day), {}, opening, ZERO)
+            for day in days]
     trends = dict(WEEK_TRENDS)
     for key in BALANCE_KEYS:
         trends[key] = [figures[key] for figures in balance]
     for key in INCOME_KEYS:
         trends[key] = [figures[key] for figures in income]
+    for key in CASH_KEYS:
+        trends[key] = [figures[key] for figures in cash]
 
     # The comparison table: this period against the last period.
     full = income_data(accounts, movements(company, ctx["start"], ctx["end"]),
@@ -79,6 +83,7 @@ def dashboard(request):
         "as_of": as_of,
         "balance": balance[-1],
         "income": income[-1],
+        "cash": cash[-1],
         "trends": trends,
         "comparison": [{"name": n, "this": t, "last": l, "tone": c, "change": change(t, l)}
                        for n, t, l, c in comparison],
@@ -253,9 +258,38 @@ def payment_create(request):
             return JsonResponse({"redirect": reverse("accounting:journals")})
         except ValidationError as error:
             form.add_error(None, error)
+    return form_errors(form)
+
+def form_errors(form):
+    """The errors of a form as JSON, for the overlays that send with fetch()."""
     errors = [f"{form[name].label}: {message}" if name in form.fields else message
               for name, field_errors in form.errors.items() for message in field_errors]
     return JsonResponse({"errors": errors}, status=400)
+
+def note_create(request):
+    """The Save button of the New Note overlay. notes.js sends the form with
+    fetch() and reads the JSON answer. The note gets the date range of the
+    page, the user and the time automatically. The page comes from the form."""
+    if request.method != "POST":
+        return redirect("accounting:dashboard")
+    form = NoteForm(request.POST)
+    uploads = request.FILES.getlist("note_files")
+    if form.is_valid():
+        try:
+            for upload in uploads:          # Validate every file first, so a bad file stores nothing.
+                validate(upload)
+            _, start, end = get_range(request)
+            with transaction.atomic():
+                note = form.save(commit=False)
+                note.company = request.company          # Add to every function that creates a CompanyOwned record
+                note.created_by = request.user
+                note.range_start, note.range_end = start, end
+                note.save()
+                note.files.add(*(save_upload(u, request.user) for u in uploads))
+            return JsonResponse({"saved": True})
+        except ValidationError as error:
+            form.add_error(None, error)
+    return form_errors(form)
 
 # ___________________________________CHART OF ACCOUNTS___________________________________________#
 # The account types of each tab. FLOATING_NOMINAL is not in this map,
@@ -546,8 +580,92 @@ def incomestatement(request):
                            movements(company, ctx["prev_start"], ctx["prev_end"])))
     return render(request, "accounting/income_statement.html", ctx)
 
+DEPRECIATION_WORDS = ("depreciation", "amortisation", "amortization")
+
+def cash_account_ids(company, accounts):
+    """The cash accounts: the account of each bank account, and each
+    current asset with "cash" or "bank" in its name."""
+    ids = set(BankAccount.objects.filter(company=company).values_list("account_id", flat=True))
+    return ids | {a.id for a in accounts if a.type == Account.AccountType.CURRENT_ASSETS
+                  and ("cash" in a.name.lower() or "bank" in a.name.lower())}
+
+def depreciation_account_ids(company, accounts):
+    """The accumulated depreciation accounts: the account of each fixed
+    asset, and each non-current asset with "depreciation" or
+    "amortisation" in its name."""
+    ids = set(FixedAsset.objects.filter(company=company).values_list("accumulated_account_id", flat=True))
+    return ids | {a.id for a in accounts if a.type == Account.AccountType.NON_CURRENT_ASSETS
+                  and any(word in a.name.lower() for word in DEPRECIATION_WORDS)}
+
+def cash_flow_data(accounts, cash_ids, dep_ids, this, last, open_this, open_last):
+    """The figures of the cash flow statement (the indirect method).
+    this and last are the movements (see movements) of this period and of
+    the last period. open_this and open_last are the cash at the start.
+
+    The cash flow of an account is its movement with the opposite sign: a
+    credit movement brings cash in. The entries balance, thus the sum of
+    the three groups is the movement of the cash accounts."""
+    T = Account.AccountType
+    other = [a for a in accounts if a.id not in cash_ids]
+
+    def flow(accts, mv):
+        return -sum((mv.get(a.id, ZERO) for a in accts), ZERO)
+
+    def total(name, accts):
+        return (name, "", flow(accts, this), flow(accts, last))
+
+    def each(accts, prefix=""):
+        return [(prefix + a.name, a.code, flow([a], this), flow([a], last)) for a in accts]
+
+    profit = [a for a in other if a.type in PROFIT_TYPES and a.type != T.INCOME_TAX]
+    depreciation = [a for a in other if a.id in dep_ids]
+    working = [a for a in other if a.type in (T.CURRENT_ASSETS, T.CURRENT_LIABILITIES, T.FLOATING_NOMINAL)]
+    tax = [a for a in other if a.type == T.INCOME_TAX]
+    investing = [a for a in other if a.type == T.NON_CURRENT_ASSETS and a.id not in dep_ids]
+    financing = [a for a in other if a.type in (T.NON_CURRENT_LIABILITIES, T.SHAREHOLDER_EQUITY)]
+
+    op, op_this, op_last = block("Cash from operating activities",
+                                 [total("Profit before tax", profit),
+                                  total("Depreciation and amortisation", depreciation)]
+                                 + each(working, "Movement in ")
+                                 + [total("Income tax", tax)],
+                                 "Net cash from operating activities")
+    inv, inv_this, inv_last = block("Cash from investing activities", each(investing),
+                                    "Net cash from investing activities")
+    fin, fin_this, fin_last = block("Cash from financing activities", each(financing),
+                                    "Net cash from financing activities")
+
+    change_this, change_last = op_this + inv_this + fin_this, op_last + inv_last + fin_last
+    cash = [a for a in accounts if a.id in cash_ids]
+    end_this, end_last = open_this - flow(cash, this), open_last - flow(cash, last)
+    return {
+        "rows": op + inv + fin + [sum_row("Change of cash in the period", change_this, change_last)],
+        "operating_this": op_this, "investing_this": inv_this, "financing_this": fin_this,
+        "change_this": change_this, "change_last": change_last,
+        "start_this": open_this, "start_last": open_last,
+        "end_this": end_this, "end_last": end_last,
+        "is_balanced": open_this + change_this == end_this,
+    }
+
+def cash_flow_of(company, accounts, start, end, prev_start, prev_end):
+    cash_ids = cash_account_ids(company, accounts)
+    dep_ids = depreciation_account_ids(company, accounts)
+
+    def cash_at(day):
+        balances = movements(company, end=day)
+        return sum((balances.get(i, ZERO) for i in cash_ids), ZERO)
+
+    day = timedelta(days=1)
+    return cash_flow_data(accounts, cash_ids, dep_ids,
+                          movements(company, start, end), movements(company, prev_start, prev_end),
+                          cash_at(start - day), cash_at(prev_start - day))
+
 def cashflow(request):
-    return render(request, "accounting/cash_flow.html")
+    ctx = statement_context(request)
+    company = ctx["company"]
+    accounts = list(Account.objects.filter(company=company))
+    ctx.update(cash_flow_of(company, accounts, ctx["start"], ctx["end"], ctx["prev_start"], ctx["prev_end"]))
+    return render(request, "accounting/cash_flow.html", ctx)
 
 def equity(request):
     ctx = statement_context(request)
@@ -608,7 +726,7 @@ def bill_list(request, *statuses, **filters):
     return list(Document.objects
                 .filter(company=request.company, direction=Document.Direction.PURCHASE,
                         doc_type=Document.DocType.BILL, status__in=statuses, **filters)
-                .select_related("entity").prefetch_related("lines__tax_code")
+                .select_related("entity").prefetch_related("lines__tax_code", "files")
                 .order_by("due", "date"))
 
 def bills(request):
@@ -626,20 +744,88 @@ def bills(request):
         "unpaid_total": sum((b.gross for b in unpaid), ZERO),
         "paid_total": sum((b.gross for b in paid), ZERO),
         "today": timezone.localdate(),
+        "bill_form": BillForm(company=request.company),
+        "accounts": Account.objects.filter(company=request.company, is_active=True),
+        "tax_codes": TaxCode.objects.filter(company=request.company),
     })
 
-def bill_review(request, pk, status):
-    """The Approve and Deny buttons. They change a draft bill only."""
-    if request.method == "POST":
-        Document.objects.filter(pk=pk, company=request.company, doc_type=Document.DocType.BILL,
-                                status=Document.Status.DRAFT).update(status=status)
-    return redirect("accounting:bills")
+def bill_lines(post, company):
+    """The lines of the New Bill overlay, as unsaved DocumentLine objects.
+    An empty row is ignored."""
+    accounts = {str(a.id): a for a in Account.objects.filter(company=company, is_active=True)}
+    taxes = {str(t.id): t for t in TaxCode.objects.filter(company=company)}
+    rows = zip(post.getlist("line_description"), post.getlist("line_account"), post.getlist("line_quantity"),
+               post.getlist("line_price"), post.getlist("line_tax"))
+    lines = []
+    for number, (description, account, quantity, price, tax) in enumerate(rows, 1):
+        if not (description.strip() or account or price):
+            continue
+        try:
+            quantity, price = Decimal(quantity or "1"), Decimal(price)
+        except InvalidOperation:
+            raise ValidationError(f"Line {number}: the quantity and the price must be numbers.")
+        if account not in accounts:
+            raise ValidationError(f"Line {number}: select an account.")
+        if quantity <= 0 or price <= 0:
+            raise ValidationError(f"Line {number}: the quantity and the price must be more than zero.")
+        lines.append(DocumentLine(
+            description=(description.strip() or accounts[account].name)[:255], account=accounts[account],
+            quantity=quantity, unit_price=price, tax_code=taxes.get(tax), sort_order=number,
+        ))
+    if not lines:
+        raise ValidationError("Add one line or more.")
+    return lines
+
+def bill_create(request):
+    """The Save button of the New Bill overlay. bills.js sends the form with
+    fetch() and reads the JSON answer: the errors, or the page to go to.
+    The bill is a draft. It waits in the Review part of the Bills page."""
+    if request.method != "POST":
+        return redirect("accounting:bills")
+    form = BillForm(request.POST, company=request.company)
+    uploads = request.FILES.getlist("attachments")
+    if form.is_valid():
+        try:
+            lines = bill_lines(request.POST, request.company)
+            for upload in uploads:          # Validate every file first, so a bad file stores nothing.
+                validate(upload)
+            with transaction.atomic():
+                bill = form.save(commit=False)
+                bill.company = request.company          # Add to every function that creates a CompanyOwned record
+                bill.direction = Document.Direction.PURCHASE
+                bill.doc_type = Document.DocType.BILL
+                bill.status = Document.Status.DRAFT
+                bill.currency = request.company.base_currency
+                bill.created_by = request.user
+                bill.save()
+                for line in lines:
+                    line.document = bill
+                DocumentLine.objects.bulk_create(lines)
+                bill.files.add(*(save_upload(u, request.user) for u in uploads))
+                if bill.number == NumberSequence.peek(request.company, "bill", "BILL-"):
+                    NumberSequence.take(request.company, "bill")
+            return JsonResponse({"redirect": reverse("accounting:bills")})
+        except ValidationError as error:
+            form.add_error(None, error)
+    return form_errors(form)
 
 def bill_approve(request, pk):
-    return bill_review(request, pk, Document.Status.APPROVED)
+    """The Approve button. It posts the entry of a draft bill to the ledger."""
+    if request.method == "POST":
+        bill = get_object_or_404(Document, pk=pk, company=request.company, doc_type=Document.DocType.BILL,
+                                 status=Document.Status.DRAFT)
+        try:
+            post_bill(bill)
+        except ValidationError as error:
+            messages.error(request, f"{bill.number} is not approved. {' '.join(error.messages)}")
+    return redirect("accounting:bills")
 
 def bill_deny(request, pk):
-    return bill_review(request, pk, Document.Status.VOID)
+    """The Deny button. It voids a draft bill."""
+    if request.method == "POST":
+        Document.objects.filter(pk=pk, company=request.company, doc_type=Document.DocType.BILL,
+                                status=Document.Status.DRAFT).update(status=Document.Status.VOID)
+    return redirect("accounting:bills")
 
 def suppliers(request):
     return render(request, "accounting/suppliers.html")

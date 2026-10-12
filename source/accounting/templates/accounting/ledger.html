@@ -1,5 +1,5 @@
 {% extends "accounting/module_base.html" %}
-{% load static %}
+{% load static note_tags %}
 
 {% comment %}
   ============================================================================
@@ -47,7 +47,7 @@
 <section class="page">
 
     <div class="page__head">
-        <h1 class="page__title">General Ledger</h1>
+        <h1 class="page__title">General Ledger{% notes_pill %}</h1>
         <p class="page__note">
             The general ledger is the full record of the books. It holds one
             account for each line of the chart of accounts, and it lists every
@@ -72,7 +72,7 @@
             <span class="tool__sep" aria-hidden="true"></span>
             {% comment %} base.js must call window.print() for a button with
                  the data-print attribute. {% endcomment %}
-            <button class="tool" type="button">
+            <button class="tool" type="button" data-note-new>
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 4h9l3 3v13H6V4z" stroke-linejoin="round"/><path d="M15 4v4h4" stroke-linejoin="round"/><path d="M9 13h6M12 10v6" stroke-linecap="round"/>
                 </svg>
                 Note
@@ -182,6 +182,7 @@
             }
         </style>
     </noscript>
+    {% notes_section %}
 </section>
 {% endblock %}
 

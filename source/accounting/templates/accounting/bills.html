@@ -12,6 +12,9 @@
 
   Columns of each table: Date · Number · Due · Supplier · Amount
   The Unpaid tab shows an overdue amount in the overdue color.
+
+  The New Bill button opens #bill-dialog. bills.js sends the form with
+  fetch(). A new bill is a draft. Approve posts its entry to the ledger.
   ============================================================================
 {% endcomment %}
 
@@ -31,7 +34,7 @@
 
     <div class="actionbar" role="group" aria-label="Page controls">
         <div class="actionbar__group">
-            <button class="tool tool--primary" type="button">
+            <button class="tool tool--primary" type="button" data-bill-new>
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
                 New Bill
             </button>
@@ -47,12 +50,18 @@
         <p class="actionbar__hint">The Paid tab shows the bills of {{ range_label|default:"the current financial year" }}.</p>
     </div>
 
+    {% if messages %}
+    <div class="sheet__errors" role="alert">
+        {% for message in messages %}<p>{{ message }}</p>{% endfor %}
+    </div>
+    {% endif %}
+
     {# ============================== REVIEW ============================== #}
     <section class="review" aria-labelledby="review-title">
 
         <div class="review__head">
             <h2 class="review__title" id="review-title">Review</h2>
-            <p class="review__hint">These bills wait for a review. Approve or deny each one.</p>
+            <p class="review__hint">These bills wait for a review. Approve posts the bill to the ledger. Deny voids it.</p>
         </div>
 
         <table class="table table--review" data-num>
@@ -62,6 +71,7 @@
                     <th>Number</th>
                     <th>Due</th>
                     <th>Supplier</th>
+                    <th>Files</th>
                     <th>Amount</th>
                     <th><span class="visually-hidden">Review</span></th>
                 </tr>
@@ -73,6 +83,11 @@
                     <td>{{ bill.number }}</td>
                     <td>{{ bill.due|default:"—" }}</td>
                     <td>{{ bill.entity.name }}</td>
+                    <td>
+                        {% for file in bill.files.all %}
+                        <a href="{% url 'filestore:download' file.pk %}?inline" target="_blank" rel="noopener">{{ file.original_name }}</a>{% if not forloop.last %}<br>{% endif %}
+                        {% empty %}—{% endfor %}
+                    </td>
                     <td class="is-debit">{{ bill.gross|money }}</td>
                     <td>
                         <div class="review__buttons">
@@ -94,7 +109,7 @@
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="6">There are no bills to review.</td></tr>
+                <tr><td colspan="7">There are no bills to review.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -179,10 +194,69 @@
             .tabset__print-title { display: block; margin: 0 0 14px; font-size: 15px; font-weight: 600; color: var(--ink); }
         </style>
     </noscript>
+
+    {# ============================= NEW BILL ============================= #}
+    <dialog class="sheet sheet--wide" id="bill-dialog" aria-labelledby="bill-dialog-title">
+        <form method="post" action="{% url 'accounting:bill_create' %}" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="sheet__head">
+                <h2 class="sheet__title" id="bill-dialog-title">New Bill</h2>
+            </div>
+            <div class="sheet__body sheet__body--split">
+                <div class="sheet__errors field--wide" role="alert" data-bill-errors hidden></div>
+                {% for field in bill_form %}
+                <div class="field{% if field.name == 'notes' %} field--wide{% endif %}">
+                    <label class="field__label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                </div>
+                {% endfor %}
+
+                <div class="field field--wide">
+                    <span class="field__label">Lines</span>
+                    <table class="bill-lines">
+                        <thead>
+                            <tr><th>Description</th><th>Account</th><th>Qty</th><th>Unit price</th><th>Tax code</th><th><span class="visually-hidden">Remove</span></th></tr>
+                        </thead>
+                        <tbody data-bill-lines>
+                            <tr data-bill-line>
+                                <td><input class="field__control" type="text" name="line_description" maxlength="255" aria-label="Description"></td>
+                                <td>
+                                    <select class="field__control" name="line_account" aria-label="Account">
+                                        <option value="">Select</option>
+                                        {% for account in accounts %}<option value="{{ account.id }}">{{ account }}</option>{% endfor %}
+                                    </select>
+                                </td>
+                                <td><input class="field__control" type="number" name="line_quantity" value="1" step="0.01" min="0.01" aria-label="Quantity"></td>
+                                <td><input class="field__control" type="number" name="line_price" step="0.01" min="0.01" aria-label="Unit price"></td>
+                                <td>
+                                    <select class="field__control" name="line_tax" aria-label="Tax code">
+                                        <option value="">None</option>
+                                        {% for tax in tax_codes %}<option value="{{ tax.id }}">{{ tax.code }}</option>{% endfor %}
+                                    </select>
+                                </td>
+                                <td><button class="tool tool--sm" type="button" data-bill-line-remove aria-label="Remove the line">&times;</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div><button class="tool tool--sm" type="button" data-bill-line-add>Add line</button></div>
+                </div>
+
+                <div class="field field--wide">
+                    <span class="field__label">Supporting File (Receipt, Invoice of the supplier etc)</span>
+                    {% include "filestore/upload_field.html" with name="attachments" multiple=True accept=".pdf,.png,.jpg,.jpeg,.webp" hint="PDF or image, max. 20 MB each" %}
+                </div>
+            </div>
+            <div class="sheet__foot">
+                <button class="tool" type="button" data-dialog-cancel>Cancel</button>
+                <button class="tool tool--primary" type="submit">Save Draft</button>
+            </div>
+        </form>
+    </dialog>
 </section>
 {% endblock %}
 
 {% block extra_js %}
 {{ block.super }}
 <script src="{% static 'accounting/js/journals.js' %}"></script>
+<script src="{% static 'accounting/js/bills.js' %}"></script>
 {% endblock %}

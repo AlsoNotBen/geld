@@ -1,0 +1,6 @@
+{% comment %}
+  The Notes pill at the right end of the page title (see note_tags.py).
+  It shows the number of active notes of the page, and it links to the
+  note cards. With no notes, the pill has no link.
+{% endcomment %}
+<a class="notes-pill"{% if count %} href="#page-notes"{% endif %} title="Active notes on this page">Notes <span class="notes-pill__count">{{ count }}</span></a>

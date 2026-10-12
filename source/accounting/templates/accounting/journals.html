@@ -1,5 +1,5 @@
 {% extends "accounting/module_base.html" %}
-{% load static fin %}
+{% load static fin note_tags %}
 
 {% block page_key %}journal{% endblock %}
 
@@ -11,7 +11,7 @@
 <section class="page">
 
     <div class="page__head">
-        <h1 class="page__title">Journal Entries</h1>
+        <h1 class="page__title">Journal Entries{% notes_pill %}</h1>
         <p class="page__note">
             A journal is a detailed running record of all of a business's financial transactions. 
             It is used to reconcile accounts and is transferred to other accounting records, such 
@@ -38,7 +38,7 @@
             <span class="tool__sep" aria-hidden="true"></span>
             {% comment %} base.js must call window.print() for a button with
                  the data-print attribute. {% endcomment %}
-            <button class="tool" type="button">
+            <button class="tool" type="button" data-note-new>
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 4h9l3 3v13H6V4z" stroke-linejoin="round"/><path d="M15 4v4h4" stroke-linejoin="round"/><path d="M9 13h6M12 10v6" stroke-linecap="round"/>
                 </svg>
                 Note
@@ -368,6 +368,7 @@
             </div>
         </form>
     </dialog>
+    {% notes_section %}
 </section>
 {% endblock %}
 

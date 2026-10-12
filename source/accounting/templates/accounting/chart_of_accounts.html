@@ -1,5 +1,5 @@
 {% extends "accounting/module_base.html" %}
-{% load static %}
+{% load static note_tags %}
 
 {% block page_key %}accounts{% endblock %}
 
@@ -13,7 +13,7 @@
 <section class="page">
 
 <div class="page__head">
-    <h1 class="page__title">Chart of Accounts</h1>
+    <h1 class="page__title">Chart of Accounts{% notes_pill %}</h1>
     <p class="page__note">
         The chart of accounts is the list of all accounts in the books.
         Each account has a code, a name and a type. The tabs sort the
@@ -47,7 +47,7 @@
             Archive
         </button>
         <span class="tool__sep" aria-hidden="true"></span>
-        <button class="tool" type="button">
+        <button class="tool" type="button" data-note-new>
             <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 4h9l3 3v13H6V4z" stroke-linejoin="round"/><path d="M15 4v4h4" stroke-linejoin="round"/><path d="M9 13h6M12 10v6" stroke-linecap="round"/>
             </svg>
             Note
@@ -234,6 +234,7 @@
     </form>
 </dialog>
 
+    {% notes_section %}
 </section>
 {% endblock %}
 
