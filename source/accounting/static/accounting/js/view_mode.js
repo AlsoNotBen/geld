@@ -5,7 +5,11 @@
    on the shell: data-view="easy" or data-view="standard".
 
        easy       1 234.00    -1 234.00    (colored)
-       standard   1,234.00    (1,234.00)   (no color)
+       standard   1 234.00    (1 234.00)   (no color)
+
+   The thousands separator is always a no-break space, as in base.js, thus a
+   number does not break across two lines. The mode changes only the colors
+   and the form of a negative number.
 
    The script reads a comma, a no-break space or a narrow no-break space as
    the thousands separator, and also a number with no separator (1234.00).
@@ -19,15 +23,16 @@
     var shell = document.querySelector(".shell[data-view]");
     if (!shell) return;
     var easy = shell.dataset.view === "easy";
+    var SPACE = "\u00a0";
     var NUM = /(\(?)([-\u2212]?)(\d{1,3}(?:[,\u00a0\u202f]\d{3})+(?:\.\d+)?|\d+\.\d+)(\)?)/g;
-    var ONLY = /^\s*\(?-?(?:\d{1,3}(?:[, ]\d{3})+(?:\.\d+)?|\d+\.\d+)\)?\s*$/;
+    var ONLY = /^\s*\(?-?(?:\d{1,3}(?:[,\u00a0\u202f]\d{3})+(?:\.\d+)?|\d+\.\d+)\)?\s*$/;
     var TAGGED = ".is-debit, .is-credit, .is-overdue, .is-count";
     var SKIP = ".table--ledger td:nth-child(4), .table--ledger td:nth-child(5)";
 
     function format(match, open, sign, digits, close) {
         var negative = sign || (open && close);
         var parts = digits.replace(/[,\u00a0\u202f]/g, "").split(".");
-        var whole = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, easy ? " " : ",");
+        var whole = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, SPACE);
         var text = parts[1] ? whole + "." + parts[1] : whole;
         if (negative) text = easy ? "-" + text : "(" + text + ")";
         // Keep a bracket that is not part of the number.

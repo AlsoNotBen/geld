@@ -1,9 +1,10 @@
 """
 documents/forms.py
 ------------------------------------------------------------------------
-The base form with the render options, and two reusable widgets:
+The base form with the render options, and three reusable widgets:
 
     SelectWithAddButton   a select with a small "+" button at its side
+    SelectWithSearch      a select with a search button at its side
     LineItemsField        an editor for line items (add, remove, edit)
 
 A module extends DocumentOptionsForm for each of its document types.
@@ -32,11 +33,11 @@ hex_color = RegexValidator(
 def _search_button(action, label):
     """Return a search button with a magnifier icon.
 
-    Like the "+" button, it only sends a "doc:action" event (see
-    documents.js). Another script opens the search.
+    documents.js opens a search field below the row of the button. The
+    field searches the options of the select in the same row.
     """
     return format_html(
-        '<button type="button" class="doc-inline__search" data-doc-action="{}"'
+        '<button type="button" class="doc-inline__search" data-doc-search="{}"'
         ' title="{}" aria-label="{}">'
         '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">'
         '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4" stroke-linecap="round"/>'
@@ -55,6 +56,8 @@ class SelectWithAddButton(forms.Select):
         document.addEventListener("doc:action", function (e) {
             if (e.detail.action === "new-customer") { ... }
         });
+
+    Give search_action to add a search button (see _search_button).
     """
 
     def __init__(self, attrs=None, choices=(), action="", button_label="Add",
@@ -75,6 +78,22 @@ class SelectWithAddButton(forms.Select):
             '<button type="button" class="doc-inline__add" data-doc-action="{}"'
             ' title="{}" aria-label="{}">+</button></span>',
             select, search, self.action, self.button_label, self.button_label,
+        )
+
+
+class SelectWithSearch(forms.Select):
+    """A select with an inline search button (see _search_button)."""
+
+    def __init__(self, attrs=None, choices=(), search_action="search", search_label="Search"):
+        super().__init__(attrs, choices)
+        self.search_action = search_action
+        self.search_label = search_label
+
+    def render(self, name, value, attrs=None, renderer=None):
+        return format_html(
+            '<span class="doc-inline">{}{}</span>',
+            super().render(name, value, attrs, renderer),
+            _search_button(self.search_action, self.search_label),
         )
 
 

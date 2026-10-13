@@ -1,21 +1,24 @@
 """
 documents/views.py
 ------------------------------------------------------------------------
-Three generic views serve every registered document type:
+Four generic views serve every registered document type:
 
     panel     the overlay content (options form + preview frame)
     preview   the PDF, shown inline in the preview frame
     download  the same PDF, sent as a file download
+    save      the Save button: it issues the document without a PDF
 
 The views take the options from the query string. Thus the preview
 frame and the download link share one URL format, and the browser can
-cache nothing stale: a new option value gives a new URL.
+cache nothing stale: a new option value gives a new URL. The save view
+takes the options from the POST data.
 """
 
-from django.http import Http404, HttpResponse, HttpResponseBadRequest
+from django.core.exceptions import ValidationError
+from django.http import Http404, HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.shortcuts import render
 from django.views.decorators.clickjacking import xframe_options_sameorigin
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 from .registry import registry
 from .renderers import render_pdf
 
@@ -66,6 +69,24 @@ def preview(request, module, key):
 def download(request, module, key):
     """Return the PDF as a file download."""
     return _pdf_response(request, module, key, inline=False)
+
+
+@require_POST
+def save(request, module, key):
+    """Issue the document, as a download does, but make no PDF. E.g. an
+    invoice gets its number and its journal entry. documents.js sends
+    the options form and reads the JSON answer: saved, or the errors."""
+    document = _get_document(module, key)
+    form = document.get_options_form(data=request.POST, request=request)
+    if form.is_valid():
+        try:
+            document.issue(request, form.cleaned_data)
+            return JsonResponse({"saved": True})
+        except ValidationError as error:
+            form.add_error(None, error)
+    errors = [f"{form.fields[name].label}: {message}" if name in form.fields else message
+              for name, messages in form.errors.items() for message in messages]
+    return JsonResponse({"errors": errors}, status=400)
 
 
 def _pdf_response(request, module, key, inline):

@@ -105,24 +105,21 @@ def post_invoice_entry(company, number, date, total, tax, narration="", entity=N
     """Write the draft ACCRUAL entry of a sales invoice. Do nothing when the invoice has an entry.
 
     The receivable line keeps the entity, thus the statement of the customer finds it.
+    A missing account or open period raises a ValidationError that tells the user.
     """
     entries = JournalEntry.objects.filter(company=company, entry_type=JournalEntry.EntryType.SALES, reference=number)
     if entries.exclude(status=JournalEntry.Status.VOID).exists():
         return None
 
-    def account(name):
-        return Account.objects.get(company=company, name=name)
-
     with transaction.atomic():
         entry = JournalEntry.objects.create(
-            company=company, date=date,
-            period=Period.objects.get(company=company, start_date__lte=date, end_date__gte=date),
+            company=company, date=date, period=_open_period(company, date),
             entry_type=JournalEntry.EntryType.SALES, basis=JournalEntry.Basis.ACCRUAL,
             status=JournalEntry.Status.DRAFT, reference=number, narration=narration,
         )
-        _add(entry, account(RECEIVABLE), total, entity=entity)
-        _add(entry, account("Sales"), -(total - tax))
-        _add(entry, account("VAT Control"), -tax)
+        _add(entry, _account(company, RECEIVABLE), total, entity=entity)
+        _add(entry, _account(company, "Sales"), -(total - tax))
+        _add(entry, _account(company, VAT), -tax)
     return entry
 
 

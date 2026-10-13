@@ -11,8 +11,8 @@ from django.utils import timezone
 from decimal import Decimal, InvalidOperation
 from accounting.models import *
 from accounting.date_range import get_range, previous_range
-from accounting.forms import BillForm, NoteForm, PaymentForm
-from accounting.posting import post_bill, post_payment
+from accounting.forms import BillForm, NoteForm, PaymentForm, SupplierForm
+from accounting.posting import PAYABLE, post_bill, post_payment
 from datetime import datetime, timedelta
 from filestore.services import save_upload, validate
 
@@ -229,9 +229,6 @@ def journalentry_void(request, pk):
             status=JournalEntry.Status.VOID,
         )
     return redirect("accounting:journals")
-
-def invoices(request):
-    return render(request, "accounting/invoices.html")
 
 def payment_create(request):
     """The Save button of the Record Payment overlay. payment_form.js sends
@@ -828,13 +825,41 @@ def bill_deny(request, pk):
     return redirect("accounting:bills")
 
 def suppliers(request):
-    return render(request, "accounting/suppliers.html")
+    """Each entity with supplier details or with a bill. The balance is the
+    money that the business owes: the posted Accounts Payable lines of the
+    supplier (see post_bill and post_payment). The balance is overdue when
+    an unpaid bill is after its due date."""
+    company = request.company
+    S = Document.Status
+    entities = (Entity.objects.filter(company=company)
+                .filter(Q(supplier__isnull=False) | Q(documents__doc_type=Document.DocType.BILL))
+                .distinct().select_related("supplier").order_by("name"))
+    balances = dict(JournalLine.objects
+                    .filter(entry__company=company, entry__status=JournalEntry.Status.POSTED, account__name=PAYABLE)
+                    .exclude(entry__basis=JournalEntry.Basis.CASH)
+                    .values_list("entity")
+                    .annotate(balance=Sum("base_credit") - Sum("base_debit")))
+    late = set(Document.objects
+               .filter(company=company, doc_type=Document.DocType.BILL, status__in=[S.SENT, S.APPROVED, S.PART_PAID],
+                       due__lt=timezone.localdate())
+               .values_list("entity_id", flat=True))
+    rows = []
+    for entity in entities:
+        details = getattr(entity, "supplier", None)
+        balance = balances.get(entity.id, ZERO)
+        rows.append({
+            "code": details and details.code,
+            "name": entity.name,
+            "contact": details and details.contact,
+            "terms": details and details.get_terms_display(),
+            "is_active": entity.is_active,
+            "balance": balance,
+            "is_overdue": balance > 0 and entity.id in late,
+        })
+    return render(request, "accounting/suppliers.html", {"suppliers": rows})
 
 def claims(request):
     return render(request, "accounting/claims.html")
-
-def accounting_settings(request):
-    return render(request, "accounting/accounting_settings.html")
 
 def module_settings(request):
     company = request.company
@@ -872,7 +897,27 @@ def customer_dashboard(request):
 
 # Suppliers
 def supplier_new(request):
-    return render(request, "accounting/supplier_new.html")
+    """The New Supplier page. Save makes the entity (an organization), its
+    profile and the supplier details. The browser then goes to the Suppliers page."""
+    form = SupplierForm(request.POST or None, company=request.company)
+    if form.is_valid():
+        data = form.cleaned_data
+        with transaction.atomic():
+            entity = Entity.objects.create(
+                company=request.company,                        # Add to every function that creates a CompanyOwned record
+                created_by=request.user, name=data["name"], type=Entity.EntityType.ORGANIZATION,
+                email=data["email"], phone=data["phone"],
+            )
+            OrganizationProfile.objects.create(entity=entity, legal_name=data["name"], tax_number=data["vat_number"])
+            supplier = form.save(commit=False)
+            supplier.company = request.company                  # Add to every function that creates a CompanyOwned record
+            supplier.entity = entity
+            supplier.created_by = request.user
+            supplier.save()
+            if supplier.code == NumberSequence.peek(request.company, "supplier", "SUP-"):
+                NumberSequence.take(request.company, "supplier")
+        return redirect("accounting:suppliers")
+    return render(request, "accounting/supplier_new.html", {"form": form})
 
 def payables(request):
     return render(request, "accounting/payables.html")

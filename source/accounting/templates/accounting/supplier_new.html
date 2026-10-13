@@ -4,7 +4,8 @@
   ============================================================================
   accounting/templates/accounting/supplier_new.html
   ----------------------------------------------------------------------------
-  Fill in the fields below to add a supplier. It is a shell: the data below is dummy data in the markup.
+  Fill in the fields below to add a supplier. SupplierForm gives the fields.
+  Save makes the supplier, then the browser goes to the Suppliers page.
   ============================================================================
 {% endcomment %}
 
@@ -22,45 +23,25 @@
         <p class="page__note">Fill in the fields below to add a supplier.</p>
     </div>
 
-    <form class="card" method="post" enctype="multipart/form-data">
+    <form class="card" method="post">
         {% csrf_token %}
         <div class="sheet__body sheet__body--split">
-            <div class="field">
-                <label class="field__label" for="f-name">Name</label>
-                <input class="field__control" id="f-name" name="name" type="text" value="">
+            {% if form.errors %}
+            <div class="sheet__errors field--wide" role="alert">
+                {% for field in form %}{% for error in field.errors %}<p>{{ field.label }}: {{ error }}</p>{% endfor %}{% endfor %}
+                {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
             </div>
+            {% endif %}
+            {% for field in form %}
             <div class="field">
-                <label class="field__label" for="f-code">Code</label>
-                <input class="field__control" id="f-code" name="code" type="text" value="SUP-005">
+                <label class="field__label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
             </div>
-            <div class="field">
-                <label class="field__label" for="f-contact">Contact person</label>
-                <input class="field__control" id="f-contact" name="contact" type="text" value="">
-            </div>
-            <div class="field">
-                <label class="field__label" for="f-email">Email</label>
-                <input class="field__control" id="f-email" name="email" type="email" value="">
-            </div>
-            <div class="field">
-                <label class="field__label" for="f-phone">Phone</label>
-                <input class="field__control" id="f-phone" name="phone" type="tel" value="">
-            </div>
-            <div class="field">
-                <label class="field__label" for="f-vat_number">VAT number</label>
-                <input class="field__control" id="f-vat_number" name="vat_number" type="text" value="">
-            </div>
-            <div class="field">
-                <label class="field__label" for="f-terms">Payment terms</label>
-                <select class="field__control" id="f-terms" name="terms"><option>30 days</option><option>15 days</option><option>Monthly</option><option>On receipt</option></select>
-            </div>
-            <div class="field">
-                <label class="field__label" for="f-bank_account">Bank account</label>
-                <input class="field__control" id="f-bank_account" name="bank_account" type="text" value="">
-            </div>
+            {% endfor %}
         </div>
         <div class="sheet__foot">
             <button class="tool tool--primary" type="submit">Save Supplier</button>
-            <button class="tool tool--ghost" type="reset">Cancel</button>
+            <a class="tool tool--ghost" href="{% url 'accounting:suppliers' %}">Cancel</a>
         </div>
     </form>
 </section>

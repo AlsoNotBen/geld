@@ -1,5 +1,5 @@
 {% extends "accounting/module_base.html" %}
-{% load static fin %}
+{% load static fin note_tags %}
 
 {% comment %}
   ============================================================================
@@ -15,6 +15,7 @@
 
   The New Bill button opens #bill-dialog. bills.js sends the form with
   fetch(). A new bill is a draft. Approve posts its entry to the ledger.
+  The Note button opens the New Note overlay (see note_tags.py).
   ============================================================================
 {% endcomment %}
 
@@ -28,7 +29,7 @@
 <section class="page">
 
     <div class="page__head">
-        <h1 class="page__title">Bills</h1>
+        <h1 class="page__title">Bills{% notes_pill %}</h1>
         <p class="page__note">A bill is an invoice that a supplier sends to the business. Review each new bill, then pay it before the due date.</p>
     </div>
 
@@ -37,6 +38,10 @@
             <button class="tool tool--primary" type="button" data-bill-new>
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
                 New Bill
+            </button>
+            <button class="tool" type="button" data-note-new>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 4h9l3 3v13H6V4z" stroke-linejoin="round"/><path d="M15 4v4h4" stroke-linejoin="round"/><path d="M9 13h6M12 10v6" stroke-linecap="round"/></svg>
+                Note
             </button>
             <button class="tool" type="button" data-print>
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
@@ -194,6 +199,8 @@
             .tabset__print-title { display: block; margin: 0 0 14px; font-size: 15px; font-weight: 600; color: var(--ink); }
         </style>
     </noscript>
+
+    {% notes_section %}
 
     {# ============================= NEW BILL ============================= #}
     <dialog class="sheet sheet--wide" id="bill-dialog" aria-labelledby="bill-dialog-title">

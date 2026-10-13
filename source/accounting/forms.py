@@ -1,7 +1,8 @@
 import datetime
 from django import forms
 from django.utils import timezone
-from accounting.models import BankAccount, Document, Entity, Note, NumberSequence, Payment, in_one_month
+from accounting.models import BankAccount, Document, Entity, Note, NumberSequence, Payment, Supplier, in_one_month
+from documents.forms import SelectWithSearch
 
 
 class PaymentForm(forms.ModelForm):
@@ -13,7 +14,10 @@ class PaymentForm(forms.ModelForm):
         model = Payment
         fields = ["number", "date", "direction", "entity", "bank_account", "amount", "reference"]
         labels = {"number": "Payment number", "entity": "Customer or supplier"}
-        widgets = {"date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d")}
+        widgets = {
+            "date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "entity": SelectWithSearch(search_action="search-entity", search_label="Search the customers and suppliers"),
+        }
 
     def __init__(self, *args, company=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -55,6 +59,7 @@ class BillForm(forms.ModelForm):
         fields = ["number", "entity", "date", "due", "notes"]
         labels = {"number": "Bill number", "entity": "Supplier", "due": "Due date"}
         widgets = {
+            "entity": SelectWithSearch(search_action="search-supplier", search_label="Search the suppliers"),
             "date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
             "due": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
             "notes": forms.TextInput(),
@@ -65,7 +70,9 @@ class BillForm(forms.ModelForm):
         self.company = company
         self.fields["entity"].queryset = Entity.objects.filter(company=company, is_active=True).order_by("name")
         if not self.is_bound:
-            self.initial.update(number=NumberSequence.peek(company, "bill", "BILL-"), date=datetime.date.today())
+            today = datetime.date.today()
+            self.initial.update(number=NumberSequence.peek(company, "bill", "BILL-"), date=today,
+                                due=today + datetime.timedelta(days=14))
         for field in self.fields.values():
             field.widget.attrs["class"] = "field__control"
 
@@ -81,6 +88,37 @@ class BillForm(forms.ModelForm):
         if data.get("date") and data.get("due") and data["due"] < data["date"]:
             self.add_error("due", "The due date must be on or after the bill date.")
         return data
+
+
+class SupplierForm(forms.ModelForm):
+    """The fields of the New Supplier page. The view makes the entity and its
+    organization profile from the name, the email, the phone and the VAT number."""
+
+    name = forms.CharField(label="Name", max_length=255)
+    email = forms.EmailField(label="Email", required=False)
+    phone = forms.CharField(label="Phone", max_length=50, required=False)
+    vat_number = forms.CharField(label="VAT number", max_length=50, required=False)
+
+    field_order = ["name", "code", "contact", "email", "phone", "vat_number", "terms", "bank_account"]
+
+    class Meta:
+        model = Supplier
+        fields = ["code", "contact", "terms", "bank_account"]
+        labels = {"contact": "Contact person", "terms": "Payment terms"}
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.company = company
+        if not self.is_bound:
+            self.initial["code"] = NumberSequence.peek(company, "supplier", "SUP-")
+        for field in self.fields.values():
+            field.widget.attrs["class"] = "field__control"
+
+    def clean_code(self):
+        code = self.cleaned_data["code"]
+        if Supplier.objects.filter(company=self.company, code=code).exists():
+            raise forms.ValidationError("Another supplier has this code.")
+        return code
 
 
 class NoteForm(forms.ModelForm):

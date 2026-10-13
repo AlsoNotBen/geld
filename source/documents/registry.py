@@ -8,6 +8,7 @@ The generic views then serve the document at these paths:
     /documents/<module>/<key>/panel/          overlay content
     /documents/<module>/<key>/preview.pdf     PDF for the preview frame
     /documents/<module>/<key>/download.pdf    PDF as a download
+    /documents/<module>/<key>/save/           issue without a PDF (POST)
 """
 
 from .forms import DocumentOptionsForm
@@ -33,7 +34,7 @@ class DocumentType:
         return self.options_form_class(data=data)
 
     def issue(self, request, options):
-        """The user downloads or sends the document. Override this in a subclass."""
+        """The user saves, downloads or sends the document. Override this in a subclass."""
 
     def get_context(self, request, options):
         """Return the template context. Override this in a subclass.

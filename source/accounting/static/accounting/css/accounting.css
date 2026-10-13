@@ -599,6 +599,8 @@
 }
 .field__control:focus { outline: none; border-color: var(--gold-line); }
 .field__control:disabled { opacity: 0.55; cursor: not-allowed; }
+/* A multi-line field, e.g. the address of the lead form. */
+textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
 
 /* ================================================================== */
 /*  PAGE                                                              */
@@ -648,16 +650,36 @@
    below it. The paragraph tells the reader what the page is, what the
    figures are for, and which period and currency they hold. */
 .page__head { margin: 0 0 20px; }
-.page__head .page__title { margin-bottom: 8px; }
 
+/* The paragraph stays hidden until the user clicks the Info button of
+   the title. page_note.js adds the button, and the button sets the
+   class is-open on the head. */
 .page__head > .page__note {
-    margin: 0;
+    display: none;
+    margin: 8px 0 0;
     width: 100%;
     max-width: none;
     color: var(--ink-soft);
     font-size: 13px;
     line-height: 1.55;
 }
+.page__head.is-open > .page__note { display: block; }
+
+/* The Info button. It is small and grey, thus it does not pull the eye. */
+.page__info {
+    align-self: center;
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    margin-left: -4px;
+    border-radius: 50%;
+    color: var(--tool-action);
+    transition: color 0.12s ease;
+}
+.page__info:hover,
+.page__info[aria-expanded="true"] { color: var(--ink-soft); }
+.page__info .icon { width: 16px; height: 16px; stroke: currentColor; }
 
 .page__note {
     margin: 0;
@@ -1566,9 +1588,6 @@
 .note-read { margin: 0; font-size: 13px; color: var(--ink); }
 .note-hint { margin: 0; font-size: 12px; line-height: 1.5; color: var(--ink-soft); }
 
-/* The plain text field shows only if Quill does not load. */
-#note-new textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
-
 /* The Quill editor. quill.snow.css has a light theme. These rules give
    it the colors of the module. The id wins over the rules of Quill. */
 #note-new .ql-toolbar.ql-snow,
@@ -1729,13 +1748,14 @@
 /* ================================================================== */
 @media print {
     .ribbon, .context, .sidebar, .footer, .scrim, .drawer-toggle,
-    .actionbar, .review, .tbar-menu__panel { display: none !important; }
+    .actionbar, .review, .tbar-menu__panel, .page__info { display: none !important; }
     .shell { display: block; }
     .main { padding: 0; overflow: visible; }
     body { background: #FFFFFF; color: #000000; }
 
     .page__title, .page__subtitle, .card__value { color: #000000; }
     .page__note { color: #333333; }
+    .page__head > .page__note { display: block; }   /* Paper always shows the paragraph. */
     .card__label { color: #7A5B22; }
     .card, .table {
         background: #FFFFFF;
@@ -1790,8 +1810,13 @@
 .sheet__body--split {
     grid-template-columns: 1fr 1fr;
     column-gap: 18px;
+    align-items: start;     /* A field stays at the top when the field next to it is higher, e.g. an open search. */
 }
 .sheet__body--split .field--wide { grid-column: 1 / -1; }
+
+/* A heading above a group of fields, e.g. on the Module Settings page. */
+.sheet__group { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink); }
+.sheet__group:not(:first-child) { margin-top: 10px; padding-top: 18px; border-top: 1px solid var(--line); }
 
 @media (max-width: 900px) {
     .sheet--wide { width: calc(100vw - 32px); }
@@ -2298,7 +2323,7 @@
 /* ---- Lead overlay ------------------------------------------------- */
 /* The overlay shows data, thus it has no fields. The rows use the
    .field block, and the value replaces the control. */
-.lead__read { margin: 0; font-size: 13px; color: var(--ink); }
+.lead__read { margin: 0; font-size: 13px; color: var(--ink); white-space: pre-line; }   /* pre-line keeps the line breaks */
 
 .lead__gauges--wide {
     grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -21,8 +21,8 @@
 
   Blocks that a page can override:
     title            Text for the browser tab.
-    page_key         The key of the side panel item: dashboard, invoices,
-                     bills, journal, accounts, reports or settings.
+    page_key         The key of the side panel item: dashboard, bills,
+                     journal, accounts, reports or settings.
     breadcrumb       The breadcrumb trail.
     toolbar          The tool buttons. Use {% verbatim %}{{ block.super }}{% endverbatim %} to keep the
                      default buttons and to add more.
@@ -226,8 +226,8 @@
 
 
             <div class="nav__group">Bookkeeping</div>
-            {% comment %} The journals view puts pending_count in the context.
-                 A page without that value shows no pill. {% endcomment %}
+            {% comment %} The pending_entries context processor gives pending_count
+                 and pending_bills. A zero shows no pill. {% endcomment %}
             <a class="nav__item" data-nav="journal" href="{% url 'accounting:journals' %}">
                 Journal Entries
                 {% if pending_count %}<span class="nav__count">{{ pending_count }}</span>{% endif %}
@@ -240,13 +240,15 @@
             <a class="nav__item" data-nav="equity" href="{% url 'accounting:equity' %}">Equity and Notes</a>
 
             <div class="nav__group">Cost Centre</div>
-            <a class="nav__item" data-nav="bills" href="{% url 'accounting:bills' %}">Bills</a>
+            <a class="nav__item" data-nav="bills" href="{% url 'accounting:bills' %}">
+                Bills
+                {% if pending_bills %}<span class="nav__count">{{ pending_bills }}</span>{% endif %}
+            </a>
             <a class="nav__item" data-nav="suppliers" href="{% url 'accounting:suppliers' %}">Suppliers</a>
             <a class="nav__item" data-nav="claims" href="{% url 'accounting:claims' %}">Claims</a>
 
             <div class="nav__group">General</div>
-            <a class="nav__item" data-nav="accountingsettings" href="{% url 'accounting:accounting_settings' %}">Accounting Settings</a>
-            <a class="nav__item" data-nav="settings" href="{% url 'accounting:module_settings' %}">Module settings</a>
+            <a class="nav__item" data-nav="settings" href="{% url 'accounting:module_settings' %}">Module Settings</a>
         </nav>
 
         {% block sidebar_extra %}{% endblock %}
@@ -282,4 +284,5 @@
 <script src="{% static 'accounting/js/view_mode.js' %}"></script>
 <script src="{% static 'filestore/js/filestore.js' %}"></script>
 <script src="{% static 'accounting/js/payment_form.js' %}"></script>
+<script src="{% static 'accounting/js/page_note.js' %}"></script>
 {% endblock %}

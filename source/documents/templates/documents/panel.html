@@ -10,16 +10,21 @@ documents.js reads these data attributes:
     data-doc-panel           the root of the panel
     data-preview-url         the PDF preview endpoint
     data-download-url        the PDF download endpoint
+    data-save-url            the save endpoint (issues the document)
+    data-csrf                the CSRF token for the save endpoint
     data-doc-form            the options form
     data-doc-preview         the preview <iframe>
     data-doc-download        the download link
+    data-doc-save            the save button
     data-doc-send            the send button (messaging.js opens its overlay)
     data-doc-close           each element that closes the overlay
 ============================================================================
 {% endcomment %}
 <section class="doc-panel" data-doc-panel
          data-preview-url="{% url 'documents:preview' document.module document.key %}"
-         data-download-url="{% url 'documents:download' document.module document.key %}">
+         data-download-url="{% url 'documents:download' document.module document.key %}"
+         data-save-url="{% url 'documents:save' document.module document.key %}"
+         data-csrf="{{ csrf_token }}">
 
     <header class="doc-panel__head">
         <div>
@@ -90,7 +95,7 @@ documents.js reads these data attributes:
                 Close
             </button>
 
-            <button class="tool" type="button" data-doc-close>
+            <button class="tool" type="button" data-doc-save>
                 <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                     <path d="M5 4h11l3 3v13H5V4z"
                         stroke="currentColor"

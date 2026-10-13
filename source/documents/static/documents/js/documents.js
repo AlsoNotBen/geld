@@ -90,6 +90,35 @@
         panel.querySelectorAll("[data-doc-close]").forEach(function (btn) {
             btn.addEventListener("click", function () { dialog.close(); });
         });
+
+        // The Save button issues the document, as a download does, but
+        // makes no PDF. E.g. an invoice gets its journal entry. After a
+        // save, the page loads again with a GET, thus the browser does not
+        // send a page form again. An error shows in the hint.
+        var save = panel.querySelector("[data-doc-save]");
+        var hint = panel.querySelector(".doc-panel__hint");
+        if (save && form) save.addEventListener("click", function () {
+            function fail(errors) {
+                hint.textContent = errors.join(" ");
+                hint.classList.add("is-error");
+                save.disabled = false;
+            }
+            save.disabled = true;
+            fetch(panel.getAttribute("data-save-url"), {
+                method: "POST",
+                body: new FormData(form),
+                headers: { "X-CSRFToken": panel.getAttribute("data-csrf"), "Accept": "application/json" }
+            })
+                .then(function (response) { return response.json(); })
+                .then(function (data) {
+                    if (data.saved) {
+                        window.location.assign(window.location.pathname + window.location.search);
+                        return;
+                    }
+                    fail(data.errors || ["The document was not saved."]);
+                })
+                .catch(function () { fail(["The document was not saved. Try again."]); });
+        });
     }
 
     // The line item editor. The row inputs have no name attribute, thus
@@ -211,6 +240,91 @@
         if (!trigger) return;
         e.preventDefault();
         openOverlay(trigger.getAttribute("data-doc-overlay"));
+    });
+
+    // The search button of a widget (data-doc-search, see _search_button
+    // in documents/forms.py) opens a search field below its row. The
+    // field searches the options of the select in the same row, e.g. the
+    // customers or the catalog items. A second click closes the field.
+    function toggleSearch(button) {
+        var row = button.parentElement;
+        var select = row.querySelector("select");
+        var open = row.nextElementSibling;
+        if (open && open.hasAttribute("data-doc-search-box")) {
+            open.remove();
+            return;
+        }
+
+        var box = document.createElement("div");
+        box.className = "doc-search";
+        box.setAttribute("data-doc-search-box", "");
+        box.innerHTML =
+            '<input type="search" placeholder="Type to search" autocomplete="off">' +
+            '<div class="doc-search__list"></div>';
+        var input = box.querySelector("input");
+        var list = box.querySelector(".doc-search__list");
+        input.setAttribute("aria-label", button.getAttribute("aria-label"));
+        row.after(box);
+
+        // Each word of the search must be in the text of the option.
+        function show() {
+            var words = input.value.toLowerCase().split(/\s+/).filter(Boolean);
+            list.innerHTML = "";
+            Array.prototype.forEach.call(select.options, function (option) {
+                var text = option.text.toLowerCase();
+                if (!option.value) return;
+                if (!words.every(function (word) { return text.indexOf(word) >= 0; })) return;
+                var item = document.createElement("button");
+                item.type = "button";
+                item.className = "doc-search__item";
+                item.textContent = option.text;
+                item.addEventListener("click", function () { pick(option); });
+                list.appendChild(item);
+            });
+            if (!list.children.length) list.innerHTML = '<p class="doc-search__none">No match.</p>';
+        }
+
+        // Select the option. In the catalog row, the "+" button then adds
+        // the item as a line (see wireLines). The change event refreshes
+        // the preview.
+        function pick(option) {
+            select.value = option.value;
+            box.remove();
+            var add = row.querySelector("[data-line-add-catalog]");
+            if (add) {
+                add.click();
+            } else {
+                select.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+            select.focus();
+        }
+
+        input.addEventListener("input", show);
+        // The search field is not an option of the document. Thus its
+        // change event must not refresh the preview.
+        input.addEventListener("change", function (e) { e.stopPropagation(); });
+        // Enter selects the first result. It does not send the form.
+        input.addEventListener("keydown", function (e) {
+            if (e.key !== "Enter") return;
+            e.preventDefault();
+            var first = list.querySelector("button");
+            if (first) first.click();
+        });
+        // Escape closes the search field, not the overlay.
+        box.addEventListener("keydown", function (e) {
+            if (e.key !== "Escape") return;
+            e.preventDefault();
+            box.remove();
+            button.focus();
+        });
+
+        show();
+        input.focus();
+    }
+
+    document.addEventListener("click", function (e) {
+        var button = e.target.closest("[data-doc-search]");
+        if (button) toggleSearch(button);
     });
 
     // A widget button with data-doc-action opens nothing itself. This

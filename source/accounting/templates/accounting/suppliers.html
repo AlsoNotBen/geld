@@ -1,10 +1,15 @@
 {% extends "accounting/module_base.html" %}
+{% load fin note_tags %}
 
 {% comment %}
   ============================================================================
   accounting/templates/accounting/suppliers.html
   ----------------------------------------------------------------------------
-  This page shows all the suppliers of the business and the money that the business owes to each supplier. It is a shell: the data below is dummy data in the markup.
+  This page shows all the suppliers of the business and the money that the
+  business owes to each supplier. A supplier is an entity with supplier
+  details (New Supplier) or with a bill. The view gives one row for each:
+      code · name · contact · terms · is_active · balance · is_overdue
+  An entity with a bill only has no code, contact or terms.
   ============================================================================
 {% endcomment %}
 
@@ -18,15 +23,19 @@
 <section class="page">
 
     <div class="page__head">
-        <h1 class="page__title">Suppliers</h1>
+        <h1 class="page__title">Suppliers{% notes_pill %}</h1>
         <p class="page__note">This page shows all the suppliers of the business and the money that the business owes to each supplier.</p>
     </div>
 
     <div class="actionbar" role="group" aria-label="Page controls">
         <div class="actionbar__group">
-            <button class="tool tool--primary" type="button">
+            <a class="tool tool--primary" href="{% url 'accounting:supplier_new' %}">
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
                 New Supplier
+            </a>
+            <button class="tool" type="button" data-note-new>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 4h9l3 3v13H6V4z" stroke-linejoin="round"/><path d="M15 4v4h4" stroke-linejoin="round"/><path d="M9 13h6M12 10v6" stroke-linecap="round"/></svg>
+                Note
             </button>
             <button class="tool" type="button" data-print>
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
@@ -39,16 +48,26 @@
         </div>
     </div>
 
-    <table class="table">
+    <table class="table" data-num>
         <thead>
             <tr><th>Code</th><th>Supplier</th><th>Contact</th><th>Terms</th><th>Status</th><th>Balance</th></tr>
         </thead>
         <tbody>
-            <tr><td>SUP-001</td><td>Cape Office Supplies</td><td>Thandi Mokoena</td><td>30 days</td><td><span class="status status--ok">Active</span></td><td class="is-debit">3,240.00</td></tr>
-            <tr><td>SUP-002</td><td>Highveld Fuel Services</td><td>Pieter van Wyk</td><td>15 days</td><td><span class="status status--ok">Active</span></td><td class="is-overdue">12,880.00</td></tr>
-            <tr><td>SUP-003</td><td>Drakensberg Print Co.</td><td>Aisha Patel</td><td>30 days</td><td><span class="status status--ok">Active</span></td><td class="is-debit">0.00</td></tr>
-            <tr><td>SUP-004</td><td>Atlantic Cloud Hosting</td><td>Mark Daniels</td><td>Monthly</td><td><span class="status status--idle">Inactive</span></td><td class="is-debit">1,990.00</td></tr>
+            {% for supplier in suppliers %}
+            <tr>
+                <td>{{ supplier.code|default:"—" }}</td>
+                <td>{{ supplier.name }}</td>
+                <td>{{ supplier.contact|default:"—" }}</td>
+                <td>{{ supplier.terms|default:"—" }}</td>
+                <td>{% if supplier.is_active %}<span class="status status--ok">Active</span>{% else %}<span class="status status--idle">Inactive</span>{% endif %}</td>
+                <td class="{% if supplier.is_overdue %}is-overdue{% else %}is-debit{% endif %}">{{ supplier.balance|money }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6">There are no suppliers. Use New Supplier to add one.</td></tr>
+            {% endfor %}
         </tbody>
     </table>
+
+    {% notes_section %}
 </section>
 {% endblock %}

@@ -7,4 +7,5 @@ urlpatterns = [
     path("<slug:module>/<slug:key>/panel/", views.panel, name="panel"),
     path("<slug:module>/<slug:key>/preview.pdf", views.preview, name="preview"),
     path("<slug:module>/<slug:key>/download.pdf", views.download, name="download"),
+    path("<slug:module>/<slug:key>/save/", views.save, name="save"),
 ]

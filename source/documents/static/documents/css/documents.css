@@ -75,7 +75,8 @@
 }
 .doc-field input,
 .doc-field select,
-.doc-field textarea {
+.doc-field textarea,
+.doc-search input {
     width: 100%;
     font: inherit;
     font-size: 13px;
@@ -89,7 +90,8 @@
 .doc-field input[type="color"] { height: 36px; padding: 3px 4px; cursor: pointer; }
 .doc-field input:focus-visible,
 .doc-field select:focus-visible,
-.doc-field textarea:focus-visible {
+.doc-field textarea:focus-visible,
+.doc-search input:focus-visible {
     outline: 2px solid var(--gold);
     outline-offset: 0;
 }
@@ -162,6 +164,36 @@
     color: var(--gold);
 }
 .doc-inline__search .icon { width: 16px; height: 16px; stroke-width: 1.8; }
+
+/* The search field below the row of a search button (see documents.js).
+   The list holds the options that agree with the search. The Record
+   Payment and New Bill overlays use it too (SelectWithSearch). */
+.doc-search { margin-top: 6px; }
+.doc-search__list {
+    max-height: 220px;
+    overflow-y: auto;
+    margin-top: 4px;
+    padding: 4px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    background: var(--white);
+}
+.doc-search__item {
+    display: block;
+    width: 100%;
+    padding: 6px 8px;
+    border-radius: 6px;
+    text-align: left;
+    font-size: 13px;
+    color: var(--ink);
+}
+.doc-search__item:hover,
+.doc-search__item:focus-visible {
+    background: var(--gold-soft);
+    color: var(--gold);
+    outline: none;
+}
+.doc-search__none { margin: 0; padding: 6px 8px; font-size: 12px; color: var(--ink-soft); }
 
 /* A field that looks disabled, but stays editable. It becomes clear
    again when it gets the focus. */
@@ -252,6 +284,7 @@
     border-top: 1px solid var(--line);
 }
 .doc-panel__hint { font-size: 12px; color: var(--ink-soft); }
+.doc-panel__hint.is-error { color: #E0785E; }   /* A Save error (see documents.js) */
 .doc-panel__actions { display: flex; align-items: center; gap: 10px; }
 
 .doc-panel__foot .tool {

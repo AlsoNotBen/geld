@@ -473,6 +473,28 @@ class BudgetLine(models.Model):
     class Meta:
         unique_together = [("budget", "account", "period", "cost_centre")]
 
+class Supplier(CompanyOwned, TimeStamped):
+    """The details of an entity that sells to the business. The Suppliers
+    page also shows each entity with a bill, without these details."""
+
+    class Terms(models.TextChoices):
+        DAYS_30    = "30", "30 days"
+        DAYS_15    = "15", "15 days"
+        MONTHLY    = "M", "Monthly"
+        ON_RECEIPT = "R", "On receipt"
+
+    entity       = models.OneToOneField(Entity, on_delete=models.PROTECT, related_name="supplier")
+    code         = models.CharField(max_length=20)
+    contact      = models.CharField(max_length=255, blank=True)     # The contact person
+    terms        = models.CharField(max_length=2, choices=Terms.choices, default=Terms.DAYS_30)
+    bank_account = models.CharField(max_length=255, blank=True)     # The bank details for a payment
+
+    class Meta:
+        unique_together = [("company", "code")]
+
+    def __str__(self):
+        return self.code
+
 # TODO: move this model to the Sales app
 class Lead(CompanyOwned,TimeStamped):
     # Temperature scale to measure (subjectively qualify) a lead's enthusiasm about the product

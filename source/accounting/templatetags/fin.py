@@ -8,13 +8,13 @@ register = template.Library()
 
 @register.filter
 def money(value):
-    """A figure of a statement. A negative figure is in brackets. A zero
-    is a dash."""
+    """A figure of a statement. A no-break space goes between the groups of
+    three digits. A negative figure is in brackets. A zero is a dash.
+    view_mode.js shows a negative figure with a minus sign in easy mode."""
     if not value:
         return "\u2014"
-    if value < 0:
-        return f"({-value:,.2f})"
-    return f"{value:,.2f}"
+    text = f"{abs(value):,.2f}".replace(",", "\u00a0")
+    return f"({text})" if value < 0 else text
 
 @register.filter
 def sparkline(values, tone=""):
