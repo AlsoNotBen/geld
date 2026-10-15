@@ -25,7 +25,7 @@ from django import forms
 from django.db import transaction
 from documents.forms import (DocumentOptionsForm, LineItemsField, SelectWithAddButton)
 from documents.registry import DocumentType, register
-from accounting.models import Account, Document, DocumentLine, JournalEntry, JournalLine, NumberSequence, TaxCode
+from accounting.models import Account, AuditLog, Document, DocumentLine, JournalEntry, JournalLine, NumberSequence, TaxCode
 from accounting.posting import RECEIVABLE, post_invoice_entry
 
 
@@ -313,12 +313,14 @@ class InvoiceDocument(SalesDocument):
             super().issue(request, options)
             entry = post_invoice_entry(request.company, options["number"], options["issue_date"],
                                        money["total"], money["tax"], narration=customer["name"], entity=entity)
-            if entry and entity:
-                _invoice_record(request.company, options, entity, entry)
+            if entry:
+                document = _invoice_record(request.company, options, entity, entry) if entity else None
+                AuditLog.record(request, AuditLog.Action.CREATE, document or entry)
 
 
 def _invoice_record(company, options, entity, entry):
-    """Keep an issued invoice as a Document, linked to its entry. The statement reads its due date."""
+    """Keep an issued invoice as a Document, linked to its entry. The statement reads its due date.
+    Returns the document."""
     sales = Account.objects.get(company=company, name="Sales")
     tax_code = (TaxCode.objects.filter(company=company, rate=options["tax_rate"], valid_from__lte=options["issue_date"])
                 .order_by("-valid_from").first())
@@ -332,6 +334,7 @@ def _invoice_record(company, options, entity, entry):
                      quantity=line["quantity"], unit_price=line["unit_price"], sort_order=index)
         for index, line in enumerate(options["line_items"])
     )
+    return document
 
 
 def _ledger(company, entity):

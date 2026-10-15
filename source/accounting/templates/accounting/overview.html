@@ -1,25 +1,36 @@
 {% extends "accounting/module_base.html" %}
-{% load fin note_tags %}
+{% load static fin note_tags %}
 
 {% comment %}
   ============================================================================
   accounting/templates/accounting/overview.html
   ----------------------------------------------------------------------------
-  The first page of the module. It also replaces the Analytics page.
+  The first page of the module. The view is dashboard in overview.py.
 
-  The page follows the pattern of the module:
-      .page__head    the title and the note
-      .actionbar     Print and Export
-      .cards         the position today: invoices, payables and cash
-      .overview-part three parts, each with a link to its statement:
-                       Balance     the results of the balance sheet
-                       Income      the results of the income statement,
-                                   and the period comparison
-                       Cash Flow   the results of the cash flow statement
-      .table         the last entries: Date · Reference · Account · Amount
+  The page has its own date range. It replaces the global range in the
+  module bar (block context_actions). The default range is the last 30
+  days. The other pages keep the global range.
 
-  Each card has an area graph of the last 7 days (the sparkline filter of
-  fin.py). The view gives the series in "trends".
+  The page has four parts, from the top:
+      .dash-charts   three sunburst charts (_sunburst.html):
+                       Cash position     the cash on hand and the
+                                         short-term debt, in money
+                       Invoices          the number of invoices by state
+                       Bills and claims  the number of bills and claims by state
+      .dash-split    two columns:
+                       Items needing attention   one row for each kind of work
+                       Activity                  the audit trail: who did what, when
+      .cards         eight cards. Each card has the amount at the end of the
+                     range and a graph of the range (the sparkline filter).
+      .dash-extra    three columns:
+                       Company location   the address of the company on a map
+                       Public notes       the notes of all pages, as tiles
+                       Movement           this period against the previous period
+
+  Each part is one band (.dash-band): one surface with no border, and a
+  hairline between its items. Every item is a link to the page that holds
+  its details, except the rows of the Movement table. overview.js adds the
+  tooltips and the map. Without JavaScript the links still work.
   ============================================================================
 {% endcomment %}
 
@@ -30,240 +41,226 @@
 {% comment %} block.super keeps the buttons of the module base. {% endcomment %}
 {% block toolbar %}{{ block.super }}{% endblock %}
 
+{% comment %} Leaflet 1.9.4 is in accounting/static/accounting/vendor/leaflet,
+     with its license. The map needs it only when the company has an address. {% endcomment %}
+{% block extra_head %}
+{% if company.address %}<link rel="stylesheet" href="{% static 'accounting/vendor/leaflet/leaflet.css' %}">{% endif %}
+{% endblock %}
+
+{% comment %} The date range of this page. A preset is a link. The custom
+     range is a form. Both send the range in the query string. {% endcomment %}
+{% block context_actions %}
+<details class="daterange" data-dash-range>
+    <summary class="tool tool--ghost" title="The date range of the Overview. The other pages keep the global range.">
+        <svg class="icon" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18" stroke-linecap="round"/></svg>
+        <span data-range-label>{{ dash_label }}</span>
+        <svg class="icon icon--caret" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 10l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </summary>
+
+    <div class="daterange__panel" role="dialog" aria-label="Date range of the Overview">
+        <div class="daterange__presets">
+            {% for key, label in dash_ranges %}
+            <a class="daterange__preset" href="?range={{ key }}"{% if key == dash_key %} aria-current="true"{% endif %}>{{ label }}</a>
+            {% endfor %}
+        </div>
+
+        <form method="get">
+            <input type="hidden" name="range" value="custom">
+            <div class="daterange__fields">
+                <label class="field">
+                    <span class="field__label">Start</span>
+                    <input class="field__control" type="date" name="start" value="{{ start|date:'Y-m-d' }}" required>
+                </label>
+                <label class="field">
+                    <span class="field__label">End</span>
+                    <input class="field__control" type="date" name="end" value="{{ end|date:'Y-m-d' }}" required>
+                </label>
+            </div>
+            <div class="daterange__foot">
+                <button class="tool tool--primary" type="submit">Apply</button>
+            </div>
+        </form>
+    </div>
+</details>
+{% endblock %}
+
 {% block content %}
 <section class="page">
 
     <div class="page__head">
-        <h1 class="page__title">Overview</h1>
+        <h1 class="page__title">Overview{% notes_pill %}</h1>
         <p class="page__note">
-            The overview is the first page of the Accounting module. It shows
-            the position of the business today: the money that customers owe,
-            the money that is late, the money that the business owes to
-            suppliers, and the cash in the bank. The Balance, Income and
-            Cash Flow parts show the results of the three statements and
-            compare this period with the last period. The table at the
-            bottom shows the last entries in the books. Use this page to see
-            if an item needs an action before you open a report.
+            The overview shows the position of the business and the work that
+            waits. The three charts show the cash, the invoices and the bills
+            at the end of the date range. The table shows the items that need
+            an action, and the stream shows who did what. Each card shows an
+            amount at the end of the range, with a graph of the range. The
+            invoices and the bills that were paid in full show for the range
+            only. The last part shows the company on a map, the public notes
+            of all pages, and the movement against the previous period. The
+            date range at the top right is for this page only. Click a chart,
+            a row, a card or a note to open its page.
         </p>
     </div>
 
-    <div class="actionbar" role="group" aria-label="Overview controls">
-        <div class="actionbar__group">
-            {% comment %} base.js must call window.print() for a button with
-                 the data-print attribute. {% endcomment %}
-            <button class="tool" type="button" data-note-new>
-                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 4h9l3 3v13H6V4z" stroke-linejoin="round"/><path d="M15 4v4h4" stroke-linejoin="round"/><path d="M9 13h6M12 10v6" stroke-linecap="round"/>
-                </svg>
-                Note
-            </button>
-            <button class="tool" type="button" data-print>
-                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
-                Print
-            </button>
-            <button class="tool" type="button">
-                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                Export
-            </button>
-        </div>
-
-        <p class="actionbar__hint">The figures show the accepted entries of {{ period|default:"FY 2026" }}.</p>
+    {# ============================== CHARTS ============================== #}
+    <div class="dash-band dash-charts">
+        {% for chart in charts %}{% include "accounting/_sunburst.html" %}{% endfor %}
     </div>
 
-    <div class="cards">
-        {% comment %} Credit tone: this money will come in. {% endcomment %}
-        <div class="card">
-            <span class="card__label">Open Invoices</span>
-            <div class="card__value is-credit" data-unit="ZAR">{{ open_total|default:"48,120.00" }}</div>
-            {{ trends.open|sparkline:"is-credit" }}
-        </div>
+    {# ======================= ATTENTION AND ACTIVITY ======================= #}
+    <div class="dash-band dash-split">
+        <section class="dash-panel dash-panel--fixed" aria-labelledby="attention-title">
+            <header class="dash-panel__head">
+                <h2 class="dash-panel__title" id="attention-title">Items needing attention</h2>
+                <span class="review__count">{{ attention|length }}</span>
+            </header>
+            <div class="dash-panel__body">
+                {% comment %} A click on a row opens its page (overview.js).
+                     The title of the row is also a link. {% endcomment %}
+                <table class="table table--attention" data-num>
+                    <thead>
+                        <tr><th>Item</th><th>Count</th><th>Amount</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for row in attention %}
+                        <tr data-href="{{ row.href }}">
+                            <td>
+                                <a class="attn__link" href="{{ row.href }}">
+                                    <span class="status {{ row.pill }}">{{ row.level }}</span>
+                                    <span>{{ row.title }}</span>
+                                </a>
+                                <span class="attn__note">{{ row.note }}</span>
+                            </td>
+                            <td>{{ row.count|default:"—" }}</td>
+                            <td class="{{ row.tone|default:'is-count' }}">{{ row.amount|money }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3">Nothing needs attention.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
 
-        {% comment %} Overdue tone: this money is late. {% endcomment %}
-        <div class="card">
-            <span class="card__label">Overdue</span>
-            <div class="card__value is-overdue" data-unit="ZAR">{{ overdue_total|default:"7,400.00" }}</div>
-            {{ trends.overdue|sparkline:"is-overdue" }}
-        </div>
-
-        {% comment %} Debit tone: this money goes out. {% endcomment %}
-        <div class="card">
-            <span class="card__label">Payables</span>
-            <div class="card__value is-debit" data-unit="ZAR">{{ payable_total|default:"12,905.00" }}</div>
-            {{ trends.payable|sparkline:"is-debit" }}
-        </div>
-
-        {% comment %} Credit tone: this money is in the bank. {% endcomment %}
-        <div class="card">
-            <span class="card__label">Cash on Hand</span>
-            <div class="card__value is-credit" data-unit="ZAR">{{ cash_total|default:"93,517.00" }}</div>
-            {{ trends.cash|sparkline:"is-credit" }}
-        </div>
-
-        {% comment %} Count: a quantity of invoices, not a sum of money. {% endcomment %}
-        <div class="card">
-            <span class="card__label">Active Invoices</span>
-            <div class="card__value is-count">{{ active_invoice_count|default:"34" }}</div>
-            {{ trends.active|sparkline }}
-        </div>
-    </div>
-
-    {# ============================== BALANCE ============================== #}
-    <section class="overview-part" aria-labelledby="ov-balance">
-        <div class="overview-part__head">
-            <h2 class="page__subtitle" id="ov-balance">Balance</h2>
-            <span class="overview-part__hint">At {{ as_of|date:"j M Y" }}</span>
-            <a class="overview-part__link" href="{% url 'accounting:balancesheet' %}">Balance Sheet</a>
-        </div>
-        <div class="cards">
-            <div class="card">
-                <span class="card__label">Total assets</span>
-                <div class="card__value" data-unit="{{ currency }}">{{ balance.assets_this|money }}</div>
-                {{ trends.assets_this|sparkline }}
-            </div>
-            <div class="card">
-                <span class="card__label">Total equity</span>
-                <div class="card__value is-credit" data-unit="{{ currency }}">{{ balance.equity_this|money }}</div>
-                {{ trends.equity_this|sparkline:"is-credit" }}
-            </div>
-            <div class="card">
-                <span class="card__label">Total liabilities</span>
-                <div class="card__value is-debit" data-unit="{{ currency }}">{{ balance.liabilities_this|money }}</div>
-                {{ trends.liabilities_this|sparkline:"is-debit" }}
-            </div>
-            <div class="card">
-                <span class="card__label">Working capital</span>
-                <div class="card__value" data-unit="{{ currency }}">{{ balance.working_capital|money }}</div>
-                {{ trends.working_capital|sparkline }}
-            </div>
-            <div class="card">
-                <span class="card__label">Current ratio</span>
-                <div class="card__value is-count">{% if balance.current_ratio %}{{ balance.current_ratio|floatformat:2 }}{% else %}—{% endif %}</div>
-                {{ trends.current_ratio|sparkline }}
-            </div>
-        </div>
-    </section>
-
-    {# =============================== INCOME ============================== #}
-    <section class="overview-part" aria-labelledby="ov-income">
-        <div class="overview-part__head">
-            <h2 class="page__subtitle" id="ov-income">Income</h2>
-            <span class="overview-part__hint">{{ start|date:"j M Y" }} – {{ as_of|date:"j M Y" }}</span>
-            <a class="overview-part__link" href="{% url 'accounting:incomestatement' %}">Income Statement</a>
-        </div>
-        <div class="cards">
-            <div class="card">
-                <span class="card__label">Revenue</span>
-                <div class="card__value is-credit" data-unit="{{ currency }}">{{ income.revenue|money }}</div>
-                {{ trends.revenue|sparkline:"is-credit" }}
-            </div>
-            <div class="card">
-                <span class="card__label">Gross profit</span>
-                <div class="card__value" data-unit="{{ currency }}">{{ income.gross_profit|money }}</div>
-                {{ trends.gross_profit|sparkline }}
-            </div>
-            <div class="card">
-                <span class="card__label">Operating profit</span>
-                <div class="card__value" data-unit="{{ currency }}">{{ income.operating_profit|money }}</div>
-                {{ trends.operating_profit|sparkline }}
-            </div>
-            <div class="card">
-                <span class="card__label">Income tax</span>
-                <div class="card__value is-debit" data-unit="{{ currency }}">{{ income.tax|money }}</div>
-                {{ trends.tax|sparkline:"is-debit" }}
-            </div>
-            <div class="card">
-                <span class="card__label">Profit for the period</span>
-                <div class="card__value {% if income.profit_this >= 0 %}is-credit{% else %}is-debit{% endif %}" data-unit="{{ currency }}">{{ income.profit_this|money }}</div>
-                {% if income.profit_this >= 0 %}{{ trends.profit_this|sparkline:"is-credit" }}{% else %}{{ trends.profit_this|sparkline:"is-debit" }}{% endif %}
-            </div>
-        </div>
-
-        {% comment %} The period comparison of the old Analytics page. The
-             view gives the money rows. {% endcomment %}
-        <table class="table" data-num>
-            <thead>
-                <tr><th>Measure</th><th>This period</th><th>Last period</th><th>Change</th></tr>
-            </thead>
-            <tbody>
-                {% for row in comparison %}
-                <tr>
-                    <td>{{ row.name }}</td>
-                    <td class="{{ row.tone }}">{{ row.this|money }}</td>
-                    <td class="{{ row.tone }}">{{ row.last|money }}</td>
-                    <td class="is-count">{% if row.change != None %}{{ row.change|floatformat:"1" }}%{% else %}—{% endif %}</td>
-                </tr>
+        <section class="dash-panel dash-panel--fixed" aria-labelledby="activity-title">
+            <header class="dash-panel__head">
+                <h2 class="dash-panel__title" id="activity-title">Activity</h2>
+                <span class="dash-panel__hint">{{ start|date:"j M" }} – {{ as_of|date:"j M Y" }}</span>
+            </header>
+            <ol class="stream dash-panel__body">
+                {% for item in activity %}
+                <li>
+                    {% if item.href %}<a class="stream__item" href="{{ item.href }}">{% else %}<div class="stream__item">{% endif %}
+                        <span class="stream__avatar" aria-hidden="true">{{ item.initials }}</span>
+                        <span class="stream__text"><b>{{ item.who }}</b> {{ item.verb }} {{ item.what }}{% if item.party %}<span class="stream__party"> · {{ item.party }}</span>{% endif %}</span>
+                        <time class="stream__time" datetime="{{ item.when|date:'c' }}" title="{{ item.when|date:'j M Y, H:i' }}">{{ item.when_text }}</time>
+                    {% if item.href %}</a>{% else %}</div>{% endif %}
+                </li>
+                {% empty %}
+                <li class="stream__empty">There is no activity in this date range.</li>
                 {% endfor %}
-                <tr>
-                    <td>Gross margin</td>
-                    <td class="is-count">{% if margin_this != None %}{{ margin_this|floatformat:1 }}%{% else %}—{% endif %}</td>
-                    <td class="is-count">{% if margin_last != None %}{{ margin_last|floatformat:1 }}%{% else %}—{% endif %}</td>
-                    <td class="is-count">{% if margin_change != None %}{{ margin_change|floatformat:1 }} pts{% else %}—{% endif %}</td>
-                </tr>
-                {% comment %} TODO: Sample data. Calculate the debtor days and
-                     the creditor days when the receivables and the payables
-                     accounts are known. {% endcomment %}
-                <tr><td>Debtor days</td><td class="is-count">38</td><td class="is-count">44</td><td class="is-count">−6</td></tr>
-                <tr><td>Creditor days</td><td class="is-count">31</td><td class="is-count">29</td><td class="is-count">+2</td></tr>
-            </tbody>
-        </table>
-    </section>
+            </ol>
+        </section>
+    </div>
 
-    {# ============================= CASH FLOW ============================= #}
-    {% comment %} The results of the Cash Flow Statement, from the start of
-         the range to the as-of day. {% endcomment %}
-    <section class="overview-part" aria-labelledby="ov-cashflow">
-        <div class="overview-part__head">
-            <h2 class="page__subtitle" id="ov-cashflow">Cash Flow</h2>
-            <span class="overview-part__hint">{{ start|date:"j M Y" }} – {{ as_of|date:"j M Y" }}</span>
-            <a class="overview-part__link" href="{% url 'accounting:cashflow' %}">Cash Flow Statement</a>
-        </div>
-        <div class="cards">
-            <div class="card">
-                <span class="card__label">Cash at the start</span>
-                <div class="card__value" data-unit="{{ currency }}">{{ cash.start_this|money }}</div>
-                {{ trends.start_this|sparkline }}
-            </div>
-            <div class="card">
-                <span class="card__label">Operating activities</span>
-                <div class="card__value {% if cash.operating_this >= 0 %}is-credit{% else %}is-debit{% endif %}" data-unit="{{ currency }}">{{ cash.operating_this|money }}</div>
-                {{ trends.operating_this|sparkline:"is-credit" }}
-            </div>
-            <div class="card">
-                <span class="card__label">Investing activities</span>
-                <div class="card__value {% if cash.investing_this >= 0 %}is-credit{% else %}is-debit{% endif %}" data-unit="{{ currency }}">{{ cash.investing_this|money }}</div>
-                {{ trends.investing_this|sparkline:"is-debit" }}
-            </div>
-            <div class="card">
-                <span class="card__label">Financing activities</span>
-                <div class="card__value {% if cash.financing_this >= 0 %}is-credit{% else %}is-debit{% endif %}" data-unit="{{ currency }}">{{ cash.financing_this|money }}</div>
-                {{ trends.financing_this|sparkline:"is-debit" }}
-            </div>
-            <div class="card">
-                <span class="card__label">Cash at the end</span>
-                <div class="card__value" data-unit="{{ currency }}">{{ cash.end_this|money }}</div>
-                {{ trends.end_this|sparkline }}
-            </div>
-        </div>
-    </section>
+    {# ============================== CARDS =============================== #}
+    {% comment %} Each card is a link. overview.js reads data-points and shows
+         the date and the amount below the pointer on the graph. {% endcomment %}
+    <div class="dash-band cards cards--four">
+        {% for card in cards %}
+        <a class="card card--link" href="{{ card.href }}" data-points="{{ card.points }}">
+            <span class="card__label">{{ card.label }}</span>
+            {% if card.hint %}<span class="card__hint">{{ card.hint }}</span>{% endif %}
+            <div class="card__value {{ card.tone }}" data-unit="{{ currency }}">{{ card.value|money }}</div>
+            {{ card.series|sparkline:card.tone }}
+        </a>
+        {% endfor %}
+    </div>
 
-    <h2 class="page__subtitle">Recent entries</h2>
-    <table class="table">
-        <thead>
-            <tr><th>Date</th><th>Reference</th><th>Account</th><th>Amount</th></tr>
-        </thead>
-        <tbody>
-            {% for entry in entries %}
-            <tr>
-                <td>{{ entry.date }}</td>
-                <td>{{ entry.reference }}</td>
-                <td>{{ entry.account }}</td>
-                {% comment %} The view sets entry.is_debit for money that goes out. {% endcomment %}
-                <td class="{% if entry.is_debit %}is-debit{% else %}is-credit{% endif %}">{{ entry.amount|money }}</td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="4">There are no entries for this period.</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    {# ============================ LAST BAND ============================= #}
+    <div class="dash-band dash-extra">
+        {% comment %} overview.js finds the place of the address and draws the map. {% endcomment %}
+        <section class="dash-panel dash-panel--fixed" aria-labelledby="map-title">
+            <header class="dash-panel__head">
+                <h2 class="dash-panel__title" id="map-title">Company location</h2>
+                {% if company.address %}
+                <a class="dash-panel__link" href="https://www.openstreetmap.org/search?query={{ company.address|urlencode }}" target="_blank" rel="noopener">Open map</a>
+                {% endif %}
+            </header>
+            {% if company.address %}
+            <div class="dash-map{% if map.invert %} is-inverted{% endif %}" data-map
+                 data-address="{{ company.address }}" data-name="{{ company.name }}"
+                 data-tiles="{{ map.tiles }}" data-attribution="{{ map.attribution }}"></div>
+            <p class="dash-map__address">{{ company.address|linebreaksbr }}</p>
+            {% else %}
+            <p class="dash-empty">
+                The company has no address.
+                {% if request.user.is_staff %}<a href="{% url 'admin:shared_company_change' company.pk %}">Add the address</a>{% endif %}
+            </p>
+            {% endif %}
+        </section>
+
+        {% comment %} A tile opens its note on the page of the note (notes.js). {% endcomment %}
+        <section class="dash-panel dash-panel--fixed" aria-labelledby="public-notes-title">
+            <header class="dash-panel__head">
+                <h2 class="dash-panel__title" id="public-notes-title">Public notes</h2>
+                <span class="review__count">{{ notes|length }}</span>
+            </header>
+            <ul class="note-tiles dash-panel__body">
+                {% for note in notes %}
+                <li>
+                    <a class="note-tile note-tile--{{ note.kind_name|lower }}" href="{{ note.href }}"
+                       title="{{ note.title }} · {{ note.kind_name }} · {{ note.by }}, {{ note.when|date:'j M Y' }}">
+                        <span class="note-tile__icon" aria-hidden="true">
+                            {% if note.kind == "F" %}
+                            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 3h9l4 4v14H6V3z" stroke-linejoin="round"/><path d="M15 3v4h4M9 12h7M9 16h5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            {% else %}
+                            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 5h16v11H10l-6 4V5z" stroke-linejoin="round"/><path d="M8 9h8M8 12h5" stroke-linecap="round"/></svg>
+                            {% endif %}
+                        </span>
+                        <span class="note-tile__title">{{ note.title }}</span>
+                        <span class="note-tile__page">{{ note.page }}</span>
+                    </a>
+                </li>
+                {% empty %}
+                <li class="dash-empty">There are no public notes.</li>
+                {% endfor %}
+            </ul>
+        </section>
+
+        {% comment %} The movement table has no links. {% endcomment %}
+        <section class="dash-panel dash-panel--fixed" aria-labelledby="moves-title">
+            <header class="dash-panel__head">
+                <h2 class="dash-panel__title" id="moves-title">Movement</h2>
+                <span class="dash-panel__hint">Against {{ prev_start|date:"j M" }} – {{ prev_end|date:"j M Y" }}</span>
+            </header>
+            <div class="dash-panel__body">
+                <table class="table table--moves">
+                    <thead>
+                        <tr><th>Measure</th><th>This</th><th>Previous</th><th>Change</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for row in moves %}
+                        <tr>
+                            <td>{{ row.name }}</td>
+                            <td class="is-count">{{ row.this }}</td>
+                            <td class="is-count">{{ row.last }}</td>
+                            <td class="{{ row.tone|default:'is-count' }}">{{ row.change }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
     {% notes_section %}
 </section>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+{% if company.address %}<script src="{% static 'accounting/vendor/leaflet/leaflet.js' %}"></script>{% endif %}
+<script src="{% static 'accounting/js/overview.js' %}"></script>
 {% endblock %}

@@ -18,7 +18,7 @@ def money(value):
 
 @register.filter
 def sparkline(values, tone=""):
-    """An area graph of a short series, e.g. the 7 days of a week.
+    """An area graph of a short series, e.g. the days of the Overview range.
 
     Example: {{ trend|sparkline:"is-credit" }}
     The graph stretches to the width of its box. The CSS of .card__spark
@@ -36,7 +36,7 @@ def sparkline(values, tone=""):
                       for i, v in enumerate(values))
     return format_html(
         '<svg class="card__spark {}" viewBox="0 0 100 40" preserveAspectRatio="none" '
-        'role="img" aria-label="Daily movement over the past {} days">'
+        'role="img" aria-label="Movement over the date range, {} points">'
         '<path class="spark__area" d="M0,40 L{} L100,40 Z"/>'
         '<polyline class="spark__line" points="{}" vector-effect="non-scaling-stroke"/>'
         '</svg>',

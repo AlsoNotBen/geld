@@ -824,32 +824,6 @@ textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
 .card__spark.is-credit  { color: var(--credit); }
 .card__spark.is-overdue { color: var(--overdue); }
 
-/* ---- Overview parts ------------------------------------------------ */
-/* The Overview has three parts: Balance, Income and Cash Flow. The head
-   of a part holds the title, the date and a link to the statement. */
-.overview-part__head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 6px 14px;
-    margin: 34px 0 14px;
-}
-.overview-part__head .page__subtitle { margin: 0; }
-.overview-part__hint {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--ink-soft);
-}
-.overview-part__link {
-    margin-left: auto;
-    font-size: 12px;
-    color: var(--gold);
-    text-decoration: none;
-}
-.overview-part__link::after { content: " \2192"; }
-.overview-part__link:hover { text-decoration: underline; }
-.overview-part .table { margin-top: 14px; }
-
 /* ================================================================== */
 /*  TABLE  (the base of every table of the module)                    */
 /*  Columns: Date · Reference · Account · Amount                      */
@@ -2449,3 +2423,442 @@ textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
 .bill-lines td:nth-child(3) { width: 9%; }
 .bill-lines td:nth-child(4) { width: 14%; }
 .bill-lines td:nth-child(5) { width: 13%; }
+
+/* ================================================================== */
+/*  OVERVIEW  (overview.html, see overview.py)                        */
+/*  Three charts · attention and activity · eight cards               */
+/* ================================================================== */
+/* The fills of the charts. Each fill keeps one meaning on the page:
+   aqua is paid or free cash, blue is open and not yet due, yellow is
+   overdue, red is at risk, violet waits for a review. The order of the
+   fills in each chart was checked for colour blindness on the panel
+   colour (#252932). */
+:root {
+    --viz-blue:    #3987e5;
+    --viz-aqua:    #199e70;
+    --viz-yellow:  #c98500;
+    --viz-red:     #d03b3b;
+    --viz-violet:  #9085e9;
+    --viz-orange:  #d95926;
+    --viz-magenta: #d55181;
+    --viz-gray:    #a7acb5;
+}
+.tone-blue    { --tone: var(--viz-blue); }
+.tone-aqua    { --tone: var(--viz-aqua); }
+.tone-yellow  { --tone: var(--viz-yellow); }
+.tone-red     { --tone: var(--viz-red); }
+.tone-violet  { --tone: var(--viz-violet); }
+.tone-orange  { --tone: var(--viz-orange); }
+.tone-magenta { --tone: var(--viz-magenta); }
+.tone-gray    { --tone: var(--viz-gray); }
+
+/* ---- The layout ---------------------------------------------------- */
+/* Each part of the page is one band: one surface with no border. The
+   items of a band have no frame of their own. The 1px gap between two
+   items shows the background of the band, thus a hairline. */
+.dash-band {
+    display: grid;
+    gap: 1px;
+    margin: 0 0 14px;
+    background: linear-gradient(var(--line), var(--line)), var(--white);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+}
+.dash-band > * { background: var(--white); }
+.dash-charts,
+.dash-extra  { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.dash-split  { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* A panel is an item of a band, with a head. The panels of the middle
+   band have one height. Their body scrolls when it holds more rows. */
+.dash-panel {
+    container-type: inline-size;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 16px 18px 18px;
+}
+.dash-panel--fixed { height: 340px; padding-bottom: 8px; }
+.dash-panel__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 10px;
+    margin: 0 0 12px;
+}
+.dash-panel__title {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--ink);
+}
+.dash-panel__title a:hover { color: var(--gold); }
+.dash-panel__hint {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+}
+.dash-panel__body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.dash-panel__link { margin-left: auto; font-size: 12px; color: var(--gold); }
+.dash-panel__link::after { content: " \2197"; }
+.dash-panel__link:hover { text-decoration: underline; }
+.dash-empty { margin: auto 0; padding: 24px 16px; text-align: center; color: var(--ink-soft); }
+.dash-empty a { color: var(--gold); }
+
+/* ---- Sunburst ------------------------------------------------------ */
+/* The chart is the largest item of its panel. In a narrow panel the
+   legend goes below the chart, with one column for each part of the
+   inner ring. A wide panel puts the legend next to the chart. */
+.sunburst { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.sunburst__figure {
+    container-type: inline-size;        /* The text of the centre uses the width of the chart. */
+    position: relative;
+    width: min(100%, 208px);
+    aspect-ratio: 1;
+}
+.sunburst__chart { display: block; width: 100%; height: 100%; }
+
+/* The 2px surface gap between the segments. The stroke has the colour
+   of the panel. The inner ring shows its fill at 60%. */
+.sunburst__seg path {
+    fill: var(--tone);
+    stroke: var(--white);
+    stroke-width: 2px;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+    transition: opacity 0.12s ease;
+}
+.sunburst__seg.is-inner path { fill-opacity: 0.6; }
+.sunburst__seg:focus { outline: none; }
+.sunburst__seg:focus-visible path { stroke: var(--gold); }
+.sunburst.has-hot .sunburst__seg:not(.is-hot) path { opacity: 0.35; }
+.sunburst__track { fill: none; stroke: var(--line); stroke-width: 48px; }
+
+/* The centre is a link in the hole of the chart. It holds the total. */
+.sunburst__center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 46%;
+    height: 46%;
+    margin: auto;
+    border-radius: 50%;
+    text-align: center;
+    transition: background 0.12s ease;
+}
+.sunburst__center:hover { background: var(--gold-soft); }
+.sunburst__value { font-size: clamp(18px, 11cqi, 30px); font-weight: 600; line-height: 1.15; color: var(--ink); }
+.sunburst__value.is-credit { color: var(--credit); }
+.sunburst__value.is-debit  { color: var(--debit); }
+.sunburst__label {
+    margin-top: 2px;
+    font-family: var(--font-mono);
+    font-size: clamp(9px, 3.8cqi, 11px);
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+}
+
+/* The legend. A row is a link. A child row goes to the right. The value
+   is short (12.4K); the title of the row holds the full value. */
+.sunburst__legend {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    align-items: start;
+    gap: 2px 12px;
+    width: 100%;
+    max-width: 400px;
+}
+.legend__group { display: grid; gap: 1px; margin: 0; padding: 0; list-style: none; }
+.legend__row {
+    display: grid;
+    grid-template-columns: 8px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 7px;
+    padding: 3px 6px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink);
+    transition: background 0.12s ease;
+}
+.legend__row--child { padding-left: 14px; font-weight: 400; color: var(--ink-soft); }
+.legend__row.is-zero { opacity: 0.5; }
+.legend__row:hover,
+.legend__row.is-hot { background: var(--gold-soft); color: var(--ink); }
+.legend__swatch { width: 8px; height: 8px; border-radius: 2px; background: var(--tone); }
+.legend__row.is-inner .legend__swatch { opacity: 0.6; }
+.legend__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.legend__value {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 11.5px;
+    font-weight: 500;
+}
+
+@container (min-width: 440px) {
+    .sunburst { flex-direction: row; justify-content: center; gap: 28px; }
+    .sunburst__figure { flex: 0 0 auto; width: clamp(192px, 43cqi, 240px); }
+    .sunburst__legend { flex: 0 1 250px; grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---- Items needing attention --------------------------------------- */
+/* The table has no frame of its own. The panel is the frame.
+   Columns: Item · Count · Amount */
+.dash-panel .table {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+.table--attention th:first-child { width: 100%; }
+.table--attention td:first-child {
+    width: 100%;
+    white-space: normal;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--ink);
+}
+.table--attention th:nth-child(2),
+.table--attention td:nth-child(2) { text-align: right; }
+.table--attention td:nth-child(2) { font-family: var(--font-mono); color: var(--ink-soft); }
+.table--attention th:nth-child(3),
+.table--attention td:nth-child(3) { width: auto; white-space: nowrap; }
+.table--attention thead th { padding: 10px 12px; }
+.table--attention tbody td { padding: 8px 12px; }
+.table--attention tbody tr[data-href] { cursor: pointer; }
+/* The pill and the title go on one line. In a narrow cell the title goes below the pill. */
+.attn__link { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 8px; font-weight: 600; }
+.attn__link:hover { color: var(--gold); }
+.attn__note { display: block; margin-top: 2px; font-size: 12px; color: var(--ink-soft); }
+
+/* ---- Activity stream ----------------------------------------------- */
+/* A time line: the line goes through the avatars of the rows. */
+.stream { margin: 0; padding: 0; list-style: none; }
+.stream__item {
+    position: relative;
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 10px;
+    padding: 7px 8px;
+    border-radius: var(--radius-sm);
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--ink-soft);
+    transition: background 0.12s ease;
+}
+.stream__item::before {
+    content: "";
+    position: absolute;
+    left: 21px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--line-strong);
+}
+.stream li:first-child .stream__item::before { top: 50%; }
+.stream li:last-child .stream__item::before { bottom: 50%; }
+.stream li:only-child .stream__item::before { display: none; }
+a.stream__item:hover { background: var(--gold-soft); }
+.stream__avatar {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--white);
+    border: 1px solid var(--gold-line);
+    color: var(--gold);
+    font-size: 10.5px;
+    font-weight: 600;
+}
+.stream__text b { color: var(--ink); font-weight: 600; }
+.stream__time {
+    padding-top: 2px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    white-space: nowrap;
+}
+.stream__empty { padding: 34px 16px; text-align: center; color: var(--ink-soft); }
+
+/* ---- Cards --------------------------------------------------------- */
+/* Eight cards in two rows of four, in one band. Each card is a link. */
+.cards--four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.dash-band .card { border: 0; border-radius: 0; box-shadow: none; }
+.card--link { transition: background 0.12s ease; }
+.card--link:hover { background: linear-gradient(var(--gold-soft), var(--gold-soft)), var(--white); }
+.card__hint { margin-top: 3px; font-size: 11.5px; color: var(--ink-soft); }
+
+/* The pointer on the graph of a card (overview.js). */
+.card__cursor {
+    position: absolute;
+    bottom: 0;
+    width: 1px;
+    height: 44px;
+    background: var(--ink-soft);
+    pointer-events: none;
+}
+.card__cursor[hidden] { display: none; }
+
+/* ---- Company location  (overview.js, Leaflet) ----------------------- */
+/* The standard OpenStreetMap tiles are light. A filter on the tiles only
+   makes them dark: the pin, the popup and the controls keep their colours. */
+.dash-map { flex: 1 1 auto; min-height: 200px; border-radius: var(--radius-sm); overflow: hidden; }
+.dash-map.leaflet-container { background: var(--cream); font: 12px/1.5 var(--font-sans); }
+.dash-map.is-inverted .leaflet-tile-pane {
+    filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9) saturate(0.5);
+}
+.dash-map.is-empty { display: grid; place-items: center; background: var(--cream); color: var(--ink-soft); }
+.dash-map__pin {
+    border: 3px solid var(--white);
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 0 6px rgba(240, 190, 114, 0.28);
+}
+.dash-map__popup { white-space: pre-line; }
+.dash-map .leaflet-popup-content-wrapper,
+.dash-map .leaflet-popup-tip { background: var(--white); color: var(--ink); box-shadow: var(--shadow-md); }
+.dash-map .leaflet-bar { border: 1px solid var(--line-strong); box-shadow: none; }
+.dash-map .leaflet-bar a { background: var(--white); color: var(--ink-soft); border-bottom-color: var(--line); }
+.dash-map .leaflet-bar a:hover { background: var(--gold-soft); color: var(--gold); }
+/* leaflet.css loads after this file, thus these two rules need the extra class. */
+.dash-map.leaflet-container .leaflet-control-attribution { background: rgba(24, 26, 31, 0.78); color: var(--ink-soft); }
+.dash-map.leaflet-container .leaflet-control-attribution a { color: var(--gold); }
+.dash-map__address {
+    margin: 10px 0 0;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--ink-soft);
+}
+
+/* ---- Public notes -------------------------------------------------- */
+/* Each note is a tile: an icon, the title and the page of the note. A
+   footnote has a gold icon, a comment has a blue icon. */
+.note-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    align-content: start;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.note-tile {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    padding: 10px 6px;
+    border-radius: var(--radius-sm);
+    text-align: center;
+    transition: background 0.12s ease;
+}
+.note-tiles .dash-empty { grid-column: 1 / -1; }
+.note-tile:hover { background: var(--gold-soft); }
+.note-tile__icon {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: var(--gold-soft);
+    color: var(--gold);
+}
+.note-tile--comment .note-tile__icon { background: rgba(57, 135, 229, 0.16); color: var(--cold); }
+.note-tile__icon .icon { width: 22px; height: 22px; stroke: currentColor; }
+.note-tile__title {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--ink);
+}
+.note-tile__page {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-soft);
+}
+
+/* ---- Movement ------------------------------------------------------ */
+/* Columns: Measure · This · Previous · Change. The table has no links. */
+.table--moves th:first-child { width: 100%; }
+.table--moves td:first-child {
+    width: 100%;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--ink);
+}
+.table--moves th:nth-child(n+2),
+.table--moves td:nth-child(n+2) {
+    width: auto;
+    text-align: right;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+.table--moves td:nth-child(2) { color: var(--ink); }
+.table--moves td:nth-child(3) { color: var(--ink-dim); }
+.table--moves thead th { padding: 10px 8px; }
+.table--moves tbody td { padding: 8px; }
+.table--moves tbody tr:hover { background: transparent; }
+
+/* ---- Tooltip  (overview.js) ---------------------------------------- */
+/* The value comes first, the name follows. */
+.dash-tip {
+    position: fixed;
+    z-index: 90;
+    display: grid;
+    gap: 1px;
+    max-width: 260px;
+    padding: 6px 10px;
+    background: var(--cream);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-md);
+    font-size: 12px;
+    pointer-events: none;
+}
+.dash-tip[hidden] { display: none; }
+.dash-tip strong { font-family: var(--font-mono); font-weight: 500; color: var(--ink); white-space: nowrap; }
+.dash-tip span { color: var(--ink-soft); }
+
+/* ---- The date range of the Overview --------------------------------- */
+/* A <details> element: the summary is the button, the panel opens below. */
+.daterange > summary { list-style: none; }
+.daterange > summary::-webkit-details-marker { display: none; }
+.daterange__preset[aria-current="true"] { color: var(--gold); font-weight: 600; }
+.daterange__preset[aria-current="true"]::after { content: "\2713"; float: right; font-weight: 700; }
+
+/* ---- Responsive ---------------------------------------------------- */
+@media (max-width: 1100px) {
+    .dash-split,
+    .dash-extra { grid-template-columns: minmax(0, 1fr); }
+    .cards--four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    /* In one column a panel takes the height of its content. */
+    .dash-panel--fixed { height: auto; max-height: 420px; }
+}
+@media (max-width: 760px) {
+    .dash-charts { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media print {
+    .dash-tip, .card__cursor { display: none !important; }
+    .dash-band { background: #999999; border: 1px solid #999999; box-shadow: none; }
+    .dash-band > *, .dash-band .card { background: #FFFFFF; border: 0; }
+    .dash-panel--fixed { height: auto; }
+    .dash-panel__body { overflow: visible; }
+    .dash-panel__title, .legend__row, .stream__text b { color: #000000; }
+    .sunburst__seg path { stroke: #FFFFFF; }
+    .sunburst__value { color: #000000; }
+}

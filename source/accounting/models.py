@@ -572,6 +572,13 @@ class AuditLog(CompanyOwned):
         indexes = [models.Index(fields=["content_type", "object_id", "-timestamp"])]
         ordering = ["-timestamp"]
 
+    @classmethod
+    def record(cls, request, action, *objects):
+        """Write one row for each object: the user of the request did the
+        action to it. The activity stream of the Overview shows the rows."""
+        cls.objects.bulk_create(cls(company=request.company, content_object=obj, action=action, user=request.user)
+                                for obj in objects)
+
 
 def in_one_month():
     """The default expiry date of a note: the same day next month. If the

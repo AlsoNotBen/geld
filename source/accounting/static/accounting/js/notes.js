@@ -109,4 +109,9 @@
             if (e.target === sheet) sheet.close();
         };
     });
+
+    /* ---- A link to one note ----
+       The Overview links to a note as page#note-ID. The page then opens it. */
+    const linked = location.hash && document.getElementById(location.hash.slice(1));
+    if (linked && linked.classList.contains("note-sheet")) linked.showModal();
 })();

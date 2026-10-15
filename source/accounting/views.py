@@ -24,76 +24,7 @@ JOURNAL_TABS = {
     "cash_entries":     [JournalEntry.EntryType.RECEIPT, JournalEntry.EntryType.PAYMENT],
 }
 
-#TODO: Sample data, like the card values of overview.html. Replace each list
-# with the closing figure of each day of the last 7 days (oldest first).
-WEEK_TRENDS = {
-    "open":    [44210, 45080, 43900, 46350, 47020, 46480, 48120],
-    "overdue": [5200, 5200, 6100, 6100, 6850, 7400, 7400],
-    "payable": [14320, 13980, 15110, 14200, 13460, 13050, 12905],
-    "cash":    [88140, 89560, 87920, 90310, 91880, 92640, 93517],
-    "active":  [31, 32, 32, 33, 33, 34, 34],
-}
-
-BALANCE_KEYS = ["assets_this", "equity_this", "liabilities_this", "working_capital", "current_ratio"]
-INCOME_KEYS = ["revenue", "gross_profit", "operating_profit", "tax", "profit_this"]
-CASH_KEYS = ["start_this", "operating_this", "investing_this", "financing_this", "end_this"]
-
-def change(this, last):
-    """The change from last to this, in percent. None if last is zero."""
-    if this is None or not last:
-        return None
-    return (this - last) / abs(last) * 100
-
-def dashboard(request):
-    """The overview. The Balance and Income parts show the figures of the
-    statements at the last day of the range (today at the latest), with
-    the 7 days to that day."""
-    ctx = statement_context(request)
-    company = ctx["company"]
-    accounts = list(Account.objects.filter(company=company))
-    as_of = min(ctx["end"], timezone.localdate())
-    days = [as_of - timedelta(days=n) for n in range(6, -1, -1)]
-
-    balance = [balance_data(accounts, movements(company, end=day), {}) for day in days]
-    income = [income_data(accounts, movements(company, ctx["start"], day), {}) for day in days]
-    cash_ids = cash_account_ids(company, accounts)
-    dep_ids = depreciation_account_ids(company, accounts)
-    opening = movements(company, end=ctx["start"] - timedelta(days=1))
-    opening = sum((opening.get(i, ZERO) for i in cash_ids), ZERO)
-    cash = [cash_flow_data(accounts, cash_ids, dep_ids, movements(company, ctx["start"], day), {}, opening, ZERO)
-            for day in days]
-    trends = dict(WEEK_TRENDS)
-    for key in BALANCE_KEYS:
-        trends[key] = [figures[key] for figures in balance]
-    for key in INCOME_KEYS:
-        trends[key] = [figures[key] for figures in income]
-    for key in CASH_KEYS:
-        trends[key] = [figures[key] for figures in cash]
-
-    # The comparison table: this period against the last period.
-    full = income_data(accounts, movements(company, ctx["start"], ctx["end"]),
-                       movements(company, ctx["prev_start"], ctx["prev_end"]))
-    comparison = [
-        ("Revenue", full["revenue"], full["revenue_last"], "is-credit"),
-        ("Cost of sales", full["cost_of_sales"], full["cost_of_sales_last"], "is-debit"),
-        ("Operating expenses", full["expenses"], full["expenses_last"], "is-debit"),
-        ("Profit for the period", full["profit_this"], full["profit_last"], "is-credit"),
-    ]
-    ctx.update({
-        "as_of": as_of,
-        "balance": balance[-1],
-        "income": income[-1],
-        "cash": cash[-1],
-        "trends": trends,
-        "comparison": [{"name": n, "this": t, "last": l, "tone": c, "change": change(t, l)}
-                       for n, t, l, c in comparison],
-        "margin_this": full["margin_this"],
-        "margin_last": full["margin_last"],
-        "margin_change": (full["margin_this"] - full["margin_last"]
-                          if full["margin_this"] is not None and full["margin_last"] is not None else None),
-    })
-    return render(request, "accounting/overview.html", ctx)
-
+# The Overview (the first page of the module) is in overview.py.
 
 def journal_rows(lines):
     return [{
@@ -242,6 +173,7 @@ def journalentry_create(request):
                     narration=request.POST.get("narration", ""),
                 )
                 make_lines(entry, request.POST)
+                AuditLog.record(request, AuditLog.Action.CREATE, entry)
         except ValidationError as error:
             messages.error(request, " ".join(error.messages))
     return redirect("accounting:journals")
@@ -252,30 +184,36 @@ def journalentry_update(request, pk):
     if request.method == "POST":
         entry = get_object_or_404(JournalEntry, pk=pk, company=request.company, status=JournalEntry.Status.DRAFT)
         entry.lines.update(description=request.POST.get("description", ""))
+        AuditLog.record(request, AuditLog.Action.UPDATE, entry)
     return redirect("accounting:journals")
 
 def journalentry_post(request, pk):
     """The Accept button. It moves one draft entry to the Posted status."""
     if request.method == "POST":
-        JournalEntry.objects.filter(pk=pk, company=request.company, status=JournalEntry.Status.DRAFT).update(
+        if JournalEntry.objects.filter(pk=pk, company=request.company, status=JournalEntry.Status.DRAFT).update(
             status=JournalEntry.Status.POSTED, posted_at=timezone.now(),
-        )
+        ):
+            AuditLog.record(request, AuditLog.Action.POST, JournalEntry(pk=pk))
     return redirect("accounting:journals")
 
 def journalentry_post_all(request):
     """The Accept All button. It moves each draft entry to the Posted status."""
     if request.method == "POST":
-        JournalEntry.objects.filter(company=request.company, status=JournalEntry.Status.DRAFT).update(
+        ids = list(JournalEntry.objects.filter(company=request.company, status=JournalEntry.Status.DRAFT)
+                   .values_list("pk", flat=True))
+        JournalEntry.objects.filter(pk__in=ids, status=JournalEntry.Status.DRAFT).update(
             status=JournalEntry.Status.POSTED, posted_at=timezone.now(),
         )
+        AuditLog.record(request, AuditLog.Action.POST, *(JournalEntry(pk=pk) for pk in ids))
     return redirect("accounting:journals")
 
 def journalentry_void(request, pk):
     """The Void button of the entry overlay. It stops a draft entry."""
     if request.method == "POST":
-        JournalEntry.objects.filter(pk=pk, company=request.company, status=JournalEntry.Status.DRAFT).update(
+        if JournalEntry.objects.filter(pk=pk, company=request.company, status=JournalEntry.Status.DRAFT).update(
             status=JournalEntry.Status.VOID,
-        )
+        ):
+            AuditLog.record(request, AuditLog.Action.VOID, JournalEntry(pk=pk))
     return redirect("accounting:journals")
 
 def payment_create(request):
@@ -298,6 +236,7 @@ def payment_create(request):
                 payment.save()
                 post_payment(payment)
                 payment.files.add(*(save_upload(u, request.user) for u in uploads))
+                AuditLog.record(request, AuditLog.Action.CREATE, payment)
                 if payment.number == NumberSequence.peek(request.company, "payment", "PAY-"):
                     NumberSequence.take(request.company, "payment")
             return JsonResponse({"redirect": reverse("accounting:journals")})
@@ -331,6 +270,7 @@ def note_create(request):
                 note.range_start, note.range_end = start, end
                 note.save()
                 note.files.add(*(save_upload(u, request.user) for u in uploads))
+                AuditLog.record(request, AuditLog.Action.CREATE, note)
             return JsonResponse({"saved": True})
         except ValidationError as error:
             form.add_error(None, error)
@@ -428,7 +368,7 @@ def chartaccounts(request):
  
 def account_create(request):
     if request.method == "POST":
-        Account.objects.create(
+        account = Account.objects.create(
             company=request.company,                            # Add to every function that creates a CompanyOwned record
             code=request.POST["code"],
             name=request.POST["name"],
@@ -439,6 +379,7 @@ def account_create(request):
             is_active=bool(request.POST.get("is_active")),
             description=request.POST.get("description", ""),
         )
+        AuditLog.record(request, AuditLog.Action.CREATE, account)
     return redirect("accounting:chartaccounts")
 
 PROFIT_TYPES = [
@@ -865,6 +806,7 @@ def bill_create(request):
                     line.document = bill
                 DocumentLine.objects.bulk_create(lines)
                 bill.files.add(*(save_upload(u, request.user) for u in uploads))
+                AuditLog.record(request, AuditLog.Action.CREATE, bill)
                 if bill.number == NumberSequence.peek(request.company, "bill", "BILL-"):
                     NumberSequence.take(request.company, "bill")
             return JsonResponse({"redirect": reverse("accounting:bills")})
@@ -879,6 +821,7 @@ def bill_approve(request, pk):
                                  status=Document.Status.DRAFT)
         try:
             post_bill(bill)
+            AuditLog.record(request, AuditLog.Action.POST, bill)
         except ValidationError as error:
             messages.error(request, f"{bill.number} is not approved. {' '.join(error.messages)}")
     return redirect("accounting:bills")
@@ -886,8 +829,9 @@ def bill_approve(request, pk):
 def bill_deny(request, pk):
     """The Deny button. It voids a draft bill."""
     if request.method == "POST":
-        Document.objects.filter(pk=pk, company=request.company, doc_type=Document.DocType.BILL,
-                                status=Document.Status.DRAFT).update(status=Document.Status.VOID)
+        if Document.objects.filter(pk=pk, company=request.company, doc_type=Document.DocType.BILL,
+                                   status=Document.Status.DRAFT).update(status=Document.Status.VOID):
+            AuditLog.record(request, AuditLog.Action.VOID, Document(pk=pk))
     return redirect("accounting:bills")
 
 def suppliers(request):
@@ -982,6 +926,7 @@ def supplier_new(request):
             supplier.save()
             if supplier.code == NumberSequence.peek(request.company, "supplier", "SUP-"):
                 NumberSequence.take(request.company, "supplier")
+            AuditLog.record(request, AuditLog.Action.CREATE, supplier)
         return redirect("accounting:suppliers")
     return render(request, "accounting/supplier_new.html", {"form": form})
 

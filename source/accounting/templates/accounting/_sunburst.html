@@ -1,0 +1,48 @@
+{% comment %}
+  One sunburst chart of the Overview, with its legend (see sunburst in
+  overview.py). overview.html includes this file for each chart.
+
+  The inner ring holds the parts, the outer ring holds their children. The
+  legend has one list for each part of the inner ring. Each segment, each
+  legend row and the centre are links. The segment and its
+  legend row have the same data-key, thus overview.js lights up the two
+  together. The legend also gives each value without the tooltip.
+{% endcomment %}
+<section class="dash-panel" aria-labelledby="chart-{{ forloop.counter }}">
+    <header class="dash-panel__head">
+        <h2 class="dash-panel__title" id="chart-{{ forloop.counter }}"><a href="{{ chart.href }}">{{ chart.title }}</a></h2>
+        <span class="dash-panel__hint">{{ chart.hint }}</span>
+    </header>
+    <div class="sunburst" data-sunburst>
+        <div class="sunburst__figure">
+            <svg class="sunburst__chart" viewBox="0 0 200 200" role="group" aria-label="{{ chart.title }}">
+                {% if not chart.segments %}<circle class="sunburst__track" cx="100" cy="100" r="74"/>{% endif %}
+                {% for seg in chart.segments %}
+                <a class="sunburst__seg tone-{{ seg.tone }}{% if not seg.depth %} is-inner{% endif %}" href="{{ seg.href }}"
+                   data-key="{{ seg.key }}" data-tip="{{ seg.tip }}" data-tip-value="{{ seg.text }}"
+                   aria-label="{{ seg.label }}: {{ seg.text }}"><path d="{{ seg.path }}"/></a>
+                {% endfor %}
+            </svg>
+            <a class="sunburst__center" href="{{ chart.center.href }}">
+                <span class="sunburst__value {{ chart.center.tone }}">{{ chart.center.value }}</span>
+                <span class="sunburst__label">{{ chart.center.label }}</span>
+            </a>
+        </div>
+        <div class="sunburst__legend">
+            {% for group in chart.legend %}
+            <ul class="legend__group">
+                {% for row in group %}
+                <li>
+                    <a class="legend__row tone-{{ row.tone }}{% if row.depth %} legend__row--child{% else %} is-inner{% endif %}{% if row.zero %} is-zero{% endif %}"
+                       href="{{ row.href }}" data-key="{{ row.key }}" title="{{ row.tip }}: {{ row.text }}">
+                        <span class="legend__swatch" aria-hidden="true"></span>
+                        <span class="legend__label">{{ row.label }}</span>
+                        <span class="legend__value">{{ row.short }}</span>
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endfor %}
+        </div>
+    </div>
+</section>

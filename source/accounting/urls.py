@@ -1,10 +1,10 @@
 from django.urls import path
-from accounting import views
+from accounting import overview, views
 
 app_name = "accounting"
 
 urlpatterns = [
-    path("", views.dashboard, name="dashboard"),
+    path("", overview.dashboard, name="dashboard"),
     path("payments/new/", views.payment_create, name="payment_create"),
     path("notes/new/", views.note_create, name="note_create"),
 
