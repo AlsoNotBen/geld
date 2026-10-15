@@ -163,7 +163,9 @@ button {
    module carries a gold marker that joins the ribbon to the bar
    below it, so the current module owns a continuous gold spine.
    The row scrolls sideways on a small screen. Thus the switch does
-   not depend on a drawer that a module supplies. */
+   not depend on a drawer that a module supplies.
+   The .module rules start with .modules, because the Django admin
+   also uses the class .module (see templates/admin/base_site.html). */
 .modules {
     display: flex;
     align-items: stretch;
@@ -174,7 +176,7 @@ button {
 }
 .modules::-webkit-scrollbar { display: none; }
 
-.module {
+.modules .module {
     position: relative;
     display: flex;
     align-items: center;
@@ -185,11 +187,11 @@ button {
     white-space: nowrap;
     transition: color 0.15s ease, background 0.15s ease;
 }
-.module:hover { color: var(--gold); background: var(--gold-soft); }
-.module .icon { stroke: currentColor; opacity: 0.9; }
+.modules .module:hover { color: var(--gold); background: var(--gold-soft); }
+.modules .module .icon { stroke: currentColor; opacity: 0.9; }
 
-.module.is-active { color: var(--ink); }
-.module.is-active::after {
+.modules .module.is-active { color: var(--ink); }
+.modules .module.is-active::after {
     /* the gold spine — reaches the bottom edge of the ribbon */
     content: "";
     position: absolute;
@@ -434,8 +436,8 @@ button {
 
     /* The module switch shows only the icons. The text stays for a
        screen reader. base.js scrolls the active module into view. */
-    .module { padding: 0 12px; gap: 0; font-size: 0; }
-    .module.is-active::after { left: 6px; right: 6px; }
+    .modules .module { padding: 0 12px; gap: 0; font-size: 0; }
+    .modules .module.is-active::after { left: 6px; right: 6px; }
 
     /* A small screen scrolls the full page, not an inner panel. The
        ribbon stays at the top, and the footer goes to the end of the

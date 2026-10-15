@@ -1,7 +1,8 @@
 {% comment %}
   accounting/templates/accounting/_accounts_table.html
   The table of one Chart of Accounts tab.
-  Give it: rows, total, total_label.
+  Give it: rows, total, total_label. Each row is (account, depth). The
+  depth indents the name of a child account (see tree_order in views.py).
 {% endcomment %}
 {% load fin %}
 <table class="table table--coa">
@@ -9,10 +10,10 @@
         <tr><th>Code</th><th>Account</th><th>Type</th><th>Balance</th></tr>
     </thead>
     <tbody>
-        {% for account in rows %}
+        {% for account, depth in rows %}
         <tr{% if account.is_group %} class="is-group"{% endif %}>
             <td>{{ account.code }}</td>
-            <td>{{ account.name }}</td>
+            <td style="--depth: {{ depth }}">{{ account.name }}</td>
             <td>{{ account.get_type_display }}</td>
             <td class="{% if account.is_debit %}is-debit{% else %}is-credit{% endif %}">{{ account.balance|money }}</td>
         </tr>

@@ -5,7 +5,8 @@
 {% endcomment %}
 {% load fin %}
 {% for acct in accounts %}
-<section class="ledger-acct" aria-labelledby="acct-{{ acct.account.code }}">
+<section class="ledger-acct" aria-labelledby="acct-{{ acct.account.code }}"
+         data-filter-group="{{ acct.account.code }} {{ acct.account.name }}">
     <div class="ledger-acct__head">
         <span class="ledger-acct__code">{{ acct.account.code }}</span>
         <h3 class="ledger-acct__name" id="acct-{{ acct.account.code }}">{{ acct.account.name }}</h3>

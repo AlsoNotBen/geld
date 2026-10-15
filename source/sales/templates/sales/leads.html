@@ -18,7 +18,8 @@
         open stages of the sales cycle: New, Prospected, Qualified, Engaged
         and Awaiting. The table below the board shows the closed leads. A card
         moves to the right as the lead moves through the cycle, and the
-        gauges of the card fill. A green dot means that the next step is
+        gauges of the card fill. Drag a card to another column to change the
+        stage of the lead. A green dot means that the next step is
         yours. A yellow dot means that you wait for the lead. Click a card to
         see the full record.
     </p>
@@ -42,7 +43,7 @@
         </button>
     </div>
 
-    <p class="actionbar__hint">Click a card to open the lead.</p>
+    <p class="actionbar__hint">Click a card to open the lead. Drag a card to change its stage.</p>
 </div>
 
 {% comment %}
@@ -61,21 +62,29 @@
   attribute, and the button at the foot of the column shows the rest.
   The count pill sits next to that button, thus a short column shows no
   count.
+
+  The filter button of a column opens a field. The field hides each card
+  of the column that does not hold the words of the field. A card is
+  draggable. leads.js sends the stage of the column below the drop
+  (data-stage-key) to the stage URL of the card (data-stage-url).
   ------------------------------------------------------------------
 {% endcomment %}
 <div class="board">
 {% for col in columns %}
-    <div class="board__col" data-stage="{{ col.title }}">
+    <div class="board__col" data-stage="{{ col.title }}" data-stage-key="{{ col.key }}">
         <div class="board__head">
             <span class="board__title">{{ col.title }}</span>
-            <button class="board__filter" type="button" data-board-filter
+            <button class="board__filter" type="button" data-board-filter aria-expanded="false"
                     aria-label="Filter the {{ col.title }} column">
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 5h16l-6 7v6l-4 2v-8L4 5z" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
         </div>
+        <input class="field__control board__search" type="search" placeholder="Filter the cards"
+               aria-label="Filter the {{ col.title }} column" data-board-search hidden>
         <div class="board__list">
         {% for lead in col.leads %}
-            <button class="card lead" type="button"
+            <button class="card lead" type="button" draggable="true"
+                    data-stage-url="{% url 'sales:lead_stage' lead.pk %}"
                     {% include "sales/_lead_attrs.html" %}
                     {% if forloop.counter > 5 %}hidden{% endif %}>
                 <span class="lead__top">
@@ -136,9 +145,12 @@
 
 {# ------------------------ CLOSED #}
 {# The name is a button. It opens the lead overlay, the same as a card. #}
+{# The Filter field hides the rows that do not match (table_filter.js). #}
 <div class="review">
     <div class="review__head">
         <h2 class="review__title">Closed <span class="tabset__count">{{ closed_leads|length }}</span></h2>
+        <input class="field__control filter" type="search" placeholder="Filter the closed leads"
+               aria-label="Filter the closed leads" data-filter>
     </div>
     <table class="table table--closed">
         <thead>

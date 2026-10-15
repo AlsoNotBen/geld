@@ -54,7 +54,16 @@
         </div>
 
         <p class="actionbar__hint">Accept All posts the {{ pending_count }} new {{ pending_count|pluralize:"entry,entries" }} to the ledger.</p>
+        {% comment %} table_filter.js filters the rows of each table of the page. {% endcomment %}
+        <input class="field__control filter" type="search" placeholder="Filter the entries"
+               aria-label="Filter the entries" data-filter>
     </div>
+
+    {% if messages %}
+    <div class="sheet__errors" role="alert">
+        {% for message in messages %}<p>{{ message }}</p>{% endfor %}
+    </div>
+    {% endif %}
 
     <section class="review" aria-labelledby="review-title">
 
@@ -83,17 +92,19 @@
             </thead>
             <tbody>
                 {% for entry in draft_entries %}
+                {% comment %} A tax line shows below the account on its side: the
+                     code, the name and the amount (see draft_rows). {% endcomment %}
                 <tr>
                     <td>{{ entry.date }}</td>
                     <td>{{ entry.reference }}</td>
                     <td>{{ entry.journal }}</td>
-                    <td>{{ entry.debit_account.code }}</td>
-                    <td>{{ entry.debit_account.name }}</td>
-                    <td>{{ entry.credit_account.code }}</td>
-                    <td>{{ entry.credit_account.name }}</td>
-                    {% comment %} The two sides always hold the same amount. {% endcomment %}
-                    <td class="is-debit">{{ entry.debit_amount|money }}</td>
-                    <td class="is-credit">{{ entry.credit_amount|money }}</td>
+                    <td>{{ entry.debit_account.code }}{% for tax in entry.debit_taxes %}<span class="review__tax">{{ tax.account.code }}</span>{% endfor %}</td>
+                    <td>{{ entry.debit_account.name }}{% for tax in entry.debit_taxes %}<span class="review__tax">{{ tax.account.name }}<span class="review__tag">Tax</span></span>{% endfor %}</td>
+                    <td>{{ entry.credit_account.code }}{% for tax in entry.credit_taxes %}<span class="review__tax">{{ tax.account.code }}</span>{% endfor %}</td>
+                    <td>{{ entry.credit_account.name }}{% for tax in entry.credit_taxes %}<span class="review__tax">{{ tax.account.name }}<span class="review__tag">Tax</span></span>{% endfor %}</td>
+                    {% comment %} The two sides hold the same amount, unless a tax line is on one side. {% endcomment %}
+                    <td class="is-debit">{{ entry.debit_amount|money }}{% for tax in entry.debit_taxes %}<span class="review__tax">{{ tax.debit|money }}</span>{% endfor %}</td>
+                    <td class="is-credit">{{ entry.credit_amount|money }}{% for tax in entry.credit_taxes %}<span class="review__tax">{{ tax.credit|money }}</span>{% endfor %}</td>
                     <td>
                         <div class="review__buttons">
                             <form method="post" action="{% url 'accounting:journalentry_post' entry.id %}">
@@ -117,7 +128,7 @@
                                     data-reference="{{ entry.reference }}"
                                     data-debit="{{ entry.debit_id }}"
                                     data-credit="{{ entry.credit_id }}"
-                                    data-amount="{{ entry.debit_amount|stringformat:'f' }}"
+                                    data-amount="{{ entry.amount|stringformat:'f' }}"
                                     data-currency="{{ entry.currency_id }}"
                                     data-tax="{{ entry.tax_id }}"
                                     data-description="{{ entry.description }}"
@@ -325,7 +336,8 @@
                     </select>
                 </div>
                 <div class="field">
-                    <label class="field__label" for="entry-amount">Amount</label>
+                    {% comment %} With a tax code, make_lines adds the tax line. {% endcomment %}
+                    <label class="field__label" for="entry-amount">Amount before tax</label>
                     <input class="field__control" type="number" step="0.01" min="0.01"
                            id="entry-amount" name="amount" required>
                 </div>

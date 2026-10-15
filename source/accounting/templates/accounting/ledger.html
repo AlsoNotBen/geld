@@ -88,6 +88,10 @@
         </div>
 
         <p class="actionbar__hint">The ledger shows the accounts with a movement in this period.</p>
+        {% comment %} table_filter.js filters the lines of each account. The
+             code and the name of the account count for each of its lines. {% endcomment %}
+        <input class="field__control filter" type="search" placeholder="Filter the ledger"
+               aria-label="Filter the ledger" data-filter>
     </div>
 
     <div class="tabset" data-tabset data-tabset-param="type" data-num>

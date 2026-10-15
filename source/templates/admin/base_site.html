@@ -1,0 +1,40 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% comment %}
+  ============================================================================
+  templates/admin/base_site.html
+  ----------------------------------------------------------------------------
+  The Django admin with the look of the app. This file replaces the
+  base_site.html of django.contrib.admin. It loads:
+      the fonts of the app
+      css/base.css    the tokens, the reset and the brand of the app
+      css/admin.css   the colors and the shapes of the admin, from the tokens
+  The files go into the extrahead block. The pages of the admin add their
+  own files (e.g. forms.css) in the extrastyle block, which comes first.
+  Thus a rule of admin.css wins over an admin rule with the same weight.
+  The app has one theme. Thus the admin does not load its dark mode files,
+  and admin.css hides the theme button.
+  ============================================================================
+{% endcomment %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block dark-mode-vars %}{% endblock %}
+
+{% block extrahead %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/base.css' %}">
+<link rel="stylesheet" href="{% static 'css/admin.css' %}">
+{% endblock %}
+
+{% block branding %}
+<a class="brand" href="{% url 'admin:index' %}" aria-label="Administration home">
+    <span class="brand__mark">PT</span>
+    <span class="brand__text">POTHOS<small>Administration</small></span>
+</a>
+{% endblock %}
+
+{% block nav-global %}{% endblock %}

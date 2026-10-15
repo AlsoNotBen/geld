@@ -1,0 +1,330 @@
+/* ==========================================================================
+   admin.css  —  the Django admin in the look of the app (dark theme)
+   Place this file at: static/css/admin.css
+   templates/admin/base_site.html loads it after base.css, thus the tokens
+   of base.css are available here.
+
+   The admin takes its colors from CSS variables. Part 1 gives each of these
+   variables a token of the app. Part 2 gives the admin the shapes of the
+   app: the ribbon, the panels, the mono labels and the buttons.
+   ========================================================================== */
+
+/* ================================================================== */
+/*  1. THE VARIABLES OF THE ADMIN                                     */
+/* ================================================================== */
+:root {
+    --gold-deep: #C79A4E;       /* the labels, the same as accounting.css */
+
+    --primary: var(--gold-soft);
+    --secondary: var(--navy);
+    --accent: var(--gold);
+    --primary-fg: var(--ink);
+
+    --body-fg: var(--ink);
+    --body-bg: var(--cream);
+    --body-quiet-color: var(--ink-soft);
+    --body-medium-color: var(--ink);
+    --body-loud-color: #FFFFFF;
+
+    --header-color: var(--ink);
+    --header-branding-color: var(--gold);
+    --header-bg: var(--navy);
+    --header-link-color: var(--ink);
+
+    --breadcrumbs-fg: var(--ink);
+    --breadcrumbs-link-fg: var(--ink-soft);
+    --breadcrumbs-bg: var(--white);
+
+    --link-fg: var(--gold);
+    --link-hover-color: #F5CB8C;
+    --link-selected-fg: var(--gold);
+
+    --hairline-color: var(--line);
+    --border-color: var(--line-strong);
+    --error-fg: #E0785E;
+
+    --message-debug-bg: var(--white);
+    --message-info-bg: var(--white);
+    --message-success-bg: rgba(127, 191, 154, 0.14);
+    --message-warning-bg: rgba(255, 243, 140, 0.12);
+    --message-error-bg: rgba(224, 120, 94, 0.14);
+
+    --darkened-bg: var(--white);
+    --selected-bg: rgba(232, 230, 222, 0.06);
+    --selected-row: var(--gold-soft);
+
+    --button-fg: var(--ink-soft);
+    --button-bg: var(--white);
+    --button-hover-bg: var(--gold-soft);
+    --default-button-bg: var(--gold);
+    --default-button-hover-bg: #F5CB8C;
+    --close-button-bg: var(--white);
+    --close-button-hover-bg: var(--gold-soft);
+    --delete-button-bg: rgba(192, 57, 43, 0.14);
+    --delete-button-hover-bg: rgba(192, 57, 43, 0.24);
+
+    --object-tools-fg: var(--navy);
+    --object-tools-bg: var(--gold);
+    --object-tools-hover-bg: #F5CB8C;
+
+    --font-family-primary: var(--font-sans);
+    --font-family-monospace: var(--font-mono);
+
+    color-scheme: dark;
+}
+
+/* ================================================================== */
+/*  2. THE SHAPES OF THE APP                                          */
+/* ================================================================== */
+
+/* base.css gives each element the border-box model. Some parts of the
+   admin need the model of the browser, e.g. the Delete button. */
+*, *::before, *::after { box-sizing: revert; }
+
+/* ---- The ribbon ---------------------------------------------------- */
+#header {
+    flex: none;
+    min-height: var(--ribbon-h);
+    padding: 0 20px;
+}
+#branding .brand__text { color: var(--ink); }
+
+/* The user tools use the mono labels of the app. */
+#user-tools {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--on-navy);
+}
+#user-tools strong { color: var(--ink); }
+#header #user-tools a:link,
+#header #user-tools a:visited,
+#header #logout-form button {
+    border-bottom: 0;
+    color: var(--on-navy);
+    font-family: var(--font-mono);
+}
+#header #user-tools a:hover,
+#header #logout-form button:hover { color: var(--gold); text-decoration: none; }
+
+/* The app has one theme. */
+.theme-toggle { display: none; }
+
+/* ---- The breadcrumbs: the module bar of the app -------------------- */
+ol.breadcrumbs {
+    padding: 15px 24px;
+    border-bottom: 1px solid var(--line);
+}
+ol.breadcrumbs a:hover,
+ol.breadcrumbs a:focus { color: var(--gold); }
+
+/* ---- Links and titles ---------------------------------------------- */
+/* The app does not underline a link. The gold color marks it. The
+   selector has the same weight as the underline rule of the admin, and
+   it comes later, thus it wins. */
+body #container a:link,
+body #container a:visited { text-decoration: none; }
+
+#content { padding: 26px 30px 44px; }
+#content h1 { margin-bottom: 20px; font-size: 22px; font-weight: 600; color: var(--ink); }
+#content h2 { color: var(--ink); }
+
+/* ---- Panels: the cards of the app ---------------------------------- */
+#content .module,
+.inline-group,
+.submit-row,
+#toolbar,
+#changelist-filter,
+#content-related {
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+}
+#content-related .module { border: 0; box-shadow: none; }
+#toolbar { padding: 12px 16px; }
+#toolbar #searchbar { height: auto; padding: 7px 12px; }
+
+/* The list of a model holds the toolbar, the actions and the table. The
+   toolbar and the table are panels, thus the list itself is not. */
+#content #changelist { background: none; border: 0; box-shadow: none; }
+#changelist .actions,
+#changelist .paginator { background: none; }
+
+/* The head of a panel uses the labels of the app. */
+.module h2,
+.module caption,
+.inline-group h2,
+#changelist-filter h2,
+#content-related .module h2 {
+    padding: 13px 16px;
+    background: transparent;
+    border-bottom: 1px solid var(--line);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: bold;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--gold-deep);
+}
+a.section:link,
+a.section:visited { color: var(--gold-deep); }
+a.section:hover { color: var(--gold); }
+
+/* The side panel of the admin stays on the canvas, as the side panel
+   of the app. The current model gets the gold tint. */
+#nav-sidebar .module h2,
+#nav-sidebar .module caption { border-bottom: 0; padding-top: 18px; }
+#nav-sidebar .current-app .section:link,
+#nav-sidebar .current-app .section:visited { color: var(--gold); }
+#nav-sidebar .current-model { background: var(--gold-soft); }
+#nav-sidebar .current-model a { color: var(--gold); }
+#nav-filter {
+    padding: 7px 12px;
+    border-radius: var(--radius-sm);
+    border-color: var(--line);
+    background: var(--white);
+}
+
+/* ---- Tables -------------------------------------------------------- */
+/* The rows have no stripes. The pointer gives a row the gold tint. */
+tr:nth-child(odd),
+tr:nth-child(even),
+.row-form-errors { background: transparent; }
+tbody tr:hover { background: var(--gold-soft); }
+
+thead th,
+tfoot td,
+#changelist table thead th {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+}
+td, th { border-bottom-color: var(--line); }
+
+#result_list {
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+}
+#result_list td, #result_list th { padding: 12px 16px; }
+#changelist table thead th .text a,
+#changelist table thead th .text span { padding: 13px 16px; }
+
+/* ---- Fields: the .field__control of the app ------------------------ */
+input:not([type]),
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="url"],
+input[type="number"],
+input[type="tel"],
+input[type="search"],
+textarea,
+select,
+.vTextField {
+    padding: 7px 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background-color: var(--cream);
+    color: var(--ink);
+}
+select { height: 36px; }
+input:focus,
+textarea:focus,
+select:focus,
+.vTextField:focus { outline: none; border-color: var(--gold-line); }
+
+/* The labels of a form use the mono labels of the app. */
+.aligned label:not(.vCheckboxLabel),
+.login .form-row label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: bold;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--gold-deep);
+}
+
+/* ---- Buttons: the .tool of the app --------------------------------- */
+.button,
+input[type="submit"],
+input[type="button"],
+.submit-row input,
+a.button,
+.submit-row a.deletelink,
+.submit-row a.closelink,
+.delete-confirmation form .cancel-link {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: none;
+}
+.button:hover,
+input[type="submit"]:hover,
+input[type="button"]:hover,
+a.button:hover,
+.submit-row a.closelink:hover,
+.delete-confirmation form .cancel-link:hover { border-color: var(--gold-line); color: var(--gold); }
+
+/* The main button of a form is gold, as the primary tool of the app. */
+.button.default,
+input[type="submit"].default,
+.submit-row input.default,
+.login .submit-row input {
+    border-color: var(--gold);
+    background: var(--gold);
+    color: var(--navy);
+    font-weight: 600;
+    text-transform: none;
+}
+.button.default:hover,
+input[type="submit"].default:hover,
+.submit-row input.default:hover,
+.login .submit-row input:hover { background: #F5CB8C; border-color: #F5CB8C; color: var(--navy); }
+
+/* Delete: the .tool--danger of the app. */
+.submit-row a.deletelink,
+.delete-confirmation form input[type="submit"] {
+    border-color: transparent;
+    color: #C0392B;
+}
+
+/* The tools above a list (e.g. Add account) use the gold of the primary tool. */
+.object-tools a:link,
+.object-tools a:visited {
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+}
+.object-tools a.addlink { padding-right: 30px; }
+
+/* ---- Messages ------------------------------------------------------ */
+ul.messagelist li {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    color: var(--ink);
+}
+
+/* ---- The sign-in page ---------------------------------------------- */
+body.login { background: var(--cream); }
+.login #container {
+    border-color: var(--line-strong);
+    border-radius: var(--radius);
+    background: var(--white);
+    box-shadow: var(--shadow-md);
+}
+.login #header { padding: 20px; }
+.login .submit-row { background: none; border: 0; box-shadow: none; }
+.login .submit-row input { width: 100%; height: 42px; }

@@ -572,6 +572,8 @@
 }
 .sheet__errors[hidden] { display: none; }
 .sheet__errors p { margin: 0; }
+/* The errors of a page go below the action bar (journals.html, bills.html). */
+.actionbar + .sheet__errors { margin: -8px 0 22px; }
 
 
 /* ---- Form field --------------------------------------------------- */
@@ -727,6 +729,11 @@ textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
     color: var(--ink-soft);
     font-size: 12px;
 }
+
+/* The Filter field of a page (table_filter.js). In the action bar it goes
+   after the hint. In the head of a list it goes to the right end. */
+.filter { width: 220px; max-width: 100%; }
+.review__head .filter { margin-left: auto; }
 
 /* ================================================================== */
 /*  BALANCE CARDS                                                     */
@@ -1011,6 +1018,10 @@ textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
     color: var(--ink);
 }
 
+/* A child account goes to the right of its parent. The template sets
+   --depth on the cell: 0 for a top account, 1 for its child, and so on. */
+.table--coa td:nth-child(2) { padding-left: calc(16px + var(--depth, 0) * 24px); }
+
 /* Column 3 = Type. Example: Current asset. It stays on one line. */
 .table--coa th:nth-child(3),
 .table--coa td:nth-child(3) {
@@ -1064,6 +1075,19 @@ textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
 .table--review th:last-child,
 .table--review td:last-child { width: 1%; white-space: nowrap; }
 .table--review tbody td:last-child { padding-top: 8px; padding-bottom: 8px; }
+
+/* A tax line of a new entry shows below the account on its side. The
+   cells then have two lines, thus the text of each cell starts at the top. */
+.table--review td { vertical-align: top; }
+.review__tax { display: block; margin-top: 8px; }
+.review__tag {
+    margin-left: 8px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--gold-deep);
+}
 
 /* The two buttons of a row stay together at the right edge. */
 .review__buttons {
@@ -1875,6 +1899,36 @@ textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
 .switch__text { font-size: 13px; color: var(--ink-soft); }
 .switch input:checked ~ .switch__text { color: var(--ink); }
 
+/* ---- Toggle: one option of two or more is on, e.g. Internal | Public --- */
+/* Each option is a label with a radio button. The radio button stays for
+   the keyboard and the screen reader, but it is not visible. */
+.toggle {
+    display: flex;
+    gap: 2px;
+    width: fit-content;
+    height: var(--tool-h);
+    padding: 3px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--cream);
+}
+.toggle__option {
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+.toggle__option input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.toggle__option:hover { color: var(--gold); }
+.toggle__option:has(input:checked) { background: var(--gold-soft); color: var(--gold); }
+.toggle__option:has(input:focus-visible) { outline: 2px solid var(--gold); outline-offset: 2px; }
+
 /* ================================================================== */
 /*  DATE RANGE  (the drop-down at the right of the module bar)        */
 /* ================================================================== */
@@ -2118,8 +2172,17 @@ textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
     color: var(--ink-soft);
     transition: background 0.12s ease, color 0.12s ease;
 }
-.board__filter:hover { background: var(--gold-soft); color: var(--gold); }
+.board__filter:hover,
+.board__filter[aria-expanded="true"] { background: var(--gold-soft); color: var(--gold); }
 .board__filter .icon { width: 16px; height: 16px; stroke: currentColor; }
+
+/* The filter field of a column. The filter button opens it (leads.js). */
+.board__search { margin: 12px 12px 0; }
+
+/* Drag and drop (leads.js). The card that moves goes dim, and the column
+   below the pointer gets the gold tone. */
+.board__col.is-target { border-color: var(--gold-line); background: var(--gold-soft); }
+.lead.is-dragging { opacity: 0.5; }
 
 .board__list {
     display: flex;
@@ -2170,6 +2233,11 @@ textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
     transition: background 0.12s ease, border-color 0.12s ease;
 }
 .lead:hover { background: var(--gold-soft); border-color: var(--gold-line); }
+
+/* leads.js hides a card with the hidden attribute: a card after the fifth,
+   or a card that the filter does not find. The display value of .card is
+   stronger than the default rule of the attribute, thus this rule. */
+.lead[hidden] { display: none; }
 
 /* The border color comes from the column. */
 .board__col[data-stage="New"]        .lead { border-color: var(--stage-new); }

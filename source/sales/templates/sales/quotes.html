@@ -47,6 +47,9 @@
         </div>
 
         <p class="actionbar__hint">The list shows the quotes of {{ period|default:"FY 2026" }}.</p>
+        {% comment %} table_filter.js filters the rows of each tab. {% endcomment %}
+        <input class="field__control filter" type="search" placeholder="Filter the quotes"
+               aria-label="Filter the quotes" data-filter>
     </div>
 
     {% comment %} The tab control comes from journals.js. The markup contract

@@ -4,6 +4,7 @@ from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 from accounting.models import Lead, Entity, IndividualProfile, OrganizationProfile
 
 
@@ -53,14 +54,14 @@ def card_data(lead, now):
 
 def leads(request):
     now = timezone.now()
-    rows = list(Lead.objects.select_related(
+    rows = list(Lead.objects.filter(company=request.company).select_related(
         "entity__owner", "entity__individual_profile", "entity__organization_profile").order_by("-id"))
     for lead in rows:
         card_data(lead, now)
 
     return render(request, "sales/leads.html", {
         "page_title":   "Leads",
-        "columns":      [{"title": label, "leads": [l for l in rows if l.stage == key]}
+        "columns":      [{"key": key, "title": label, "leads": [l for l in rows if l.stage == key]}
                          for key, label in Lead.SaleStage.choices if key != Lead.SaleStage.CLOSED],
         "closed_leads": [l for l in rows if l.stage == Lead.SaleStage.CLOSED],
     })
@@ -127,6 +128,18 @@ def lead_update(request, pk):
     if request.method == "POST":
         save_lead(get_object_or_404(Lead.objects.select_related("entity"), pk=pk), request.POST)
     return redirect("sales:leads")
+
+@require_POST
+def lead_stage(request, pk):
+    """The drop of a lead card on a column of the board. leads.js sends the
+    stage of the column, and moves the card when the answer is OK."""
+    stage = request.POST.get("stage")
+    if stage not in Lead.SaleStage.values:
+        return JsonResponse({"error": "Unknown stage."}, status=400)
+    lead = get_object_or_404(Lead, pk=pk, company=request.company)
+    lead.stage = stage
+    lead.save(update_fields=["stage", "updated_at"])
+    return JsonResponse({"stage": stage})
 
 def dashboard(request):
     return render(request, "sales/dashboard.html")

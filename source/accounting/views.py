@@ -8,11 +8,11 @@ from django.db.models import Sum, DecimalField, Q
 from django.db.models.functions import Coalesce
 from django.urls import reverse
 from django.utils import timezone
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from accounting.models import *
 from accounting.date_range import get_range, previous_range
 from accounting.forms import BillForm, NoteForm, PaymentForm, SupplierForm
-from accounting.posting import PAYABLE, post_bill, post_payment
+from accounting.posting import CENT, PAYABLE, VAT, _account, post_bill, post_payment
 from datetime import datetime, timedelta
 from filestore.services import save_upload, validate
 
@@ -105,16 +105,29 @@ def journal_rows(lines):
         "is_debit": line.debit > 0,
     } for line in lines]
 
-def draft_rows(entries):
+def tax_account_ids(company):
+    """The tax accounts: VAT Control, and the input and output account of each tax code."""
+    ids = set(Account.objects.filter(company=company, name=VAT).values_list("id", flat=True))
+    for pair in TaxCode.objects.filter(company=company).values_list("input_account_id", "output_account_id"):
+        ids.update(pair)
+    return ids
+
+def draft_rows(entries, tax_ids):
     """One row for each draft entry. The row also holds the data of the
-    edit form, thus the Edit button can fill the overlay."""
+    edit form, thus the Edit button can fill the overlay. A line on a tax
+    account, other than the debit and the credit of the row, goes into
+    debit_taxes or credit_taxes. Thus the row also shows the tax effect.
+    The lines stay in the order of their creation: the taxed line comes
+    before its tax line (see make_lines)."""
     rows = []
     for entry in entries:
-        lines = list(entry.lines.all())
+        lines = sorted(entry.lines.all(), key=lambda l: l.id)
         debit = next((l for l in lines if l.debit > 0), None)
         credit = next((l for l in lines if l.credit > 0), None)
         if not (debit and credit):
             continue
+        taxes = [l for l in lines if l.account_id in tax_ids and l not in (debit, credit)]
+        credit_taxes = [l for l in taxes if l.credit > 0]
         rows.append({
             "id": entry.id,
             "date": entry.date,
@@ -132,24 +145,52 @@ def draft_rows(entries):
             "currency_id": debit.currency_id,
             "tax_id": debit.tax_code_id or "",
             "description": debit.description,
+            "debit_taxes": [l for l in taxes if l.debit > 0],
+            "credit_taxes": credit_taxes,
+            "amount": credit.credit if credit_taxes else debit.debit,     # The amount before tax
         })
     return rows
 
 def make_lines(entry, post):
-    """Make the debit line and the credit line of an entry."""
+    """Make the lines of an entry. The amount is before tax.
+
+    Without a tax code, the debit line and the credit line hold the amount.
+    With a tax code, the tax is the amount times the rate of the tax code.
+    The taxed line is the income or expense line, else the debit line. The
+    tax line goes on the same side, to the output account of the tax code
+    for an income account, else to its input account (or VAT Control). The
+    other line holds the amount plus the tax. A rate of zero, or a debit or
+    credit account that is a tax account, makes no tax line."""
+    company = entry.company
     amount = Decimal(post["amount"])
+    debit = get_object_or_404(Account, company=company, pk=post["debit_account"])
+    credit = get_object_or_404(Account, company=company, pk=post["credit_account"])
+    tax_code = TaxCode.objects.filter(company=company, pk=post.get("tax_code") or None).first()
     common = {
         "entry": entry,
         "currency_id": post["currency"],
-        "tax_code_id": post.get("tax_code") or None,
+        "tax_code": tax_code,
         "description": post.get("description", ""),
     }
-    JournalLine.objects.create(
-        account_id=post["debit_account"], debit=amount, base_debit=amount, **common,
-    )
-    JournalLine.objects.create(
-        account_id=post["credit_account"], credit=amount, base_credit=amount, **common,
-    )
+
+    def add(account, value):
+        """Add one line. A positive value is a debit. A negative value is a credit."""
+        side = "debit" if value > 0 else "credit"
+        JournalLine.objects.create(account=account, **{side: abs(value), f"base_{side}": abs(value)}, **common)
+
+    if credit.type in PROFIT_TYPES and debit.type not in PROFIT_TYPES:
+        taxed, other, sign = credit, debit, -1
+    else:
+        taxed, other, sign = debit, credit, 1
+    tax = ZERO
+    if tax_code and not {debit.pk, credit.pk} & tax_account_ids(company):
+        tax = (amount * tax_code.rate / 100).quantize(CENT, ROUND_HALF_UP)
+
+    add(taxed, sign * amount)
+    if tax:
+        tax_account = tax_code.output_account if taxed.type in CATEGORIES["income"] else tax_code.input_account
+        add(tax_account or _account(company, VAT), sign * tax)
+    add(other, -sign * (amount + tax))
 
 def journals(request):
     # The global date range keeps only the entries of the selected period.
@@ -167,7 +208,8 @@ def journals(request):
         JournalEntry.objects
         .filter(company=company, status=JournalEntry.Status.DRAFT, date__range=(start, end))
         .prefetch_related("lines__account")
-        .order_by("date", "id")
+        .order_by("date", "id"),
+        tax_account_ids(company),
     )
 
     context = {
@@ -185,17 +227,23 @@ def journals(request):
     return render(request, "accounting/journals.html", context)
 
 def journalentry_create(request):
+    """The Save button of the New Entry overlay. An error (e.g. no tax
+    account) saves nothing, and the journals page shows the error."""
     if request.method == "POST":
-        entry = JournalEntry.objects.create(
-            company=request.company,                            # Add to every function that creates a CompanyOwned record
-            date=request.POST["date"],
-            period_id=request.POST["period"],
-            entry_type=request.POST["entry_type"],
-            status=JournalEntry.Status.DRAFT,
-            reference=request.POST["reference"],
-            narration=request.POST.get("narration", ""),
-        )
-        make_lines(entry, request.POST)
+        try:
+            with transaction.atomic():
+                entry = JournalEntry.objects.create(
+                    company=request.company,                    # Add to every function that creates a CompanyOwned record
+                    date=request.POST["date"],
+                    period_id=request.POST["period"],
+                    entry_type=request.POST["entry_type"],
+                    status=JournalEntry.Status.DRAFT,
+                    reference=request.POST["reference"],
+                    narration=request.POST.get("narration", ""),
+                )
+                make_lines(entry, request.POST)
+        except ValidationError as error:
+            messages.error(request, " ".join(error.messages))
     return redirect("accounting:journals")
 
 def journalentry_update(request, pk):
@@ -323,7 +371,25 @@ def category_of(account):
         if account.type in types:
             return key
     return None
- 
+
+def tree_order(accounts):
+    """The accounts as (account, depth) pairs, each child below its parent.
+    The depth is the number of parents above the account in the list, thus
+    the table can indent the child. An account with its parent outside the
+    list starts a new tree. The order in each level stays the order of the list."""
+    ids = {a.pk for a in accounts}
+    children = {}
+    for account in accounts:
+        children.setdefault(account.parent_id if account.parent_id in ids else None, []).append(account)
+    rows = []
+    def add(parent_id, depth):
+        for account in children.get(parent_id, []):
+            rows.append((account, depth))
+            add(account.pk, depth + 1)
+    add(None, 0)
+    seen = {a.pk for a, _ in rows}
+    return rows + [(a, 0) for a in accounts if a.pk not in seen]     # A loop of parents has no top account.
+
 def chartaccounts(request):
     # The balance of an account uses only the lines of the date range.
     key, start, end = get_range(request)
@@ -350,12 +416,12 @@ def chartaccounts(request):
         "account_types"     : Account.AccountType.choices,
         "currencies"        : Currency.objects.all(),
         "parent_accounts"   : accounts,
-        "all_accounts"      : accounts,
+        "all_accounts"      : tree_order(accounts),
         "all_total"         : sum((a.signed for a in accounts), ZERO),
     }
     for key in CATEGORIES:
         rows = [a for a in accounts if category_of(a) == key]
-        context[f"{key}_accounts"] = rows
+        context[f"{key}_accounts"] = tree_order(rows)
         context[f"{key}_total"] = abs(sum((a.signed for a in rows), ZERO))
  
     return render(request, "accounting/chart_of_accounts.html", context)

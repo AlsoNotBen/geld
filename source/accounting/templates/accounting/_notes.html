@@ -29,7 +29,7 @@
                 {% endfor %}
                 <p class="note-card__meta">
                     <span>{{ note.created_by.get_full_name|default:note.created_by|default:"Unknown" }} · {{ note.created_at|date:"j M Y" }}</span>
-                    <span>{% if note.is_permanent %}Permanent{% else %}Expires {{ note.expires_on|date:"j M Y" }}{% endif %}</span>
+                    <span>{{ note.get_visibility_display }} · {% if note.is_permanent %}Permanent{% else %}Expires {{ note.expires_on|date:"j M Y" }}{% endif %}</span>
                 </p>
             </article>
             {% endfor %}
@@ -55,6 +55,10 @@
         <div class="field">
             <span class="field__label">Expires</span>
             <p class="note-read">{% if note.is_permanent %}Never. The note is permanent.{% else %}{{ note.expires_on|date:"j M Y" }}{% endif %}</p>
+        </div>
+        <div class="field">
+            <span class="field__label">Visibility</span>
+            <p class="note-read">{% if note.visibility == note.Visibility.INTERNAL %}Internal. Only the author sees the note.{% else %}Public. All users of the company see the note.{% endif %}</p>
         </div>
         <div class="field">
             <span class="field__label">Period of the page</span>
@@ -88,12 +92,21 @@
             <p class="note-hint field--wide">
                 The note is for this page and the period {{ range_start|date:"j F Y" }} to {{ range_end|date:"j F Y" }}.
                 A comment shows on this page only. A footnote also goes into the annual financial statements.
+                An internal note shows only to you. A public note shows to all users of the company.
             </p>
             <div class="field">
                 <label class="field__label" for="{{ form.kind.id_for_label }}">{{ form.kind.label }}</label>
                 {{ form.kind }}
             </div>
             <div class="field">
+                <span class="field__label" id="note-visibility-label">{{ form.visibility.label }}</span>
+                <div class="toggle" role="radiogroup" aria-labelledby="note-visibility-label">
+                    {% for option in form.visibility %}
+                    <label class="toggle__option">{{ option.tag }}{{ option.choice_label }}</label>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="field field--wide">
                 <label class="field__label" for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
                 {{ form.title }}
             </div>

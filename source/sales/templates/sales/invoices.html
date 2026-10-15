@@ -51,6 +51,9 @@
         </div>
 
         <p class="actionbar__hint">The list shows the invoices of {{ period|default:"FY 2026" }}.</p>
+        {% comment %} table_filter.js filters the rows of each tab. {% endcomment %}
+        <input class="field__control filter" type="search" placeholder="Filter the invoices"
+               aria-label="Filter the invoices" data-filter>
     </div>
 
     <div data-tabset data-tabset-param="status">

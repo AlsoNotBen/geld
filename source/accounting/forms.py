@@ -127,10 +127,11 @@ class NoteForm(forms.ModelForm):
 
     class Meta:
         model = Note
-        fields = ["page", "kind", "title", "body", "expires_on", "is_permanent"]
+        fields = ["page", "kind", "visibility", "title", "body", "expires_on", "is_permanent"]
         labels = {"kind": "Type", "body": "Description", "expires_on": "Expires on"}
         widgets = {
             "page": forms.HiddenInput(),
+            "visibility": forms.RadioSelect(),
             "body": forms.Textarea(attrs={"rows": 6, "data-note-body": ""}),
             "expires_on": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
             "is_permanent": forms.CheckboxInput(attrs={"data-note-permanent": ""}),

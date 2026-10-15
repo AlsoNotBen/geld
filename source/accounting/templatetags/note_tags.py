@@ -7,7 +7,8 @@ overlay. A page with a Note button uses the two tags:
     {% notes_section %}
 
 The page of a note is the view name of its URL, e.g. "accounting:balancesheet".
-Thus a note shows only on the page where the user wrote it.
+Thus a note shows only on the page where the user wrote it. An internal
+note shows only to the user who wrote it (see Note.active).
 """
 
 from html import escape
@@ -25,14 +26,15 @@ register = template.Library()
 @register.inclusion_tag("accounting/_notes_pill.html", takes_context=True)
 def notes_pill(context):
     request = context["request"]
-    return {"count": Note.active(request.company, request.resolver_match.view_name).count()}
+    return {"count": Note.active(request.company, request.resolver_match.view_name, request.user).count()}
 
 
 @register.inclusion_tag("accounting/_notes.html", takes_context=True)
 def notes_section(context):
     request = context["request"]
     page = request.resolver_match.view_name
-    notes = list(Note.active(request.company, page).select_related("created_by").prefetch_related("files"))
+    notes = list(Note.active(request.company, page, request.user)
+                 .select_related("created_by").prefetch_related("files"))
     return {
         "csrf_token": context.get("csrf_token"),
         "notes": notes,

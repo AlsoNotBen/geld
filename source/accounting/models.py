@@ -584,13 +584,20 @@ class Note(CompanyOwned, TimeStamped):
     """A note on one page, e.g. the balance sheet. A comment shows on the
     page only. A footnote also goes into the annual financial statements.
     The note keeps the page and its date range at the time of capture.
-    It shows on that page until its expiry date, or always if it is permanent."""
+    It shows on that page until its expiry date, or always if it is permanent.
+    An internal note shows only to the user who wrote it. A public note
+    shows to all users of the company."""
 
     class Kind(models.TextChoices):
         COMMENT  = "C", "Comment"
         FOOTNOTE = "F", "Footnote"
 
+    class Visibility(models.TextChoices):
+        INTERNAL = "I", "Internal"
+        PUBLIC   = "P", "Public"
+
     kind         = models.CharField(max_length=1, choices=Kind.choices, default=Kind.COMMENT)
+    visibility   = models.CharField(max_length=1, choices=Visibility.choices, default=Visibility.PUBLIC)
     page         = models.CharField(max_length=100)                    # The view name, e.g. "accounting:balancesheet"
     range_start  = models.DateField()                                  # The date range of the page at capture
     range_end    = models.DateField()
@@ -608,7 +615,8 @@ class Note(CompanyOwned, TimeStamped):
         return self.title
 
     @classmethod
-    def active(cls, company, page):
-        """The notes of one page that did not expire."""
+    def active(cls, company, page, user):
+        """The notes of one page that did not expire and that the user can see."""
         return cls.objects.filter(company=company, page=page).filter(
-            models.Q(is_permanent=True) | models.Q(expires_on__gte=timezone.localdate()))
+            models.Q(is_permanent=True) | models.Q(expires_on__gte=timezone.localdate())).filter(
+            models.Q(visibility=cls.Visibility.PUBLIC) | models.Q(created_by=user))
