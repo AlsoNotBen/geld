@@ -83,6 +83,8 @@ class Company(models.Model):
     tax_number      = models.CharField(max_length=50, blank=True)
     base_currency   = models.ForeignKey(Currency, on_delete=models.PROTECT, related_name="+")
     accounting_basis = models.CharField(max_length=1, choices=Basis.choices, default=Basis.ACCRUAL)
+    # Money in without an invoice reference pays the oldest open invoices of the customer (see accounting/posting.py allocate)
+    allocate_to_oldest = models.BooleanField("Allocate unreferenced to oldest invoices", default=False)
     address         = models.TextField(blank=True, help_text="The Accounting Overview shows this address on a map.")
     is_active       = models.BooleanField(default=True)
     created_at      = models.DateTimeField(auto_now_add=True)

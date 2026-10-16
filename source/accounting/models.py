@@ -1,4 +1,6 @@
 import calendar
+import datetime
+from decimal import Decimal, ROUND_HALF_UP
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import models, transaction
@@ -218,6 +220,29 @@ class Service(CompanyOwned):
     class Meta:
         unique_together = [("company", "code")]
 
+class PaymentTerms(models.TextChoices):
+    """The payment terms of a quote, an invoice or a statement. due() gives
+    the due date of a document from its date. Custom terms use the due
+    date that the user types."""
+    ON_RECEIPT = "0",   "On receipt"
+    DAYS_7     = "7",   "7 days"
+    DAYS_14    = "14",  "14 days"
+    DAYS_30    = "30",  "30 days"
+    DAYS_60    = "60",  "60 days"
+    DAYS_90    = "90",  "90 days"
+    EOM        = "EOM", "End of month"
+    EOM_NEXT   = "EON", "End of next month"
+    CUSTOM     = "C",   "Custom"
+
+    def due(self, day, custom=None):
+        if self == self.CUSTOM:
+            return custom
+        if self not in (self.EOM, self.EOM_NEXT):
+            return day + datetime.timedelta(days=int(self.value))
+        year, month = divmod(day.year * 12 + day.month - (1 if self == self.EOM else 0), 12)
+        month += 1
+        return datetime.date(year, month, calendar.monthrange(year, month)[1])
+
 class Document(CompanyOwned, TimeStamped):
     """
     Unified model for quotes, invoices, bills, and credit notes.
@@ -248,6 +273,7 @@ class Document(CompanyOwned, TimeStamped):
     number          = models.CharField(max_length=50)
     date            = models.DateField()
     due             = models.DateField(null=True, blank=True)
+    terms           = models.CharField(max_length=3, choices=PaymentTerms.choices, blank=True)   # The due date comes from the terms
     entity          = models.ForeignKey(Entity, on_delete=models.PROTECT, related_name="documents")
     status          = models.CharField(max_length=2, choices=Status.choices, default=Status.DRAFT)
     currency        = models.ForeignKey(Currency, on_delete=models.PROTECT, related_name="+")
@@ -275,7 +301,17 @@ class Document(CompanyOwned, TimeStamped):
 
     @property
     def gross(self):
-        return self.net + self.tax
+        return Decimal(self.net + self.tax).quantize(Decimal("0.01"), ROUND_HALF_UP)
+
+    @property
+    def paid(self):
+        """The sum of the payment allocations. Prefetch "allocations" for a list."""
+        return sum((a.amount for a in self.allocations.all()), Decimal(0))
+
+    @property
+    def balance(self):
+        """The open amount: the gross less the payments."""
+        return self.gross - self.paid
 
     @property
     def is_sale(self):

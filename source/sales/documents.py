@@ -12,12 +12,12 @@ from decimal import Decimal
 from django import forms
 from documents.registry import register
 from accounting.documents import (SalesDocument, SalesDocumentOptionsForm,
-                                  _build_lines, _customer, _date_field)
+                                  _build_lines, _customer, _date_field, _terms_label)
 
 
 class QuoteOptionsForm(SalesDocumentOptionsForm):
     field_order = [
-        "number", "issue_date", "valid_until", "customer", "line_items",
+        "number", "issue_date", "valid_until", "terms", "due_date", "customer", "line_items",
         "currency", "tax_rate", "discount_rate", "notes",
     ]
 
@@ -47,4 +47,4 @@ class QuoteDocument(SalesDocument):
         money = _build_lines(
             options["line_items"], options["tax_rate"], options["discount_rate"],
         )
-        return {"options": options, "customer": _customer(options), **money}
+        return {"options": options, "customer": _customer(options, request.company), "terms": _terms_label(options), **money}

@@ -1,10 +1,20 @@
 {% extends "accounting/module_base.html" %}
+{% load static fin %}
 
 {% comment %}
   ============================================================================
   accounting/templates/accounting/receivables.html
   ----------------------------------------------------------------------------
-  This page shows the invoices that customers did not pay yet. It is a shell: the data below is dummy data in the markup.
+  This page shows the invoices of the customers. It has two tabs, as the
+  Bills page:
+      Unpaid   the open invoices (the default). The balance is the open
+               amount: the gross less the payments (see Document.balance).
+               An invoice after its due date is overdue. The payment terms
+               of the invoice give its due date.
+      Paid     the paid invoices of the date range.
+
+  Columns: Date · Number · Due · Customer · Status (Unpaid only) · Amount
+  New Invoice opens the document overlay (see documents.js).
   ============================================================================
 {% endcomment %}
 
@@ -19,11 +29,16 @@
 
     <div class="page__head">
         <h1 class="page__title">Receivables</h1>
-        <p class="page__note">This page shows the invoices that customers did not pay yet.</p>
+        <p class="page__note">This page shows the invoices of the customers. The Unpaid tab shows the money that customers did not pay yet.</p>
     </div>
 
     <div class="actionbar" role="group" aria-label="Page controls">
         <div class="actionbar__group">
+            <button class="tool tool--primary" type="button"
+                    data-doc-overlay="{% url 'documents:panel' 'accounting' 'invoice' %}">
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                New Invoice
+            </button>
             <button class="tool" type="button" data-print>
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
                 Print
@@ -33,21 +48,95 @@
                 Export
             </button>
         </div>
-        <p class="actionbar__hint">The list shows the open invoices of {{ period|default:"FY 2026" }}.</p>
+        <p class="actionbar__hint">The Paid tab shows the invoices of {{ range_label|default:"the current financial year" }}.</p>
+        {% comment %} table_filter.js filters the rows of each tab. {% endcomment %}
+        <input class="field__control filter" type="search" placeholder="Filter the invoices"
+               aria-label="Filter the invoices" data-filter>
     </div>
 
-    <table class="table">
-        <thead>
-            <tr><th>Invoice</th><th>Customer</th><th>Date</th><th>Due</th><th>Status</th><th>Balance</th></tr>
-        </thead>
-        <tbody>
-            <tr><td>IN-01044</td><td>Karoo Fresh Produce</td><td>2026-02-12</td><td>2026-03-14</td><td><span class="status status--busy">Open</span></td><td class="is-credit">4,780.00</td></tr>
-            <tr><td>IN-01042</td><td>Sandton Data Centre</td><td>2026-02-03</td><td>2026-04-04</td><td><span class="status status--busy">Open</span></td><td class="is-credit">88,000.00</td></tr>
-            <tr><td>IN-01031</td><td>Bergrivier Logistics</td><td>2026-01-05</td><td>2026-01-20</td><td><span class="status status--out">Overdue</span></td><td class="is-overdue">7,400.00</td></tr>
-        </tbody>
-        <tfoot>
-            <tr><td colspan="5">Total receivable</td><td class="is-credit">100,180.00</td></tr>
-        </tfoot>
-    </table>
+    {% comment %} journals.js runs the tabs. {% endcomment %}
+    <div class="tabset" data-tabset data-tabset-param="invoices">
+
+        <div class="tabset__list" role="tablist" aria-label="Invoices by payment">
+            <button class="tabset__tab" type="button" role="tab" data-tab="unpaid"
+                    id="tab-unpaid" aria-controls="panel-unpaid"
+                    aria-selected="true" tabindex="0">
+                Unpaid
+            </button>
+            <button class="tabset__tab" type="button" role="tab" data-tab="paid"
+                    id="tab-paid" aria-controls="panel-paid"
+                    aria-selected="false" tabindex="-1">
+                Paid
+            </button>
+        </div>
+
+        <div class="tabset__panel" role="tabpanel" data-panel="unpaid"
+             id="panel-unpaid" aria-labelledby="tab-unpaid" tabindex="0">
+            <h2 class="tabset__print-title">Unpaid invoices</h2>
+            <table class="table table--bills" data-num>
+                <thead>
+                    <tr><th>Date</th><th>Number</th><th>Due</th><th>Customer</th><th>Status</th><th>Balance</th></tr>
+                </thead>
+                <tbody>
+                    {% for invoice in unpaid_invoices %}
+                    <tr>
+                        <td>{{ invoice.date|date:"Y-m-d" }}</td>
+                        <td>{{ invoice.number }}</td>
+                        <td>{{ invoice.due|date:"Y-m-d"|default:"—" }}</td>
+                        <td>{{ invoice.entity.name }}</td>
+                        <td>{% if invoice.due and invoice.due < today %}<span class="status status--out">Overdue</span>{% elif invoice.status == "PP" %}<span class="status status--low">Partially paid</span>{% else %}<span class="status status--busy">Open</span>{% endif %}</td>
+                        <td class="{% if invoice.due and invoice.due < today %}is-overdue{% else %}is-credit{% endif %}">{{ invoice.balance|money }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6">There are no open invoices.</td></tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr><td colspan="5">Total receivable</td><td class="is-credit">{{ unpaid_total|money }}</td></tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div class="tabset__panel" role="tabpanel" data-panel="paid"
+             id="panel-paid" aria-labelledby="tab-paid" tabindex="0" hidden>
+            <h2 class="tabset__print-title">Paid invoices</h2>
+            <table class="table table--bills" data-num>
+                <thead>
+                    <tr><th>Date</th><th>Number</th><th>Due</th><th>Customer</th><th>Amount</th></tr>
+                </thead>
+                <tbody>
+                    {% for invoice in paid_invoices %}
+                    <tr>
+                        <td>{{ invoice.date|date:"Y-m-d" }}</td>
+                        <td>{{ invoice.number }}</td>
+                        <td>{{ invoice.due|date:"Y-m-d"|default:"—" }}</td>
+                        <td>{{ invoice.entity.name }}</td>
+                        <td class="is-credit">{{ invoice.gross|money }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5">There are no paid invoices in this period.</td></tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr><td colspan="4">Total of the paid invoices</td><td class="is-credit">{{ paid_total|money }}</td></tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    {% comment %} Without JavaScript, both panels show. See journals.html. {% endcomment %}
+    <noscript>
+        <style>
+            .tabset__list { display: none; }
+            .tabset__panel[hidden] { display: block; }
+            .tabset__panel + .tabset__panel { margin-top: 30px; }
+            .tabset__print-title { display: block; margin: 0 0 14px; font-size: 15px; font-weight: 600; color: var(--ink); }
+        </style>
+    </noscript>
 </section>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script src="{% static 'accounting/js/journals.js' %}"></script>
 {% endblock %}

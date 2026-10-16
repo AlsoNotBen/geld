@@ -117,17 +117,19 @@
             </header>
             <div class="dash-panel__body">
                 {% comment %} A click on a row opens its page (overview.js).
-                     The title of the row is also a link. {% endcomment %}
+                     The title of the row is also a link. The colour of the
+                     row gives its level (see LEVELS in overview.py). A
+                     screen reader reads the level before the title. {% endcomment %}
                 <table class="table table--attention" data-num>
                     <thead>
                         <tr><th>Item</th><th>Count</th><th>Amount</th></tr>
                     </thead>
                     <tbody>
                         {% for row in attention %}
-                        <tr data-href="{{ row.href }}">
+                        <tr{% if row.row_class %} class="{{ row.row_class }}"{% endif %} data-href="{{ row.href }}">
                             <td>
                                 <a class="attn__link" href="{{ row.href }}">
-                                    <span class="status {{ row.pill }}">{{ row.level }}</span>
+                                    <span class="visually-hidden">{{ row.level }}:</span>
                                     <span>{{ row.title }}</span>
                                 </a>
                                 <span class="attn__note">{{ row.note }}</span>

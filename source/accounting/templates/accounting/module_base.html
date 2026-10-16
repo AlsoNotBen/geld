@@ -94,7 +94,8 @@
                 </button>
                 <div class="tbar-menu__panel" role="menu" aria-label="Customers">
                     <a class="tbar-menu__item" role="menuitem" href="{% url 'accounting:customers' %}">All Customers</a>
-                    <a class="tbar-menu__item" role="menuitem" href="{% url 'accounting:customer_new' %}">New Customer</a>
+                    {% comment %} lead_form.js opens the New Lead overlay, then goes to the href. {% endcomment %}
+                    <a class="tbar-menu__item" role="menuitem" href="{% url 'accounting:customers' %}" data-customer-new>New Customer</a>
                     <a class="tbar-menu__item" role="menuitem" href="{% url 'accounting:receivables' %}">Receivables</a>
                     <a class="tbar-menu__item" role="menuitem" href="{% url 'accounting:aging_receivables' %}">Aging Receivables</a>
                     <span class="tbar-menu__sep" role="separator" aria-hidden="true"></span>

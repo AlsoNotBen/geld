@@ -30,10 +30,9 @@ class PaymentForm(forms.ModelForm):
         if first_bank is None:
             self.fields["bank_account"].empty_label = "No bank account. Add one first."
         self.fields["amount"].widget.attrs["min"] = "0.01"
-        self.fields["reference"].widget.attrs["placeholder"] = "Bank reference"
+        self.fields["reference"].widget.attrs["placeholder"] = "Reference - the invoice or bill number. Required to link a payment."
         if not self.is_bound:
-            self.initial.update(number=NumberSequence.peek(company, "payment", "PAY-"),
-                                date=datetime.date.today(), bank_account=first_bank)
+            self.initial.update(number=NumberSequence.peek(company, "payment", "PAY-"),date=datetime.date.today(), bank_account=first_bank)
         for field in self.fields.values():
             field.widget.attrs["class"] = "field__control"
 

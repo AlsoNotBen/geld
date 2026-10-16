@@ -10,7 +10,6 @@ urlpatterns = [
     path("leads/<int:pk>/edit/", views.lead_update, name="lead_update"),
     path("leads/<int:pk>/stage/", views.lead_stage, name="lead_stage"),
     path("quotes/", views.quotes, name="quotes"),
-    path("invoices/", views.invoices, name="invoices"),
     path("crnotes/", views.credit_notes, name="credit_notes"),
     path("partners/", views.partners, name="partners"),
 ]

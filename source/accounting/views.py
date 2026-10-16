@@ -11,8 +11,9 @@ from django.utils import timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from accounting.models import *
 from accounting.date_range import get_range, previous_range
+from accounting.documents import AGEING_LABELS, age_bucket
 from accounting.forms import BillForm, NoteForm, PaymentForm, SupplierForm
-from accounting.posting import CENT, PAYABLE, VAT, _account, post_bill, post_payment
+from accounting.posting import CENT, PAYABLE, RECEIVABLE, VAT, _account, allocate, post_bill, post_payment
 from datetime import datetime, timedelta
 from filestore.services import save_upload, validate
 
@@ -234,11 +235,16 @@ def payment_create(request):
                 payment.currency = payment.bank_account.currency
                 payment.created_by = request.user
                 payment.save()
+                documents = allocate(payment)     # Before post_payment: the cash entry reads the allocations.
                 post_payment(payment)
                 payment.files.add(*(save_upload(u, request.user) for u in uploads))
                 AuditLog.record(request, AuditLog.Action.CREATE, payment)
+                AuditLog.record(request, AuditLog.Action.UPDATE, *documents)
                 if payment.number == NumberSequence.peek(request.company, "payment", "PAY-"):
                     NumberSequence.take(request.company, "payment")
+            if documents:
+                messages.success(request, f"{payment.number} pays " + ", ".join(
+                    f"{d.get_doc_type_display().lower()} {d.number} ({d.get_status_display()})" for d in documents) + ".")
             return JsonResponse({"redirect": reverse("accounting:journals")})
         except ValidationError as error:
             form.add_error(None, error)
@@ -730,8 +736,14 @@ def bill_list(request, *statuses, **filters):
     return list(Document.objects
                 .filter(company=request.company, direction=Document.Direction.PURCHASE,
                         doc_type=Document.DocType.BILL, status__in=statuses, **filters)
-                .select_related("entity").prefetch_related("lines__tax_code", "files")
+                .select_related("entity")
+                .prefetch_related("lines__tax_code", "lines__account", "files", "allocations")
                 .order_by("due", "date"))
+
+def unpaid_bills(request):
+    """The approved bills that are not paid in full, the next due first."""
+    S = Document.Status
+    return bill_list(request, S.SENT, S.APPROVED, S.PART_PAID)
 
 def bills(request):
     """Review: the draft bills. Unpaid: the approved bills that are not
@@ -739,13 +751,13 @@ def bills(request):
     _, start, end = get_range(request)
     S = Document.Status
     review = bill_list(request, S.DRAFT)
-    unpaid = bill_list(request, S.SENT, S.APPROVED, S.PART_PAID)
+    unpaid = unpaid_bills(request)
     paid = bill_list(request, S.PAID, date__range=(start, end))
     return render(request, "accounting/bills.html", {
         "review_bills": review,
         "unpaid_bills": unpaid,
         "paid_bills": paid,
-        "unpaid_total": sum((b.gross for b in unpaid), ZERO),
+        "unpaid_total": sum((b.balance for b in unpaid), ZERO),
         "paid_total": sum((b.gross for b in paid), ZERO),
         "today": timezone.localdate(),
         "bill_form": BillForm(company=request.company),
@@ -814,20 +826,31 @@ def bill_create(request):
             form.add_error(None, error)
     return form_errors(form)
 
+def approve_bill(request, bill):
+    """Post the entry of a draft bill to the ledger. A problem (e.g. no open
+    period) does not approve the bill, and the Bills page shows the problem."""
+    try:
+        post_bill(bill)
+        AuditLog.record(request, AuditLog.Action.POST, bill)
+    except ValidationError as error:
+        messages.error(request, f"{bill.number} is not approved. {' '.join(error.messages)}")
+
 def bill_approve(request, pk):
     """The Approve button. It posts the entry of a draft bill to the ledger."""
     if request.method == "POST":
-        bill = get_object_or_404(Document, pk=pk, company=request.company, doc_type=Document.DocType.BILL,
-                                 status=Document.Status.DRAFT)
-        try:
-            post_bill(bill)
-            AuditLog.record(request, AuditLog.Action.POST, bill)
-        except ValidationError as error:
-            messages.error(request, f"{bill.number} is not approved. {' '.join(error.messages)}")
+        approve_bill(request, get_object_or_404(Document, pk=pk, company=request.company,
+                                                doc_type=Document.DocType.BILL, status=Document.Status.DRAFT))
+    return redirect("accounting:bills")
+
+def bill_approve_all(request):
+    """The Accept All button. It approves each draft bill, as the Approve button does."""
+    if request.method == "POST":
+        for bill in bill_list(request, Document.Status.DRAFT):
+            approve_bill(request, bill)
     return redirect("accounting:bills")
 
 def bill_deny(request, pk):
-    """The Deny button. It voids a draft bill."""
+    """The Deny button of the View overlay. It voids a draft bill."""
     if request.method == "POST":
         if Document.objects.filter(pk=pk, company=request.company, doc_type=Document.DocType.BILL,
                                    status=Document.Status.DRAFT).update(status=Document.Status.VOID):
@@ -876,11 +899,13 @@ def module_settings(request):
     membership = request.user.memberships.filter(company=company).first()
     can_post = bool(membership and membership.can_post)
     if request.method == "POST":
-        # The viewing mode goes into a cookie. The basis goes onto the company.
-        basis = request.POST.get("accounting_basis")
-        if can_post and basis in Company.Basis.values:
-            company.accounting_basis = basis
-            company.save(update_fields=["accounting_basis"])
+        # The viewing mode goes into a cookie. The basis and the allocation rule go onto the company.
+        if can_post:
+            basis = request.POST.get("accounting_basis")
+            if basis in Company.Basis.values:
+                company.accounting_basis = basis
+            company.allocate_to_oldest = bool(request.POST.get("allocate_to_oldest"))
+            company.save(update_fields=["accounting_basis", "allocate_to_oldest"])
         mode = "easy" if request.POST.get("easy_view") else "standard"
         response = redirect("accounting:module_settings")
         response.set_cookie("view_mode", mode, max_age=365 * 24 * 3600, samesite="Lax")
@@ -889,21 +914,130 @@ def module_settings(request):
         "bases": Company.Basis.choices, "can_set_basis": can_post,
     })
 
-# Customers
-def customers(request):
-    return render(request, "accounting/customers.html")
+# ___________________________________CUSTOMERS_______________________________________#
+# A customer is an entity with a lead or with a sales document. The New
+# Customer button opens the New Lead overlay (see lead_form.js).
 
-def customer_new(request):
-    return render(request, "accounting/customer_new.html")
+def customer_entities(company):
+    return (Entity.objects.filter(company=company)
+            .filter(Q(leads__isnull=False) | Q(documents__direction=Document.Direction.SALE))
+            .distinct().order_by("name"))
+
+def open_invoices(company):
+    """The issued invoices that are not paid in full, the next due first.
+    The balance of each is its open amount (see Document.balance)."""
+    S = Document.Status
+    return list(Document.objects
+                .filter(company=company, direction=Document.Direction.SALE, doc_type=Document.DocType.INVOICE,
+                        status__in=[S.SENT, S.APPROVED, S.PART_PAID])
+                .select_related("entity").prefetch_related("lines__tax_code", "allocations")
+                .order_by("due", "date"))
+
+def customers(request):
+    """Each customer. The balance is the money that the customer owes: the
+    posted Accounts Receivable lines of the customer, as on the Account
+    Statement. The balance is overdue when an open invoice is after its due
+    date. The terms are the payment terms of the last invoice."""
+    company = request.company
+    S = Document.Status
+    sales = Document.objects.filter(company=company, direction=Document.Direction.SALE,
+                                    doc_type=Document.DocType.INVOICE)
+    balances = dict(JournalLine.objects
+                    .filter(entry__company=company, entry__status=JournalEntry.Status.POSTED, account__name=RECEIVABLE)
+                    .exclude(entry__basis=JournalEntry.Basis.CASH)
+                    .values_list("entity")
+                    .annotate(balance=Sum("base_debit") - Sum("base_credit")))
+    late = set(sales.filter(status__in=[S.SENT, S.APPROVED, S.PART_PAID], due__lt=timezone.localdate())
+               .values_list("entity_id", flat=True))
+    terms = dict(sales.exclude(terms="").order_by("date", "id").values_list("entity_id", "terms"))    # The last one stays
+    rows = []
+    for entity in customer_entities(company):
+        balance = balances.get(entity.id, ZERO)
+        rows.append({
+            "name": entity.name,
+            "email": entity.email,
+            "phone": entity.phone,
+            "terms": entity.id in terms and PaymentTerms(terms[entity.id]).label,
+            "is_active": entity.is_active,
+            "balance": balance,
+            "is_overdue": balance > 0 and entity.id in late,
+        })
+    return render(request, "accounting/customers.html", {"customers": rows})
 
 def receivables(request):
-    return render(request, "accounting/receivables.html")
+    """Unpaid: the open invoices and their open amounts. Paid: the paid
+    invoices of the date range, as on the Bills page."""
+    _, start, end = get_range(request)
+    unpaid = open_invoices(request.company)
+    paid = list(Document.objects
+                .filter(company=request.company, direction=Document.Direction.SALE,
+                        doc_type=Document.DocType.INVOICE, status=Document.Status.PAID, date__range=(start, end))
+                .select_related("entity").prefetch_related("lines__tax_code")
+                .order_by("due", "date"))
+    return render(request, "accounting/receivables.html", {
+        "unpaid_invoices": unpaid,
+        "paid_invoices": paid,
+        "unpaid_total": sum((i.balance for i in unpaid), ZERO),
+        "paid_total": sum((i.gross for i in paid), ZERO),
+        "today": timezone.localdate(),
+    })
+
+def aging_report(documents):
+    """The overdue documents (open invoices or bills) at today, one row for
+    each, in groups by the days after the due date. A document that is not
+    yet due does not show, thus the groups are AGEING_LABELS without Current."""
+    today = timezone.localdate()
+    labels = AGEING_LABELS[1:]
+    rows = []
+    for document in documents:
+        days = (today - (document.due or document.date)).days
+        if days > 0:
+            buckets = [ZERO] * len(labels)
+            buckets[age_bucket(days) - 1] = document.balance
+            rows.append({"number": document.number, "name": document.entity.name, "buckets": buckets,
+                         "total": document.balance})
+    rows.sort(key=lambda r: r["name"])      # The documents of one name stay in the order of the due date.
+    totals = [sum(column, ZERO) for column in zip(*(r["buckets"] for r in rows))] or [ZERO] * len(labels)
+    return {"labels": labels, "rows": rows, "totals": totals, "total": sum(totals, ZERO)}
 
 def aging_receivables(request):
-    return render(request, "accounting/aging_receivables.html")
+    """The overdue invoices, in groups by the days after the due date (see
+    aging_report). The payment terms of each invoice give its due date."""
+    return render(request, "accounting/aging_receivables.html", aging_report(open_invoices(request.company)))
 
 def customer_dashboard(request):
-    return render(request, "accounting/customer_dashboard.html")
+    """The position of the customers today, and the sales and the receipts of the date range.
+    Debtor days: the open amount divided by the sales of the range, times the days of the range."""
+    _, start, end = get_range(request)
+    company = request.company
+    today = timezone.localdate()
+    invoices = open_invoices(company)
+    late = [i for i in invoices if i.due and i.due < today]
+    receivable = sum((i.balance for i in invoices), ZERO)
+    sales = sum((d.gross for d in Document.objects
+                 .filter(company=company, direction=Document.Direction.SALE, doc_type=Document.DocType.INVOICE,
+                         date__range=(start, end))
+                 .exclude(status=Document.Status.VOID).prefetch_related("lines__tax_code")), ZERO)
+    received = (Payment.objects.filter(company=company, direction=Payment.Direction.IN, date__range=(start, end))
+                .aggregate(total=Sum("amount"))["total"] or ZERO)
+
+    top = {}
+    for invoice in invoices:
+        row = top.setdefault(invoice.entity_id, {"name": invoice.entity.name, "count": 0, "balance": ZERO, "is_overdue": False})
+        row["count"] += 1
+        row["balance"] += invoice.balance
+        row["is_overdue"] |= invoice in late
+
+    return render(request, "accounting/customer_dashboard.html", {
+        "customer_count": customer_entities(company).count(),
+        "receivable": receivable,
+        "overdue": sum((i.balance for i in late), ZERO),
+        "received": received,
+        "debtor_days": round(receivable / sales * ((end - start).days + 1)) if sales else None,
+        "top": sorted(top.values(), key=lambda r: r["balance"], reverse=True)[:10],
+        "late": [{"name": i.entity.name, "number": i.number, "days": (today - i.due).days, "balance": i.balance}
+                 for i in late[:5]],
+    })
 
 # Suppliers
 def supplier_new(request):
@@ -931,10 +1065,18 @@ def supplier_new(request):
     return render(request, "accounting/supplier_new.html", {"form": form})
 
 def payables(request):
-    return render(request, "accounting/payables.html")
+    """The unpaid bills and their open amounts. A draft bill is not a
+    payable yet: it waits in the Review part of the Bills page."""
+    bills = unpaid_bills(request)
+    return render(request, "accounting/payables.html", {
+        "bills": bills,
+        "total": sum((b.balance for b in bills), ZERO),
+        "today": timezone.localdate(),
+    })
 
 def aging_payables(request):
-    return render(request, "accounting/aging_payables.html")
+    """The overdue bills, in groups by the days after the due date (see aging_report)."""
+    return render(request, "accounting/aging_payables.html", aging_report(unpaid_bills(request)))
 
 def supplier_dashboard(request):
     return render(request, "accounting/supplier_dashboard.html")

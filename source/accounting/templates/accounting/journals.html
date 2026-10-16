@@ -59,11 +59,11 @@
                aria-label="Filter the entries" data-filter>
     </div>
 
-    {% if messages %}
-    <div class="sheet__errors" role="alert">
-        {% for message in messages %}<p>{{ message }}</p>{% endfor %}
+    {% for message in messages %}
+    <div class="sheet__errors{% if message.level_tag == 'success' %} sheet__errors--ok{% endif %}" role="alert">
+        <p>{{ message }}</p>
     </div>
-    {% endif %}
+    {% endfor %}
 
     <section class="review" aria-labelledby="review-title">
 

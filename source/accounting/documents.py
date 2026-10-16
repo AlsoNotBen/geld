@@ -25,7 +25,7 @@ from django import forms
 from django.db import transaction
 from documents.forms import (DocumentOptionsForm, LineItemsField, SelectWithAddButton)
 from documents.registry import DocumentType, register
-from accounting.models import Account, AuditLog, Document, DocumentLine, JournalEntry, JournalLine, NumberSequence, TaxCode
+from accounting.models import *
 from accounting.posting import RECEIVABLE, post_invoice_entry
 
 
@@ -70,6 +70,11 @@ SAMPLE_ACTIVITY = [
 
 AGEING_LABELS = ["Current", "1–30 days", "31–60 days", "61–90 days", "90+ days"]
 
+
+def age_bucket(days):
+    """The index in AGEING_LABELS of an amount that is the number of days after its due date."""
+    return 0 if days <= 0 else min((days - 1) // 30 + 1, 4)
+
 CATALOG = [
     {"description": "CRM implementation — discovery workshop",
      "unit": "day", "unit_price": "640.00"},
@@ -90,18 +95,20 @@ INITIAL_LINES = [
 ]
 
 
-def _customers():
-    """The entities of the leads. The key of each is its pk."""
+SAMPLE_CHOICES = [(key, value["name"]) for key, value in SAMPLE_CUSTOMERS.items()]
+
+
+def _customers(company):
+    """The entities of the leads of the company. The key of each is its pk."""
     from accounting.models import Entity
-    return Entity.objects.filter(leads__isnull=False).distinct()
+    return Entity.objects.filter(company=company, leads__isnull=False).distinct()
 
 
-def _customer_choices():
-    samples = [(key, value["name"]) for key, value in SAMPLE_CUSTOMERS.items()]
-    return samples + [(str(e.pk), e.name) for e in _customers()]
+def _customer_choices(company):
+    return SAMPLE_CHOICES + [(str(e.pk), e.name) for e in _customers(company)]
 
 
-def _customer(options):
+def _customer(options, company):
     """Return the customer record for the selected choice.
 
     The statement also reads the email, the entity, and the VAT and
@@ -109,7 +116,7 @@ def _customer(options):
     """
     key = options["customer"]
     if key.isdigit():
-        entity = _customers().select_related("organization_profile").filter(pk=key).first()
+        entity = _customers(company).select_related("organization_profile").filter(pk=key).first()
         if entity:
             org = getattr(entity, "organization_profile", None) if entity.type == entity.EntityType.ORGANIZATION else None
             return {"name": entity.name, "details": entity.address, "email": entity.email, "entity": entity,
@@ -136,6 +143,20 @@ def _month_ago():
 
 def _date_field(label, days_ahead=0):
     return forms.DateField(label=label,initial=_in_days(days_ahead),widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"))
+
+
+def _due(options):
+    """The due date of an invoice: its issue date with its payment terms, or the custom due date."""
+    return PaymentTerms(options["terms"]).due(options["issue_date"], options["due_date"])
+
+
+def _terms_label(options):
+    """The text of the payment terms. A statement without terms keeps the terms of each invoice."""
+    if not options.get("terms"):
+        return "As invoiced"
+    if options["terms"] == PaymentTerms.CUSTOM:
+        return f"Custom, due {options['due_date']:%d %b %Y}"
+    return PaymentTerms(options["terms"]).label
 
 
 def _build_lines(lines, tax_rate, discount_rate=Decimal("0")):
@@ -169,13 +190,13 @@ class SalesDocumentOptionsForm(DocumentOptionsForm):
     """Options that the invoice and the quote share. The quote is in sales/documents.py."""
 
     muted_field_names = (
-        "number", "issue_date", "due_date", "valid_until",
+        "number", "issue_date", "valid_until",
         "currency", "tax_rate", "payment_details",
     )
 
     customer = forms.ChoiceField(
         label="Customer",
-        choices=_customer_choices,
+        choices=SAMPLE_CHOICES,     # SalesDocument.get_options_form adds the customers of the company.
         initial="aster",
         widget=SelectWithAddButton(
             action="new-customer", button_label="Add a new customer",
@@ -186,6 +207,18 @@ class SalesDocumentOptionsForm(DocumentOptionsForm):
         label="Line items",
         catalog=CATALOG,
         initial=INITIAL_LINES,
+    )
+    terms = forms.ChoiceField(
+        label="Payment terms",
+        choices=PaymentTerms.choices,
+        initial=PaymentTerms.DAYS_30,
+    )
+    due_date = forms.DateField(
+        label="Custom due date",
+        required=False,
+        initial=_in_days(30),
+        help_text="Used only when the payment terms are Custom.",
+        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
     )
     currency = forms.CharField(
         label="Currency symbol",
@@ -205,18 +238,26 @@ class SalesDocumentOptionsForm(DocumentOptionsForm):
         widget=forms.Textarea(attrs={"rows": 3}),
     )
 
+    def clean(self):
+        data = super().clean()
+        if data.get("terms") == PaymentTerms.CUSTOM:
+            if not data.get("due_date"):
+                self.add_error("due_date", "Give the due date of the Custom payment terms.")
+            elif data.get("issue_date") and data["due_date"] < data["issue_date"]:
+                self.add_error("due_date", "The due date must be on or after the issue date.")
+        return data
+
 
 class InvoiceOptionsForm(SalesDocumentOptionsForm):
     field_order = [
-        "pro_forma", "recurring", "number", "issue_date", "due_date", "customer", "line_items",
+        "pro_forma", "recurring", "number", "issue_date", "terms", "due_date", "customer", "line_items",
         "currency", "tax_rate", "payment_details", "notes",
     ]
 
     pro_forma = forms.BooleanField(label="Pro-Forma", required=False, initial=False)
     recurring = forms.BooleanField(label="Recurring Invoice", required=False, initial=False)
     number = forms.CharField(label="Invoice number")
-    issue_date = _date_field("Issue Date")
-    due_date = _date_field("Due Date", days_ahead=30)
+    issue_date = _date_field("Issue Date")     # The payment terms give the due date (see _due).
     payment_details = forms.CharField(
         label="Payment Details",
         required=False,
@@ -233,7 +274,7 @@ class StatementOptionsForm(SalesDocumentOptionsForm):
     muted_field_names = ("number", "currency", "bank_details")
     field_order = [
         "number", "start_date", "end_date", "customer", "brought_forward",
-        "interest_rate", "currency", "bank_details", "notes",
+        "terms", "due_date", "interest_rate", "currency", "bank_details", "notes",
     ]
 
     number = forms.CharField(label="Statement number")
@@ -247,6 +288,14 @@ class StatementOptionsForm(SalesDocumentOptionsForm):
         decimal_places=2,
         help_text="Leave blank to calculate it from the records. A typed balance is overdue from the period start.",
         widget=forms.NumberInput(attrs={"placeholder": "Calculated", "step": "0.01"}),
+    )
+    terms = forms.ChoiceField(
+        label="Payment terms",
+        choices=[("", "As invoiced")] + PaymentTerms.choices,
+        initial="",
+        required=False,
+        help_text="As invoiced keeps the due date of each invoice. Other terms give each charge a due date from its date. "
+                  "Custom gives each charge the custom due date, but not a date before the charge.",
     )
     interest_rate = forms.DecimalField(
         label="Interest on arrears (% per year)",
@@ -279,6 +328,7 @@ class SalesDocument(DocumentType):
         form = super().get_options_form(data, request)
         if request:
             form.fields["number"].initial = NumberSequence.peek(request.company, self.key, self.prefix)
+            form.fields["customer"].choices = _customer_choices(request.company)
         return form
 
     def issue(self, request, options):
@@ -301,13 +351,14 @@ class InvoiceDocument(SalesDocument):
 
     def get_context(self, request, options):
         money = _build_lines(options["line_items"], options["tax_rate"])
-        return {"options": options, "customer": _customer(options), **money}
+        return {"options": options, "customer": _customer(options, request.company), "due": _due(options),
+                "terms": _terms_label(options), **money}
 
     def issue(self, request, options):
         if options["pro_forma"]:
             return
         money = _build_lines(options["line_items"], options["tax_rate"])
-        customer = _customer(options)
+        customer = _customer(options, request.company)
         entity = customer.get("entity")
         with transaction.atomic():
             super().issue(request, options)
@@ -326,7 +377,7 @@ def _invoice_record(company, options, entity, entry):
                 .order_by("-valid_from").first())
     document = Document.objects.create(
         company=company, direction=Document.Direction.SALE, doc_type=Document.DocType.INVOICE,
-        number=options["number"], date=options["issue_date"], due=options["due_date"], entity=entity,
+        number=options["number"], date=options["issue_date"], due=_due(options), terms=options["terms"], entity=entity,
         status=Document.Status.SENT, currency=company.base_currency, notes=options["notes"], journal_entry=entry,
     )
     DocumentLine.objects.bulk_create(
@@ -388,9 +439,13 @@ def _statement(ledger, options):
     The payments and the credits settle the oldest charges first. Thus
     the newest charges make the closing balance. The ageing and the
     interest use the due date of each of these charges, at the end date.
+    Payment terms on the statement replace the due date of each charge.
     """
     start, end, rate = options["start_date"], options["end_date"], options["interest_rate"]
     ledger = [row for row in ledger if row["date"] <= end]
+    if options.get("terms"):
+        terms = PaymentTerms(options["terms"])     # max(): a charge is not due before its date.
+        ledger = [{**row, "due": max(row["date"], terms.due(row["date"], options["due_date"]))} for row in ledger]
     rows = [row for row in ledger if row["date"] >= start]
     brought_forward = options["brought_forward"]
 
@@ -417,7 +472,7 @@ def _statement(ledger, options):
         part = min(charge["debit"], remaining)
         remaining -= part
         days = (end - charge["due"]).days
-        ageing[0 if days <= 0 else min((days - 1) // 30 + 1, 4)] += part
+        ageing[age_bucket(days)] += part
         if days > 0:
             arrears.insert(0, {**charge, "outstanding": part, "days": days,
                                "interest": (part * rate * days / 36500).quantize(CENT, ROUND_HALF_UP)})
@@ -447,9 +502,9 @@ class StatementDocument(SalesDocument):
     options_form_class = StatementOptionsForm
 
     def get_context(self, request, options):
-        customer = _customer(options)
+        customer = _customer(options, request.company)
         if customer.get("entity"):
             ledger = _ledger(request.company, customer["entity"])
         else:
             ledger = _sample_ledger() if options["customer"] in SAMPLE_CUSTOMERS else []
-        return {"options": options, "customer": customer, **_statement(ledger, options)}
+        return {"options": options, "customer": customer, "terms": _terms_label(options), **_statement(ledger, options)}

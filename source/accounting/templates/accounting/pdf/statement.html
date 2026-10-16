@@ -59,6 +59,8 @@ Reg. no. {{ customer.registration_number }}{% endif %}</div>
         <div class="meta__value">{{ options.end_date|date:"j F Y" }}</div>
         <div class="meta__label">Period</div>
         <div class="meta__value nowrap">{{ options.start_date|date:"j M Y" }} – {{ options.end_date|date:"j M Y" }}</div>
+        <div class="meta__label">Payment terms</div>
+        <div class="meta__value">{{ terms }}</div>
     </div>
     <div class="meta__block due">
         <div class="meta__label">Amount due</div>
@@ -152,7 +154,7 @@ Reg. no. {{ customer.registration_number }}{% endif %}</div>
     </tbody>
 </table>
 {% if options.interest_rate %}
-<p class="fineprint">Interest at {{ options.interest_rate|floatformat:"-2" }}% per year, calculated per day from the due date to the statement date.</p>
+<p class="fineprint">Interest at {{ options.interest_rate|floatformat:"-2" }}% per year, calculated per day from the due date to the statement date.{% if options.terms %} The due dates follow the payment terms: {{ terms }}.{% endif %}</p>
 {% endif %}
 {% endif %}
 

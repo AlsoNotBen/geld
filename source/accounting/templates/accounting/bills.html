@@ -7,14 +7,17 @@
   ----------------------------------------------------------------------------
   A bill is an invoice that a supplier sends to the business. The page has
   two parts:
-      .review      the draft bills. Approve or deny each one.
+      .review      the draft bills. Approve each one, or view it and deny
+                   it. Accept All approves all of them.
       .tabset      the approved bills: Unpaid (the default) and Paid.
 
   Columns of each table: Date · Number · Due · Supplier · Amount
-  The Unpaid tab shows an overdue amount in the overdue color.
+  The Unpaid tab shows the open amount (the gross less the payments), and
+  an overdue amount in the overdue color.
 
   The New Bill button opens #bill-dialog. bills.js sends the form with
   fetch(). A new bill is a draft. Approve posts its entry to the ledger.
+  The View button opens #bill-view-ID: the bill, with Deny and Approve.
   The Note button opens the New Note overlay (see note_tags.py).
   ============================================================================
 {% endcomment %}
@@ -39,6 +42,15 @@
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
                 New Bill
             </button>
+            <form method="post" action="{% url 'accounting:bill_approve_all' %}">
+                {% csrf_token %}
+                <button class="tool" type="submit">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Accept All
+                </button>
+            </form>
+
+            <span class="tool__sep" aria-hidden="true"></span>
             <button class="tool" type="button" data-note-new>
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 4h9l3 3v13H6V4z" stroke-linejoin="round"/><path d="M15 4v4h4" stroke-linejoin="round"/><path d="M9 13h6M12 10v6" stroke-linecap="round"/></svg>
                 Note
@@ -52,21 +64,21 @@
                 Export
             </button>
         </div>
-        <p class="actionbar__hint">The Paid tab shows the bills of {{ range_label|default:"the current financial year" }}.</p>
+        <p class="actionbar__hint">Accept All approves the {{ review_bills|length }} {{ review_bills|length|pluralize:"bill,bills" }} to review. The Paid tab shows the bills of {{ range_label|default:"the current financial year" }}.</p>
     </div>
 
-    {% if messages %}
-    <div class="sheet__errors" role="alert">
-        {% for message in messages %}<p>{{ message }}</p>{% endfor %}
+    {% for message in messages %}
+    <div class="sheet__errors{% if message.level_tag == 'success' %} sheet__errors--ok{% endif %}" role="alert">
+        <p>{{ message }}</p>
     </div>
-    {% endif %}
+    {% endfor %}
 
     {# ============================== REVIEW ============================== #}
     <section class="review" aria-labelledby="review-title">
 
         <div class="review__head">
             <h2 class="review__title" id="review-title">Review</h2>
-            <p class="review__hint">These bills wait for a review. Approve posts the bill to the ledger. Deny voids it.</p>
+            <p class="review__hint">These bills wait for a review. Approve posts the bill to the ledger. View shows the bill, and its Deny button voids it.</p>
         </div>
 
         <table class="table table--review" data-num>
@@ -103,13 +115,11 @@
                                     Approve
                                 </button>
                             </form>
-                            <form method="post" action="{% url 'accounting:bill_deny' bill.id %}">
-                                {% csrf_token %}
-                                <button class="tool tool--sm tool--danger" type="submit" aria-label="Deny {{ bill.number }}">
-                                    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>
-                                    Deny
-                                </button>
-                            </form>
+                            <button class="tool tool--sm tool--neutral" type="button" aria-label="View {{ bill.number }}"
+                                    data-bill-view="bill-view-{{ bill.id }}">
+                                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" stroke-linejoin="round"/><circle cx="12" cy="12" r="3"/></svg>
+                                View
+                            </button>
                         </div>
                     </td>
                 </tr>
@@ -151,7 +161,8 @@
                         <td>{{ bill.number }}</td>
                         <td>{{ bill.due|default:"—" }}</td>
                         <td>{{ bill.entity.name }}</td>
-                        <td class="{% if bill.due and bill.due < today %}is-overdue{% else %}is-debit{% endif %}">{{ bill.gross|money }}</td>
+                        <td class="{% if bill.due and bill.due < today %}is-overdue{% else %}is-debit{% endif %}"
+                            {% if bill.status == "PP" %}title="Partially paid: {{ bill.paid|money }} of {{ bill.gross|money }}"{% endif %}>{{ bill.balance|money }}</td>
                     </tr>
                     {% empty %}
                     <tr><td colspan="5">There are no unpaid bills.</td></tr>
@@ -259,6 +270,81 @@
             </div>
         </form>
     </dialog>
+
+    {# ============================ VIEW A BILL =========================== #}
+    {% comment %} One overlay for each bill to review. The View button of the
+         row opens it (bills.js). Deny voids the bill. Approve posts it. {% endcomment %}
+    {% for bill in review_bills %}
+    <dialog class="sheet sheet--wide" id="bill-view-{{ bill.id }}" aria-labelledby="bill-view-title-{{ bill.id }}">
+        <form method="post" action="{% url 'accounting:bill_approve' bill.id %}">
+            {% csrf_token %}
+            <div class="sheet__head">
+                <h2 class="sheet__title" id="bill-view-title-{{ bill.id }}">Bill {{ bill.number }}</h2>
+            </div>
+            <div class="sheet__body sheet__body--split">
+                <div class="field">
+                    <span class="field__label">Supplier</span>
+                    <p class="lead__read">{{ bill.entity.name }}</p>
+                </div>
+                <div class="field">
+                    <span class="field__label">Amount</span>
+                    <p class="lead__read is-debit">{{ bill.gross|money }}</p>
+                </div>
+                <div class="field">
+                    <span class="field__label">Bill date</span>
+                    <p class="lead__read">{{ bill.date }}</p>
+                </div>
+                <div class="field">
+                    <span class="field__label">Due date</span>
+                    <p class="lead__read">{{ bill.due|default:"—" }}</p>
+                </div>
+                <div class="field field--wide">
+                    <span class="field__label">Lines</span>
+                    <table class="bill-lines" data-num>
+                        <thead>
+                            <tr><th>Description</th><th>Account</th><th>Qty</th><th>Unit price</th><th>Tax code</th><th class="num">Net</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for line in bill.lines.all %}
+                            <tr>
+                                <td>{{ line.description }}</td>
+                                <td>{{ line.account }}</td>
+                                <td class="is-count">{{ line.quantity }}</td>
+                                <td class="is-count">{{ line.unit_price|money }}</td>
+                                <td>{{ line.tax_code.code|default:"—" }}</td>
+                                <td class="num is-debit">{{ line.net_amount|money }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr><td colspan="5">Tax</td><td class="num is-debit">{{ bill.tax|money }}</td></tr>
+                            <tr><td colspan="5">Total</td><td class="num is-debit">{{ bill.gross|money }}</td></tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <div class="field field--wide">
+                    <span class="field__label">Notes</span>
+                    <p class="lead__read">{{ bill.notes|default:"—" }}</p>
+                </div>
+                <div class="field field--wide">
+                    <span class="field__label">Supporting files</span>
+                    <p class="lead__read">{% for file in bill.files.all %}<a href="{% url 'filestore:download' file.pk %}?inline" target="_blank" rel="noopener">{{ file.original_name }}</a>{% if not forloop.last %}<br>{% endif %}{% empty %}—{% endfor %}</p>
+                </div>
+            </div>
+            <div class="sheet__foot">
+                <button class="tool" type="button" data-dialog-cancel>Close</button>
+                <button class="tool tool--danger" type="submit" formaction="{% url 'accounting:bill_deny' bill.id %}" data-bill-deny>
+                    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>
+                    Deny
+                </button>
+                <button class="tool tool--accept" type="submit" data-bill-approve>
+                    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Approve
+                </button>
+            </div>
+        </form>
+    </dialog>
+    {% endfor %}
 </section>
 {% endblock %}
 

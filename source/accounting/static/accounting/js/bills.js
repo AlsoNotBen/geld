@@ -69,3 +69,21 @@
         if (e.target === dialog) dialog.close();
     };
 })();
+
+/* ==========================================================================
+   The View overlay of a bill to review (#bill-view-ID). The View button of
+   the row opens it. Deny and Approve send its form to the server.
+   ========================================================================== */
+(function () {
+    "use strict";
+
+    document.querySelectorAll("[data-bill-view]").forEach(function (button) {
+        const view = document.getElementById(button.dataset.billView);
+        button.onclick = () => view.showModal();
+        view.querySelector("[data-dialog-cancel]").onclick = () => view.close();
+        // Close the dialog when the user clicks the backdrop.
+        view.onclick = (e) => {
+            if (e.target === view) view.close();
+        };
+    });
+})();

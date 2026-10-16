@@ -12,8 +12,8 @@
 
       {% verbatim %}{% extends "sales/module_base.html" %}{% endverbatim %}
 
-  page_key values: sales_dashboard, leads, sales_quotes, sales_invoices,
-  sales_crnotes or sales_partners.
+  page_key values: sales_dashboard, leads, sales_quotes, sales_crnotes or
+  sales_partners. The invoices are on the Receivables page of Accounting.
   ============================================================================
 {% endcomment %}
 
@@ -49,7 +49,6 @@
     <div class="nav__group">Sales</div>
     <a class="nav__item" data-nav="leads" href="{% url 'sales:leads' %}">Leads</a>
     <a class="nav__item" data-nav="sales_quotes" href="{% url 'sales:quotes' %}">Quotes</a>
-    <a class="nav__item" data-nav="sales_invoices" href="{% url 'sales:invoices' %}">Invoices</a>
     <a class="nav__item" data-nav="sales_crnotes" href="{% url 'sales:credit_notes' %}">Credit Notes</a>
     <a class="nav__item" data-nav="sales_partners" href="{% url 'sales:partners' %}">Partners</a>
 </nav>

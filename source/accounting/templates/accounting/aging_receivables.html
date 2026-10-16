@@ -1,10 +1,15 @@
 {% extends "accounting/module_base.html" %}
+{% load fin %}
 
 {% comment %}
   ============================================================================
   accounting/templates/accounting/aging_receivables.html
   ----------------------------------------------------------------------------
-  This report puts the money that customers owe into groups by the age of the invoice. It is a shell: the data below is dummy data in the markup.
+  This report shows each overdue invoice: its open amount in the group of
+  the days after its due date, at today. An invoice that is not yet due
+  does not show. The payment terms of each invoice give its due date. The
+  groups are AGEING_LABELS without Current (see accounting/documents.py
+  and aging_report in views.py).
   ============================================================================
 {% endcomment %}
 
@@ -19,7 +24,7 @@
 
     <div class="page__head">
         <h1 class="page__title">Aging Receivables</h1>
-        <p class="page__note">This report puts the money that customers owe into groups by the age of the invoice.</p>
+        <p class="page__note">This report shows the invoices that customers did not pay by the due date, in groups by the days after the due date.</p>
     </div>
 
     <div class="actionbar" role="group" aria-label="Page controls">
@@ -33,20 +38,27 @@
                 Export
             </button>
         </div>
-        <p class="actionbar__hint">The ages are at today's date.</p>
+        <p class="actionbar__hint">The ages are at today's date. An invoice that is not yet due does not show.</p>
     </div>
 
-    <table class="table">
+    <table class="table table--aging" data-num>
         <thead>
-            <tr><th>Name</th><th>Current</th><th>1–30 days</th><th>31–60 days</th><th>61–90 days</th><th>90+ days</th><th>Total</th></tr>
+            <tr><th>Reference</th><th>Customer</th>{% for label in labels %}<th>{{ label }}</th>{% endfor %}<th>Total</th></tr>
         </thead>
         <tbody>
-            <tr><td>Karoo Fresh Produce</td><td class="is-credit">4,780.00</td><td class="is-credit">0.00</td><td class="is-credit">0.00</td><td class="is-credit">0.00</td><td class="is-credit">0.00</td><td class="is-credit">4,780.00</td></tr>
-            <tr><td>Bergrivier Logistics</td><td class="is-credit">0.00</td><td class="is-overdue">7,400.00</td><td class="is-credit">0.00</td><td class="is-credit">0.00</td><td class="is-credit">0.00</td><td class="is-overdue">7,400.00</td></tr>
-            <tr><td>Sandton Data Centre</td><td class="is-credit">88,000.00</td><td class="is-credit">0.00</td><td class="is-credit">0.00</td><td class="is-credit">0.00</td><td class="is-credit">0.00</td><td class="is-credit">88,000.00</td></tr>
+            {% for row in rows %}
+            <tr>
+                <td>{{ row.number }}</td>
+                <td>{{ row.name }}</td>
+                {% for amount in row.buckets %}<td{% if amount %} class="is-overdue"{% endif %}>{{ amount|money }}</td>{% endfor %}
+                <td class="is-overdue">{{ row.total|money }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7">There are no overdue invoices.</td></tr>
+            {% endfor %}
         </tbody>
         <tfoot>
-            <tr><td colspan="6">Total</td><td class="is-credit">100,180.00</td></tr>
+            <tr><td>Total</td><td></td>{% for amount in totals %}<td{% if amount %} class="is-overdue"{% endif %}>{{ amount|money }}</td>{% endfor %}<td{% if total %} class="is-overdue"{% endif %}>{{ total|money }}</td></tr>
         </tfoot>
     </table>
 </section>

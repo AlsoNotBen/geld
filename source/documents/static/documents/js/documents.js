@@ -83,6 +83,15 @@
             panel.querySelectorAll("[data-doc-refresh]").forEach(function (btn) {
                 btn.addEventListener("click", refresh);
             });
+            // The custom due date applies only to the Custom payment terms
+            // ("C", see PaymentTerms). Thus its field shows only for them.
+            var terms = form.querySelector('[name="terms"]');
+            var due = form.querySelector('[name="due_date"]');
+            if (terms && due) {
+                var showDue = function () { due.closest(".doc-field").hidden = terms.value !== "C"; };
+                terms.addEventListener("change", showDue);
+                showDue();
+            }
             // Align the download link with the initial form state.
             setDownload(serialize(form));
         }

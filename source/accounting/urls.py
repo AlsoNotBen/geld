@@ -32,6 +32,7 @@ urlpatterns = [
     path("bills/", views.bills, name="bills"),
     path("bills/new/", views.bill_create, name="bill_create"),
     path("bills/<int:pk>/approve/", views.bill_approve, name="bill_approve"),
+    path("bills/approve-all/", views.bill_approve_all, name="bill_approve_all"),
     path("bills/<int:pk>/deny/", views.bill_deny, name="bill_deny"),
     path("claims/", views.claims, name="claims"),
 
@@ -40,7 +41,6 @@ urlpatterns = [
 
     # Customers
     path("customers/", views.customers, name="customers"),
-    path("customers/new/", views.customer_new, name="customer_new"),
     path("customers/receivables/", views.receivables, name="receivables"),
     path("customers/aging/", views.aging_receivables, name="aging_receivables"),
     path("customers/dashboard/", views.customer_dashboard, name="customer_dashboard"),

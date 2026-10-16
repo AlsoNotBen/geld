@@ -1,10 +1,14 @@
 {% extends "accounting/module_base.html" %}
+{% load fin %}
 
 {% comment %}
   ============================================================================
   accounting/templates/accounting/payables.html
   ----------------------------------------------------------------------------
-  This page shows the bills that the business did not pay yet. It is a shell: the data below is dummy data in the markup.
+  This page shows the approved bills that the business did not pay yet.
+  The balance is the open amount: the gross less the payments (see
+  Document.balance). A bill after its due date is overdue. A draft bill is
+  not on this page: it waits in the Review part of the Bills page.
   ============================================================================
 {% endcomment %}
 
@@ -33,20 +37,29 @@
                 Export
             </button>
         </div>
-        <p class="actionbar__hint">The list shows the open bills of {{ period|default:"FY 2026" }}.</p>
+        <p class="actionbar__hint">The list shows all the open bills at today.</p>
     </div>
 
-    <table class="table">
+    <table class="table table--bills" data-num>
         <thead>
-            <tr><th>Bill</th><th>Supplier</th><th>Date</th><th>Due</th><th>Status</th><th>Balance</th></tr>
+            <tr><th>Date</th><th>Number</th><th>Due</th><th>Supplier</th><th>Status</th><th>Balance</th></tr>
         </thead>
         <tbody>
-            <tr><td>BL-00412</td><td>Cape Office Supplies</td><td>2026-02-11</td><td>2026-03-13</td><td><span class="status status--busy">Open</span></td><td class="is-debit">3,240.00</td></tr>
-            <tr><td>BL-00411</td><td>Highveld Fuel Services</td><td>2026-02-05</td><td>2026-02-20</td><td><span class="status status--out">Overdue</span></td><td class="is-overdue">12,880.00</td></tr>
-            <tr><td>BL-00409</td><td>Atlantic Cloud Hosting</td><td>2026-01-20</td><td>2026-02-19</td><td><span class="status status--idle">Draft</span></td><td class="is-debit">1,990.00</td></tr>
+            {% for bill in bills %}
+            <tr>
+                <td>{{ bill.date|date:"Y-m-d" }}</td>
+                <td>{{ bill.number }}</td>
+                <td>{{ bill.due|date:"Y-m-d"|default:"—" }}</td>
+                <td>{{ bill.entity.name }}</td>
+                <td>{% if bill.due and bill.due < today %}<span class="status status--out">Overdue</span>{% elif bill.status == "PP" %}<span class="status status--low">Partially paid</span>{% else %}<span class="status status--busy">Open</span>{% endif %}</td>
+                <td class="{% if bill.due and bill.due < today %}is-overdue{% else %}is-debit{% endif %}">{{ bill.balance|money }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6">There are no open bills.</td></tr>
+            {% endfor %}
         </tbody>
         <tfoot>
-            <tr><td colspan="5">Total payable</td><td class="is-debit">18,110.00</td></tr>
+            <tr><td colspan="5">Total payable</td><td class="is-debit">{{ total|money }}</td></tr>
         </tfoot>
     </table>
 </section>

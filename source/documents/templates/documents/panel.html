@@ -15,7 +15,7 @@ documents.js reads these data attributes:
     data-doc-form            the options form
     data-doc-preview         the preview <iframe>
     data-doc-download        the download link
-    data-doc-save            the save button
+    data-doc-save            the save button (not for an Account Statement)
     data-doc-send            the send button (messaging.js opens its overlay)
     data-doc-close           each element that closes the overlay
 ============================================================================
@@ -95,6 +95,8 @@ documents.js reads these data attributes:
                 Close
             </button>
 
+            {% comment %} An Account Statement has nothing to save. {% endcomment %}
+            {% if document.key != "statement" %}
             <button class="tool" type="button" data-doc-save>
                 <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                     <path d="M5 4h11l3 3v13H5V4z"
@@ -108,6 +110,7 @@ documents.js reads these data attributes:
                 </svg>
                 Save
             </button>
+            {% endif %}
 
             {% comment %} documents.js keeps data-message-attach in step with
                  the download link. Thus the message gets the current PDF. {% endcomment %}

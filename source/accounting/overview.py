@@ -9,11 +9,12 @@ The page shows two kinds of figures:
   - the activity in the range: the invoices and bills that were paid in
     full, the margin, and the audit trail
 
-The open invoices and bills come from the posted lines of Accounts
-Receivable and Accounts Payable. A payment pays the oldest open charges of
-the same customer or supplier first, as on the Account Statement (see
-settle). Thus the figures agree with the ledger, also when a payment has
-no allocation.
+The open invoices and bills come from the documents and the payments that
+are allocated to them, as on the Receivables and Bills pages (see
+document_lines and posting.allocate). The cash position uses the journal:
+the posted lines of Accounts Payable give its part of the short-term debt.
+When the documents and the journal do not agree, a row of the attention
+table asks for a reconciliation (see journal_balance).
 
 The last band shows the address of the company on a map, the public
 notes, and the movement against the previous period. The map uses the
@@ -51,8 +52,8 @@ SOON_DAYS = 7       # A bill is due soon when its due date is in the next 7 days
 TAX_WORDS = ("vat", "tax", "paye")
 RINGS = ((50, 74), (74, 98))    # The radius at the start and at the end of each ring. The chart is 200 units wide.
 
-# The pill of each level of the attention table (see .status in accounting.css).
-LEVELS = {"Critical": "status--out", "Warning": "status--low", "Action": "status--busy", "Upcoming": "status--idle"}
+# The row colour of each level of the attention table (see .attn--* in accounting.css).
+LEVELS = {"Critical": "attn--critical", "Warning": "attn--warning", "Action": "attn--action", "Upcoming": ""}
 VERBS = {
     AuditLog.Action.CREATE: "created",
     AuditLog.Action.UPDATE: "changed",
@@ -183,13 +184,46 @@ def control_lines(company, name, as_of, sign):
     return [(entity, day, sign * (debit - credit), due or day) for entity, day, debit, credit, due in rows]
 
 
+def document_lines(company, as_of, doc_type):
+    """The invoices or the bills up to as_of and their payments, oldest
+    first, as (document, date, amount, due) for settle. The key of each line
+    is the document, thus a payment pays only the documents that it is
+    allocated to (see posting.allocate), as on the Receivables and Bills
+    pages. A draft or void document does not count. An entry without a
+    document (e.g. an invoice to a sample customer) is not an open invoice."""
+    documents = (Document.objects
+                 .filter(company=company, doc_type=doc_type, date__lte=as_of)
+                 .exclude(status__in=[Document.Status.DRAFT, Document.Status.VOID])
+                 .prefetch_related("lines__tax_code", "allocations__payment"))
+    lines = []
+    for document in documents:
+        lines.append((document.pk, document.date, document.gross, document.due or document.date))
+        lines += [(document.pk, allocation.payment.date, -allocation.amount, None)
+                  for allocation in document.allocations.all() if allocation.payment.date <= as_of]
+    return sorted(lines, key=lambda line: line[1])
+
+
+def journal_balance(company, name, as_of, sign):
+    """The balance of a control account in the journal at as_of, to check the
+    documents. Each entry that is not void counts, also a draft, because a
+    document makes its draft entry at once. A manual entry counts too. The
+    cash basis does not count. sign 1 gives the debits less the credits."""
+    total = (JournalLine.objects
+             .filter(entry__company=company, account__company=company, account__name=name, entry__date__lte=as_of)
+             .exclude(entry__status=JournalEntry.Status.VOID)
+             .exclude(entry__basis=JournalEntry.Basis.CASH)
+             .aggregate(debit=Sum("base_debit"), credit=Sum("base_credit")))
+    return sign * ((total["debit"] or ZERO) - (total["credit"] or ZERO))
+
+
 def settle(lines, days):
     """Settle the charges first in, first out, as _statement does: a payment
-    or a credit pays the oldest open charges of the same entity first. A
+    or a credit pays the oldest open charges of the same key first. A
     payment that is more than the open charges stays as a credit for the
     next charge.
 
-    lines are (entity, date, amount, due), oldest first. A positive amount
+    lines are (key, date, amount, due), oldest first. The key is the entity
+    (see control_lines) or the document (see document_lines). A positive amount
     is a charge (an invoice or a bill). A negative amount pays.
     Returns the charges and, for each day, the totals at the end of that day
     (see aging). A charge is a dict: amount, due, left (the part that is open
@@ -441,26 +475,30 @@ def movement(company, accounts, invoices, bills, start, end):
 
 # ___________________________________THE PAGE____________________________________#
 def dashboard(request):
-    company = request.company
-    T = Account.AccountType
-    key, start, end, label = dashboard_range(request)
-    as_of = min(end, timezone.localdate())
-    start = min(start, as_of)
-    days = sample_days(start, as_of)
+    company     = request.company
+    T           = Account.AccountType
 
-    # The ledger at the end of each day, and the open invoices and bills.
-    accounts = list(Account.objects.filter(company=company))
-    opening = movements(company, end=start - timedelta(days=1))
-    balances = daily_balances(company, opening, days)
-    invoices, receivable = settle(control_lines(company, RECEIVABLE, as_of, 1), days)
-    bills, payable = settle(control_lines(company, PAYABLE, as_of, -1), days)
+    key, start, end, label = dashboard_range(request)
+
+    as_of   = min(end, timezone.localdate())
+    start   = min(start, as_of)
+    days    = sample_days(start, as_of)
+
+    # The ledger at the end of each day, the open invoices and bills (the
+    # documents), and the Accounts Payable of the journal (for the cash position).
+    accounts    = list(Account.objects.filter(company=company))
+    opening     = movements(company, end=start - timedelta(days=1))
+    balances    = daily_balances(company, opening, days)
+    invoices, receivable = settle(document_lines(company, as_of, Document.DocType.INVOICE), days)
+    bills, unpaid = settle(document_lines(company, as_of, Document.DocType.BILL), days)
+    _, payable = settle(control_lines(company, PAYABLE, as_of, -1), days)
     sold, bought = states(invoices, start, as_of), states(bills, start, as_of)
     review = list(Document.objects.filter(company=company, direction=Document.Direction.PURCHASE,
                                           doc_type=Document.DocType.BILL, status=Document.Status.DRAFT)
                   .prefetch_related("lines__tax_code"))
 
     # The cash, and the short-term debt in four parts. A part is a current
-    # liability: the unpaid bills, the credit cards (an account with "card"
+    # liability: Accounts Payable, the credit cards (an account with "card"
     # in its name), the tax, and the others. A bank overdraft and a
     # floating account with a credit balance are in the others too. A
     # current liability is never cash, also when a bank account uses it.
@@ -471,8 +509,8 @@ def dashboard(request):
     cash_ids = cash_account_ids(company, accounts) - set(part_of)
     credit_ids = cash_ids | {a.id for a in accounts if a.type == T.FLOATING_NOMINAL}
 
-    def position(balance, unpaid_bills):
-        parts = {"bills": unpaid_bills, "tax": ZERO, "cards": ZERO, "other": ZERO}
+    def position(balance, accounts_payable):
+        parts = {"payable": accounts_payable, "tax": ZERO, "cards": ZERO, "other": ZERO}
         for account_id, part in part_of.items():
             parts[part] -= balance.get(account_id, ZERO)
         parts["other"] += sum((max(-balance.get(i, ZERO), ZERO) for i in credit_ids), ZERO)
@@ -506,7 +544,8 @@ def dashboard(request):
                       note="the cash that pays the short-term debt"),
              ]),
              node("Short-term debt", "orange", link("balancesheet"), note="the current liabilities", children=[
-                 node("Unpaid Bills", "orange", bills_page + "?bills=unpaid", parts["bills"]),
+                 node("Accounts Payable", "orange", link("payables"), parts["payable"],
+                      note="the Accounts Payable balance in the journal"),
                  node("Tax", "violet", link("tax_dashboard"), parts["tax"], note="VAT, PAYE and other tax"),
                  node("Credit Cards", "magenta", link("cards"), parts["cards"]),
                  node("Other", "gray", link("balancesheet"), parts["other"],
@@ -524,7 +563,7 @@ def dashboard(request):
                  node("Default Risk", "red", link("aging_receivables"), sold["risk"][0],
                       note=f"more than {RISK_DAYS} days after the due date"),
              ]),
-             node("Paid", "aqua", reverse("sales:invoices") + "?status=paid", sold["paid"][0],
+             node("Paid", "aqua", link("receivables", "?invoices=paid"), sold["paid"][0],
                   note="paid in full in the date range"),
          ])},
         {"title": "BILLS & CLAIMS", "href": bills_page, "hint": since,
@@ -549,6 +588,14 @@ def dashboard(request):
     # The items that need an action. A row with no count and no amount does not show.
     drafts = JournalEntry.objects.filter(company=company, status=JournalEntry.Status.DRAFT)
     suspense = next((a.id for a in accounts if a.name == SUSPENSE), None)
+
+    def ledger_of(name, tab):
+        """The block of a control account in the General Ledger (see _ledger_panel.html)."""
+        return link("ledger", f"?type={tab}#acct-{next((a.code for a in accounts if a.name == name), '')}")
+
+    # The difference between the open documents and the journal (see journal_balance).
+    receivable_gap = abs(receivable[-1][0] - journal_balance(company, RECEIVABLE, as_of, 1))
+    payable_gap = abs(unpaid[-1][0] - journal_balance(company, PAYABLE, as_of, -1))
     rows = [
         ("Critical", "Invoices at risk of default", f"More than {RISK_DAYS} days after the due date",
          *sold["risk"], "is-overdue", link("aging_receivables")),
@@ -559,6 +606,12 @@ def dashboard(request):
         ("Warning", "Overdue bills", "Pay these bills now",
          bought["late"][0] + bought["risk"][0], bought["late"][1] + bought["risk"][1], "is-debit",
          bills_page + "?bills=unpaid"),
+        ("Warning", "Receivables need reconciliation",
+         "The open invoices do not match Accounts Receivable in the journal. Please review.",
+         None, receivable_gap, "", ledger_of(RECEIVABLE, "assets")),
+        ("Warning", "Payables need reconciliation",
+         "The open bills do not match Accounts Payable in the journal. Please review.",
+         None, payable_gap, "", ledger_of(PAYABLE, "liabilities")),
         ("Action", "Bills to review", "Approve or deny each draft bill",
          len(review), sum((bill.gross for bill in review), ZERO), "is-debit", bills_page + "#review-title"),
         ("Action", "Journal entries to accept", "Draft entries are not in the reports",
@@ -571,7 +624,7 @@ def dashboard(request):
         ("Upcoming", f"Bills due in the next {SOON_DAYS} days", "Plan the payment run",
          *bought["soon"], "is-debit", link("payment_runs")),
     ]
-    attention = [{"level": level, "pill": LEVELS[level], "title": title, "note": note, "count": count,
+    attention = [{"level": level, "row_class": LEVELS[level], "title": title, "note": note, "count": count,
                   "amount": amount, "tone": tone, "href": href}
                  for level, title, note, count, amount, tone, href in rows if count or amount]
 
@@ -584,7 +637,7 @@ def dashboard(request):
         card("Open Invoices", [t[0] for t in receivable], "is-credit", link("receivables")),
         card("Invoices Overdue", [t[1] for t in receivable], "is-overdue", link("aging_receivables")),
         card("Default Risk Amount", [t[2] for t in receivable], "is-debit", link("aging_receivables")),
-        card("Unpaid Bills", [t[0] for t in payable], "is-debit", bills_page + "?bills=unpaid"),
+        card("Unpaid Bills", [t[0] for t in unpaid], "is-debit", bills_page + "?bills=unpaid"),
         card("Paid Bills", [sum((b["amount"] for b in bills if b["paid"] and start <= b["paid"] <= day), ZERO)
                             for day in days], "is-debit", bills_page + "?bills=paid"),
         # TODO: Claims have no model yet. Use the unpaid claims of each day when the model exists.

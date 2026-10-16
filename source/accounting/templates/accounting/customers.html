@@ -1,10 +1,16 @@
 {% extends "accounting/module_base.html" %}
+{% load fin %}
 
 {% comment %}
   ============================================================================
   accounting/templates/accounting/customers.html
   ----------------------------------------------------------------------------
-  This page shows all the customers of the business and the money that each customer owes. It is a shell: the data below is dummy data in the markup.
+  This page shows all the customers of the business and the money that each
+  customer owes. A customer is an entity with a lead or with a sales
+  invoice. The view gives one row for each:
+      name · email · phone · terms · is_active · balance · is_overdue
+  The terms are the payment terms of the last invoice of the customer.
+  New Customer opens the New Lead overlay (see lead_form.js).
   ============================================================================
 {% endcomment %}
 
@@ -24,7 +30,7 @@
 
     <div class="actionbar" role="group" aria-label="Page controls">
         <div class="actionbar__group">
-            <button class="tool tool--primary" type="button">
+            <button class="tool tool--primary" type="button" data-customer-new>
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
                 New Customer
             </button>
@@ -39,15 +45,23 @@
         </div>
     </div>
 
-    <table class="table">
+    <table class="table" data-num>
         <thead>
-            <tr><th>Code</th><th>Customer</th><th>Contact</th><th>Terms</th><th>Status</th><th>Balance</th></tr>
+            <tr><th>Customer</th><th>Email</th><th>Phone</th><th>Terms</th><th>Status</th><th>Balance</th></tr>
         </thead>
         <tbody>
-            <tr><td>CUS-001</td><td>Karoo Fresh Produce</td><td>Nomsa Zulu</td><td>30 days</td><td><span class="status status--ok">Active</span></td><td class="is-credit">4,780.00</td></tr>
-            <tr><td>CUS-002</td><td>Halcyon Interiors</td><td>Ryan Fourie</td><td>30 days</td><td><span class="status status--ok">Active</span></td><td class="is-credit">0.00</td></tr>
-            <tr><td>CUS-003</td><td>Bergrivier Logistics</td><td>Fatima Adams</td><td>15 days</td><td><span class="status status--ok">Active</span></td><td class="is-overdue">7,400.00</td></tr>
-            <tr><td>CUS-004</td><td>Sandton Data Centre</td><td>Kabelo Molefe</td><td>60 days</td><td><span class="status status--idle">Inactive</span></td><td class="is-credit">88,000.00</td></tr>
+            {% for customer in customers %}
+            <tr>
+                <td>{{ customer.name }}</td>
+                <td>{{ customer.email|default:"—" }}</td>
+                <td>{{ customer.phone|default:"—" }}</td>
+                <td>{{ customer.terms|default:"—" }}</td>
+                <td>{% if customer.is_active %}<span class="status status--ok">Active</span>{% else %}<span class="status status--idle">Inactive</span>{% endif %}</td>
+                <td class="{% if customer.is_overdue %}is-overdue{% else %}is-credit{% endif %}">{{ customer.balance|money }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6">There are no customers. Use New Customer to add one.</td></tr>
+            {% endfor %}
         </tbody>
     </table>
 </section>

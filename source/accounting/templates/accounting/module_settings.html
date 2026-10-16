@@ -6,8 +6,8 @@
   ----------------------------------------------------------------------------
   The settings of the Accounting module, in two groups: General, and
   Accounting (how the module records and reports transactions). The viewing
-  mode and the accounting basis work. The other fields are dummy data in the
-  markup.
+  mode, the accounting basis and the allocation of unreferenced money in
+  work. The other fields are dummy data in the markup.
   ============================================================================
 {% endcomment %}
 
@@ -79,6 +79,18 @@
                     <option value="{{ value }}" {% if value == request.company.accounting_basis %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
                 </select>
+            </div>
+            {% comment %} The allocation of money in that has no invoice reference
+                 (see allocate in posting.py). Only an owner or an accountant
+                 can change it. A bill always uses this rule. {% endcomment %}
+            <div class="field">
+                <label class="field__label" for="f-allocate_to_oldest">Allocate unreferenced to oldest invoices</label>
+                <label class="switch">
+                    <input id="f-allocate_to_oldest" name="allocate_to_oldest" type="checkbox"
+                           {% if request.company.allocate_to_oldest %}checked{% endif %} {% if not can_set_basis %}disabled{% endif %}>
+                    <span class="switch__track" aria-hidden="true"></span>
+                    <span class="switch__text">Money in without an invoice reference pays the oldest open invoices</span>
+                </label>
             </div>
             <div class="field">
                 <label class="field__label" for="f-fy_start">Financial year start</label>

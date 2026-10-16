@@ -147,9 +147,6 @@ def dashboard(request):
 def quotes(request):
     return render(request, "sales/quotes.html")
 
-def invoices(request):
-    return render(request, "sales/invoices.html")
-
 def credit_notes(request):
     return render(request, "sales/credit_notes.html")
 

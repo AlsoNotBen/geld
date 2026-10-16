@@ -14,6 +14,7 @@
        [data-for-type=I|O]           a form field for one entity type only
        [data-action="new-customer"]  the "+" of the customer field
                                      (SelectWithAddButton, documents app)
+       [data-customer-new]           a New Customer button or link
    ========================================================================== */
 (function () {
     'use strict';
@@ -75,6 +76,18 @@
         window.openLeadForm("Create New Lead", null, null, function (lead) {
             select.add(new Option(lead.name, lead.id, true, true));
             select.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+    });
+
+    /* The New Customer buttons (the Customers page and menu). A customer
+       is an entity with a lead, thus they open the same form. After the
+       save, the browser goes to the href of the button, else it reloads. */
+    document.addEventListener("click", function (e) {
+        const button = e.target.closest("[data-customer-new]");
+        if (!button) return;
+        e.preventDefault();
+        window.openLeadForm("Create New Customer", null, null, function () {
+            window.location.assign(button.getAttribute("href") || window.location.href);
         });
     });
 

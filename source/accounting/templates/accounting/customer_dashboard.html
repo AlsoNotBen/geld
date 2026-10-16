@@ -1,10 +1,13 @@
 {% extends "accounting/module_base.html" %}
+{% load fin %}
 
 {% comment %}
   ============================================================================
   accounting/templates/accounting/customer_dashboard.html
   ----------------------------------------------------------------------------
-  The dashboard shows the position of the customers today. It is a shell: the data below is dummy data in the markup.
+  The dashboard shows the position of the customers today: the open
+  invoices, the overdue part and the customers with the largest open
+  amounts. Received and Debtor Days use the global date range.
   ============================================================================
 {% endcomment %}
 
@@ -33,50 +36,63 @@
                 Export
             </button>
         </div>
-        <p class="actionbar__hint">The figures show {{ period|default:"FY 2026" }}.</p>
+        <p class="actionbar__hint">Received and Debtor Days show {{ range_label }}.</p>
     </div>
 
     <div class="cards">
         <div class="card">
             <span class="card__label">Customers</span>
-            <div class="card__value is-count">48</div>
+            <div class="card__value is-count">{{ customer_count }}</div>
         </div>
         <div class="card">
             <span class="card__label">Receivable</span>
-            <div class="card__value is-credit" data-unit="ZAR">100,180.00</div>
+            <div class="card__value is-credit" data-unit="{{ request.company.base_currency_id }}">{{ receivable|money }}</div>
         </div>
         <div class="card">
             <span class="card__label">Overdue</span>
-            <div class="card__value is-overdue" data-unit="ZAR">7,400.00</div>
+            <div class="card__value is-overdue" data-unit="{{ request.company.base_currency_id }}">{{ overdue|money }}</div>
         </div>
         <div class="card">
             <span class="card__label">Received</span>
-            <div class="card__value is-credit" data-unit="ZAR">412,650.00</div>
+            <div class="card__value is-credit" data-unit="{{ request.company.base_currency_id }}">{{ received|money }}</div>
         </div>
         <div class="card">
             <span class="card__label">Debtor Days</span>
-            <div class="card__value is-count">38</div>
+            <div class="card__value is-count">{{ debtor_days|default_if_none:"—" }}</div>
         </div>
     </div>
 
     <h2 class="page__subtitle">Top customers by balance</h2>
-    <table class="table">
+    <table class="table" data-num>
         <thead>
-            <tr><th>Customer</th><th>Invoices</th><th>Balance</th></tr>
+            <tr><th>Customer</th><th>Open invoices</th><th>Balance</th></tr>
         </thead>
         <tbody>
-            <tr><td>Sandton Data Centre</td><td class="is-count">6</td><td class="is-credit">88,000.00</td></tr>
-            <tr><td>Bergrivier Logistics</td><td class="is-count">4</td><td class="is-overdue">7,400.00</td></tr>
-            <tr><td>Karoo Fresh Produce</td><td class="is-count">9</td><td class="is-credit">4,780.00</td></tr>
+            {% for row in top %}
+            <tr>
+                <td>{{ row.name }}</td>
+                <td class="is-count">{{ row.count }}</td>
+                <td class="{% if row.is_overdue %}is-overdue{% else %}is-credit{% endif %}">{{ row.balance|money }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3">There are no open invoices.</td></tr>
+            {% endfor %}
         </tbody>
     </table>
 
     <h2 class="page__subtitle">Items that need an action</h2>
     <div class="notes">
+        {% for item in late %}
+        <div class="card">
+            <span class="card__label">Late payment</span>
+            <p class="notes__text">{{ item.name }} is {{ item.days }} day{{ item.days|pluralize }} late on {{ item.number }} ({{ item.balance|money }}). Send a reminder.</p>
+        </div>
+        {% empty %}
         <div class="card">
             <span class="card__label">Late payments</span>
-            <p class="notes__text">Bergrivier Logistics is 25 days late. Send a reminder.</p>
+            <p class="notes__text">No invoice is late.</p>
         </div>
+        {% endfor %}
     </div>
 </section>
 {% endblock %}

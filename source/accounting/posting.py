@@ -3,7 +3,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
-from accounting.models import Account, Document, JournalEntry, JournalLine, Payment, Period
+from accounting.models import Account, Document, JournalEntry, JournalLine, Payment, PaymentAllocation, Period
 
 CENT = Decimal("0.01")
 
@@ -69,6 +69,55 @@ def post_cash_entry(payment, period, suspense):
         payment.cash_entry = entry
         payment.save(update_fields=["cash_entry"])
     return entry
+
+
+def _pay(payment, document, amount):
+    """Allocate a part of the payment to the document: the amount, but not
+    more than the open amount of the document. The document becomes Paid, or
+    Partially paid when an amount stays open. Returns the part."""
+    open_amount = document.balance
+    part = min(amount, open_amount)
+    if part <= 0:
+        return Decimal(0)
+    PaymentAllocation.objects.create(payment=payment, document=document, amount=part)
+    document.status = Document.Status.PART_PAID if part < open_amount else Document.Status.PAID
+    document.save(update_fields=["status", "updated_at"])
+    return part
+
+
+def allocate(payment):
+    """Allocate the payment to the open documents of its entity. Money out
+    pays bills. Money in pays invoices. A draft or void document does not count.
+
+    First the payment pays the document with the reference as its number. The
+    match must be exact. Then the rest pays the oldest open documents first:
+    always for bills, and for invoices only when the company has the setting
+    "Allocate unreferenced to oldest invoices". An amount that is left over
+    stays unallocated (see post_cash_entry: it goes to Suspense).
+    Returns the documents that the payment pays.
+    """
+    S = Document.Status
+    paid_out = payment.direction == Payment.Direction.OUT
+    documents = Document.objects.filter(
+        company=payment.company, entity=payment.entity,
+        direction=Document.Direction.PURCHASE if paid_out else Document.Direction.SALE,
+        doc_type=Document.DocType.BILL if paid_out else Document.DocType.INVOICE,
+        status__in=[S.SENT, S.APPROVED, S.PART_PAID],
+    )
+    reference = payment.reference.strip()
+    queue = list(documents.filter(number=reference)) if reference else []
+    if paid_out or payment.company.allocate_to_oldest:
+        queue += [document for document in documents.order_by("date", "id") if document not in queue]
+
+    paid, rest = [], payment.amount
+    for document in queue:
+        if rest <= 0:
+            break
+        part = _pay(payment, document, rest)
+        if part:
+            paid.append(document)
+            rest -= part
+    return paid
 
 
 def post_payment(payment):
