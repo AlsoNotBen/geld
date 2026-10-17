@@ -1,12 +1,14 @@
 {% extends "sales/module_base.html" %}
-{% load static %}
+{% load static fin %}
 
 {% comment %}
   ============================================================================
   sales/templates/sales/quotes.html
   ----------------------------------------------------------------------------
-  The quotes page of the Sales section. It is a shell: the rows below are
-  dummy data in the markup. Replace them with a loop when the view is ready.
+  The quotes page of the Sales section. The view gives the quotes of the
+  global date range in three lists by status: open_quotes (draft or sent),
+  accepted_quotes (approved) and closed_quotes (void), and the totals of
+  the open and the accepted quotes.
 
   The page follows the pattern of the module:
       .page__head    the title and the note
@@ -46,7 +48,7 @@
             </button>
         </div>
 
-        <p class="actionbar__hint">The list shows the quotes of {{ period|default:"FY 2026" }}.</p>
+        <p class="actionbar__hint">The list shows the quotes of {{ range_label }}.</p>
         {% comment %} table_filter.js filters the rows of each tab. {% endcomment %}
         <input class="field__control filter" type="search" placeholder="Filter the quotes"
                aria-label="Filter the quotes" data-filter>
@@ -60,15 +62,15 @@
         <div class="tabset__list" role="tablist" aria-label="Quotes by status">
             <button class="tabset__tab" type="button" role="tab" data-tab="open"
                     id="qtab-open" aria-controls="qpanel-open" aria-selected="true">
-                Open <span class="tabset__count">4</span>
+                Open <span class="tabset__count">{{ open_quotes|length }}</span>
             </button>
             <button class="tabset__tab" type="button" role="tab" data-tab="accepted"
                     id="qtab-accepted" aria-controls="qpanel-accepted" aria-selected="false">
-                Accepted <span class="tabset__count">3</span>
+                Accepted <span class="tabset__count">{{ accepted_quotes|length }}</span>
             </button>
             <button class="tabset__tab" type="button" role="tab" data-tab="closed"
                     id="qtab-closed" aria-controls="qpanel-closed" aria-selected="false">
-                Closed <span class="tabset__count">2</span>
+                Closed <span class="tabset__count">{{ closed_quotes|length }}</span>
             </button>
         </div>
 
@@ -82,37 +84,20 @@
                     <tr><th>Date</th><th>Number</th><th>Customer</th><th>Status</th><th>Amount</th></tr>
                 </thead>
                 <tbody>
+                    {% for quote in open_quotes %}
                     <tr>
-                        <td>2026-02-11</td>
-                        <td>QU-00118</td>
-                        <td>Bergrivier Logistics</td>
-                        <td><span class="status status--idle">Draft</span></td>
-                        <td class="is-credit">18,400.00</td>
+                        <td>{{ quote.date|date:"Y-m-d" }}</td>
+                        <td>{{ quote.number }}</td>
+                        <td>{{ quote.entity.name }}</td>
+                        <td><span class="status status--{{ quote.tone }}">{{ quote.get_status_display }}</span></td>
+                        <td class="is-credit">{{ quote.gross|money }}</td>
                     </tr>
-                    <tr>
-                        <td>2026-02-09</td>
-                        <td>QU-00117</td>
-                        <td>Karoo Fresh Produce</td>
-                        <td><span class="status status--busy">Sent</span></td>
-                        <td class="is-credit">6,250.00</td>
-                    </tr>
-                    <tr>
-                        <td>2026-02-04</td>
-                        <td>QU-00116</td>
-                        <td>Halcyon Interiors</td>
-                        <td><span class="status status--busy">Sent</span></td>
-                        <td class="is-credit">42,900.00</td>
-                    </tr>
-                    <tr>
-                        <td>2026-01-28</td>
-                        <td>QU-00114</td>
-                        <td>Table Bay Marine</td>
-                        <td><span class="status status--low">Expires soon</span></td>
-                        <td class="is-credit">9,780.00</td>
-                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5">There are no open quotes.</td></tr>
+                    {% endfor %}
                 </tbody>
                 <tfoot>
-                    <tr><td colspan="4">Total of the open quotes</td><td class="is-credit">77,330.00</td></tr>
+                    <tr><td colspan="4">Total of the open quotes</td><td class="is-credit">{{ open_total|money }}</td></tr>
                 </tfoot>
             </table>
         </div>
@@ -127,30 +112,20 @@
                     <tr><th>Date</th><th>Number</th><th>Customer</th><th>Status</th><th>Amount</th></tr>
                 </thead>
                 <tbody>
+                    {% for quote in accepted_quotes %}
                     <tr>
-                        <td>2026-01-22</td>
-                        <td>QU-00112</td>
-                        <td>Protea Print Works</td>
-                        <td><span class="status status--ok">Accepted</span></td>
-                        <td class="is-credit">15,600.00</td>
+                        <td>{{ quote.date|date:"Y-m-d" }}</td>
+                        <td>{{ quote.number }}</td>
+                        <td>{{ quote.entity.name }}</td>
+                        <td><span class="status status--{{ quote.tone }}">{{ quote.get_status_display }}</span></td>
+                        <td class="is-credit">{{ quote.gross|money }}</td>
                     </tr>
-                    <tr>
-                        <td>2026-01-15</td>
-                        <td>QU-00109</td>
-                        <td>Sandton Data Centre</td>
-                        <td><span class="status status--ok">Invoiced</span></td>
-                        <td class="is-credit">88,000.00</td>
-                    </tr>
-                    <tr>
-                        <td>2026-01-08</td>
-                        <td>QU-00107</td>
-                        <td>Umhlanga Coastal Hotels</td>
-                        <td><span class="status status--ok">Invoiced</span></td>
-                        <td class="is-credit">31,450.00</td>
-                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5">There are no accepted quotes.</td></tr>
+                    {% endfor %}
                 </tbody>
                 <tfoot>
-                    <tr><td colspan="4">Total of the accepted quotes</td><td class="is-credit">135,050.00</td></tr>
+                    <tr><td colspan="4">Total of the accepted quotes</td><td class="is-credit">{{ accepted_total|money }}</td></tr>
                 </tfoot>
             </table>
         </div>
@@ -165,20 +140,17 @@
                     <tr><th>Date</th><th>Number</th><th>Customer</th><th>Status</th><th>Amount</th></tr>
                 </thead>
                 <tbody>
+                    {% for quote in closed_quotes %}
                     <tr>
-                        <td>2025-12-19</td>
-                        <td>QU-00103</td>
-                        <td>Vaal Metal Press</td>
-                        <td><span class="status status--out">Declined</span></td>
-                        <td class="is-credit">23,900.00</td>
+                        <td>{{ quote.date|date:"Y-m-d" }}</td>
+                        <td>{{ quote.number }}</td>
+                        <td>{{ quote.entity.name }}</td>
+                        <td><span class="status status--{{ quote.tone }}">{{ quote.get_status_display }}</span></td>
+                        <td class="is-credit">{{ quote.gross|money }}</td>
                     </tr>
-                    <tr>
-                        <td>2025-12-02</td>
-                        <td>QU-00098</td>
-                        <td>Garden Route Timber</td>
-                        <td><span class="status status--idle">Expired</span></td>
-                        <td class="is-credit">4,120.00</td>
-                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5">There are no closed quotes.</td></tr>
+                    {% endfor %}
                 </tbody>
             </table>
         </div>

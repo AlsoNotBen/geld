@@ -5,7 +5,8 @@
   ============================================================================
   accounting/templates/accounting/reports.html
   ----------------------------------------------------------------------------
-  Select a report to open it. Each report uses the date range at the top of the page. It is a shell: the data below is dummy data in the markup.
+  Select a report to open it. Each report uses the date range at the top of
+  the page. The list links to the report pages of the module.
   ============================================================================
 {% endcomment %}
 
@@ -47,14 +48,21 @@
 
     <table class="table">
         <thead>
-            <tr><th>Report</th><th>Group</th><th>Last run</th><th>Status</th></tr>
+            <tr><th>Report</th><th>Group</th><th>Description</th><th><span class="visually-hidden">Open</span></th></tr>
         </thead>
         <tbody>
-            <tr><td>Trial Balance</td><td>Bookkeeping</td><td>2026-02-12</td><td><span class="status status--ok">Ready</span></td></tr>
-            <tr><td>Sales by Customer</td><td>Sales</td><td>2026-02-10</td><td><span class="status status--ok">Ready</span></td></tr>
-            <tr><td>Purchases by Supplier</td><td>Purchases</td><td>2026-02-08</td><td><span class="status status--ok">Ready</span></td></tr>
-            <tr><td>VAT Summary</td><td>Taxes</td><td>2026-01-31</td><td><span class="status status--low">Out of date</span></td></tr>
-            <tr><td>Budget against Actual</td><td>Analysis</td><td>—</td><td><span class="status status--idle">Not run</span></td></tr>
+            <tr><td>Chart of Accounts</td><td>Bookkeeping</td><td>The balance of each account in the date range.</td><td><a class="tool tool--sm tool--neutral" href="{% url 'accounting:chartaccounts' %}" aria-label="Open the Chart of Accounts">Open</a></td></tr>
+            <tr><td>General Ledger</td><td>Bookkeeping</td><td>The posted lines of each account, with the opening and the closing balance.</td><td><a class="tool tool--sm tool--neutral" href="{% url 'accounting:ledger' %}" aria-label="Open the General Ledger">Open</a></td></tr>
+            <tr><td>Balance Sheet</td><td>Bookkeeping</td><td>The assets, the liabilities and the equity at the end of the date range.</td><td><a class="tool tool--sm tool--neutral" href="{% url 'accounting:balancesheet' %}" aria-label="Open the Balance Sheet">Open</a></td></tr>
+            <tr><td>Income Statement</td><td>Bookkeeping</td><td>The income, the expenses and the profit of the date range.</td><td><a class="tool tool--sm tool--neutral" href="{% url 'accounting:incomestatement' %}" aria-label="Open the Income Statement">Open</a></td></tr>
+            <tr><td>Cash Flow Statement</td><td>Bookkeeping</td><td>The cash that came in and went out in the date range.</td><td><a class="tool tool--sm tool--neutral" href="{% url 'accounting:cashflow' %}" aria-label="Open the Cash Flow Statement">Open</a></td></tr>
+            <tr><td>Equity and Notes</td><td>Bookkeeping</td><td>The changes of the equity in the date range.</td><td><a class="tool tool--sm tool--neutral" href="{% url 'accounting:equity' %}" aria-label="Open the Equity and Notes">Open</a></td></tr>
+            <tr><td>Receivables</td><td>Customers</td><td>The open invoices and the paid invoices.</td><td><a class="tool tool--sm tool--neutral" href="{% url 'accounting:receivables' %}" aria-label="Open the Receivables">Open</a></td></tr>
+            <tr><td>Aging Receivables</td><td>Customers</td><td>The overdue invoices, by the days after the due date.</td><td><a class="tool tool--sm tool--neutral" href="{% url 'accounting:aging_receivables' %}" aria-label="Open the Aging Receivables">Open</a></td></tr>
+            <tr><td>Payables</td><td>Suppliers</td><td>The bills that are not paid in full.</td><td><a class="tool tool--sm tool--neutral" href="{% url 'accounting:payables' %}" aria-label="Open the Payables">Open</a></td></tr>
+            <tr><td>Aging Payables</td><td>Suppliers</td><td>The overdue bills, by the days after the due date.</td><td><a class="tool tool--sm tool--neutral" href="{% url 'accounting:aging_payables' %}" aria-label="Open the Aging Payables">Open</a></td></tr>
+            <tr><td>Bank Accounts</td><td>Banking</td><td>The balance of each bank account.</td><td><a class="tool tool--sm tool--neutral" href="{% url 'accounting:bank_accounts' %}" aria-label="Open the Bank Accounts">Open</a></td></tr>
+            <tr><td>Tax Dashboard</td><td>Taxes</td><td>The VAT payable and the income tax from the ledger.</td><td><a class="tool tool--sm tool--neutral" href="{% url 'accounting:tax_dashboard' %}" aria-label="Open the Tax Dashboard">Open</a></td></tr>
         </tbody>
     </table>
     {% notes_section %}

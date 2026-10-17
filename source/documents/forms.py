@@ -243,15 +243,15 @@ class DocumentOptionsForm(forms.Form):
         validators=[hex_color],
         widget=forms.TextInput(attrs={"type": "color"}),
     )
+    # DocumentType.get_options_form gives the initial values of the
+    # company of the user.
     company_name = forms.CharField(
         label="Company name",
-        initial="Pothos ERM Suite",
-        max_length=80,
+        max_length=255,
     )
     company_details = forms.CharField(
         label="Company details",
         required=False,
-        initial="12 Fynbos Lane\n8001 Cape Town\nVAT 4550 123 456",
         widget=forms.Textarea(attrs={"rows": 3}),
     )
 

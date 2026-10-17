@@ -6,8 +6,10 @@
   ----------------------------------------------------------------------------
   The settings of the Accounting module, in two groups: General, and
   Accounting (how the module records and reports transactions). The viewing
-  mode, the accounting basis and the allocation of unreferenced money in
-  work. The other fields are dummy data in the markup.
+  mode, the accounting basis and the allocation of unreferenced money can
+  change here. The records of the company give the read-only fields: the
+  financial year, the base currency, the rate of the standard tax code, the
+  end of the last closed period and the next document numbers.
   ============================================================================
 {% endcomment %}
 
@@ -40,34 +42,6 @@
                     <span class="switch__text">{% if request.COOKIES.view_mode != "standard" %}Easy Viewing{% else %}Accounting Standard Viewing{% endif %}</span>
                 </label>
             </div>
-            <div class="field">
-                <label class="field__label" for="f-landing">Default landing page</label>
-                <select class="field__control" id="f-landing" name="landing"><option>Overview</option><option>Journal Entries</option><option>Sales Dashboard</option></select>
-            </div>
-            <div class="field">
-                <label class="field__label" for="f-page_size">Rows per page</label>
-                <input class="field__control" id="f-page_size" name="page_size" type="number" value="25">
-            </div>
-            <div class="field">
-                <label class="field__label" for="f-date_format">Date format</label>
-                <select class="field__control" id="f-date_format" name="date_format"><option>YYYY-MM-DD</option><option>DD/MM/YYYY</option><option>MM/DD/YYYY</option></select>
-            </div>
-            <div class="field">
-                <label class="field__label" for="f-email_alerts">Email alerts</label>
-                <label class="switch">
-                    <input id="f-email_alerts" name="email_alerts" type="checkbox" checked>
-                    <span class="switch__track" aria-hidden="true"></span>
-                    <span class="switch__text">On</span>
-                </label>
-            </div>
-            <div class="field">
-                <label class="field__label" for="f-show_codes">Show account codes</label>
-                <label class="switch">
-                    <input id="f-show_codes" name="show_codes" type="checkbox" checked>
-                    <span class="switch__track" aria-hidden="true"></span>
-                    <span class="switch__text">On</span>
-                </label>
-            </div>
 
             <h2 class="sheet__group field--wide">Accounting</h2>
             {% comment %} The accounting basis of the company. Only an owner or an
@@ -92,41 +66,35 @@
                     <span class="switch__text">Money in without an invoice reference pays the oldest open invoices</span>
                 </label>
             </div>
+
+            <h2 class="sheet__group field--wide">Company records</h2>
+            <p class="note-hint field--wide">The records of the company give these fields. They are read-only on this page.</p>
             <div class="field">
-                <label class="field__label" for="f-fy_start">Financial year start</label>
-                <input class="field__control" id="f-fy_start" name="fy_start" type="date" value="2025-03-01">
+                <label class="field__label" for="f-fiscal_year">Financial year</label>
+                <input class="field__control" id="f-fiscal_year" type="text" disabled
+                       value="{% if fiscal_year %}{{ fiscal_year.name }} · {{ fiscal_year.start_date|date:'Y-m-d' }} to {{ fiscal_year.end_date|date:'Y-m-d' }}{% else %}No financial year includes today{% endif %}">
             </div>
             <div class="field">
                 <label class="field__label" for="f-currency">Base currency</label>
-                <select class="field__control" id="f-currency" name="currency"><option>ZAR</option><option>USD</option><option>EUR</option><option>GBP</option></select>
+                <input class="field__control" id="f-currency" type="text" disabled
+                       value="{{ request.company.base_currency.alpha_code }} · {{ request.company.base_currency.name }}">
             </div>
             <div class="field">
                 <label class="field__label" for="f-vat_rate">Default VAT rate (%)</label>
-                <input class="field__control" id="f-vat_rate" name="vat_rate" type="number" value="15">
+                <input class="field__control" id="f-vat_rate" type="text" disabled value="{{ vat_rate }}">
             </div>
             <div class="field">
                 <label class="field__label" for="f-lock_date">Lock date</label>
-                <input class="field__control" id="f-lock_date" name="lock_date" type="date" value="2026-01-31">
+                <input class="field__control" id="f-lock_date" type="text" disabled
+                       value="{{ lock_date|date:'Y-m-d'|default:'No closed period' }}">
             </div>
             <div class="field">
-                <label class="field__label" for="f-re_account">Retained earnings account</label>
-                <select class="field__control" id="f-re_account" name="re_account"><option>3200 · Retained Earnings</option><option>3100 · Share Capital</option></select>
+                <label class="field__label" for="f-next_invoice">Next invoice number</label>
+                <input class="field__control" id="f-next_invoice" type="text" disabled value="{{ next_invoice }}">
             </div>
             <div class="field">
-                <label class="field__label" for="f-invoice_prefix">Invoice prefix</label>
-                <input class="field__control" id="f-invoice_prefix" name="invoice_prefix" type="text" value="IN-">
-            </div>
-            <div class="field">
-                <label class="field__label" for="f-quote_prefix">Quote prefix</label>
-                <input class="field__control" id="f-quote_prefix" name="quote_prefix" type="text" value="QU-">
-            </div>
-            <div class="field">
-                <label class="field__label" for="f-approve_journals">Approve journals before post</label>
-                <label class="switch">
-                    <input id="f-approve_journals" name="approve_journals" type="checkbox">
-                    <span class="switch__track" aria-hidden="true"></span>
-                    <span class="switch__text">On</span>
-                </label>
+                <label class="field__label" for="f-next_quote">Next quote number</label>
+                <input class="field__control" id="f-next_quote" type="text" disabled value="{{ next_quote }}">
             </div>
         </div>
         <div class="sheet__foot">

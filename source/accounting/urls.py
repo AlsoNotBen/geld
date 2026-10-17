@@ -41,20 +41,23 @@ urlpatterns = [
 
     # Customers
     path("customers/", views.customers, name="customers"),
+    path("customers/<int:pk>/edit/", views.customer_edit, name="customer_edit"),
     path("customers/receivables/", views.receivables, name="receivables"),
     path("customers/aging/", views.aging_receivables, name="aging_receivables"),
     path("customers/dashboard/", views.customer_dashboard, name="customer_dashboard"),
 
     # Suppliers
     path("suppliers/", views.suppliers, name="suppliers"),
-    path("suppliers/new/", views.supplier_new, name="supplier_new"),
+    path("suppliers/new/", views.supplier_form, name="supplier_new"),
+    path("suppliers/<int:pk>/edit/", views.supplier_form, name="supplier_edit"),
     path("suppliers/payables/", views.payables, name="payables"),
     path("suppliers/aging/", views.aging_payables, name="aging_payables"),
     path("suppliers/dashboard/", views.supplier_dashboard, name="supplier_dashboard"),
 
     # Banking
     path("banking/", views.bank_accounts, name="bank_accounts"),
-    path("banking/new/", views.bank_account_new, name="bank_account_new"),
+    path("banking/new/", views.bank_account_form, name="bank_account_new"),
+    path("banking/<int:pk>/edit/", views.bank_account_form, name="bank_account_edit"),
     path("banking/cards/", views.cards, name="cards"),
     path("banking/import/", views.import_statement, name="import_statement"),
     path("banking/reconcile/", views.reconcile, name="reconcile"),

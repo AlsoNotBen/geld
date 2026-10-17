@@ -1,5 +1,5 @@
 {% extends "inventory/module_base.html" %}
-{% load static %}
+{% load static fin stock %}
 
 {% comment %}
   ============================================================================
@@ -22,9 +22,11 @@
               adds one. A note names the one rule that the middleware
               checks: a relationship must not close a circle.
 
-  All items and relationships below are dummy data. The selected item is
-  Dell Latitude 7440, AST-00124, the same asset that the Assets page
-  lists.
+  The view gives the items of the list (?q, ?item_type), the selected
+  item (?item=pk) and its relationships. Without a selection, the form
+  makes a new item. The form has more fields than the model: the model
+  has no manufacturer, model, part number, version, quantity or notes
+  yet, and ItemForm ignores these fields.
   ============================================================================
 {% endcomment %}
 
@@ -32,8 +34,8 @@
 
 {% block module_css %}
 {{ block.super }}
-<link rel="stylesheet" href="{% static 'filestore/filestore.css' %}">
-<script src="{% static 'filestore/filestore.js' %}" defer></script>
+<link rel="stylesheet" href="{% static 'filestore/css/filestore.css' %}">
+<script src="{% static 'filestore/js/filestore.js' %}" defer></script>
 {% endblock %}
 
 {% block title %}Items · Inventory · Console{% endblock %}
@@ -42,7 +44,7 @@
 <section class="page">
 
     <div class="page__head">
-        <h1 class="page__title" data-period="248 items">Items</h1>
+        <h1 class="page__title" data-period="{{ item_count }} item{{ item_count|pluralize }}">Items</h1>
         <p class="page__note">
             An item is a row of one kind: an asset, a stock item, a
             consumable or a component. The type of an item does not
@@ -57,10 +59,10 @@
 
     <div class="actionbar" role="group" aria-label="Item controls">
         <div class="actionbar__group">
-            <button class="tool tool--primary" type="button">
+            <a class="tool tool--primary" href="{% url 'inventory:items' %}">
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
                 New Item
-            </button>
+            </a>
             <button class="tool" type="button">
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="12" height="12" rx="2"/><path d="M8 16v2a2 2 0 002 2h8a2 2 0 002-2v-8a2 2 0 00-2-2h-2"/></svg>
                 Duplicate Item
@@ -72,7 +74,7 @@
             </button>
         </div>
 
-        <p class="actionbar__hint">Editing: Dell Latitude 7440 · AST-00124 · Asset</p>
+        <p class="actionbar__hint">{% if selected %}Editing: {{ selected.name }}{% if selected.sku %} · {{ selected.sku }}{% endif %} · {{ selected.get_item_type_display }}{% else %}New item{% endif %}</p>
     </div>
 
     <h2 class="page__subtitle">Item editor</h2>
@@ -82,7 +84,7 @@
         <div class="card">
             <span class="card__label">Items</span>
 
-            {% comment %} The filter does not filter yet. Refer to views.py.
+            {% comment %} items in views.py reads q and item_type.
                  The search field and its button sit in one field-row, thus
                  the button stays next to the field on a narrow column. The
                  type sits on the row below, because two full-width fields
@@ -90,7 +92,7 @@
             <form method="get" action="" role="search" aria-label="Find an item" style="margin-top: 14px;">
                 <div class="field-row field-row--full" style="margin-top: 0;">
                     <label class="visually-hidden" for="item-q">Find an item</label>
-                    <input class="field" id="item-q" name="q" type="search"
+                    <input class="field" id="item-q" name="q" type="search" value="{{ q }}"
                            placeholder="Name or code" autocomplete="off" style="flex: 1 1 auto;">
 
                     <button class="tool tool--sm" type="submit" aria-label="Find" style="flex: none;">
@@ -102,80 +104,36 @@
                     <label class="visually-hidden" for="item-type-filter">Item type</label>
                     <select class="field field--select" id="item-type-filter" name="item_type">
                         <option value="">All types</option>
-                        <option value="ASSET">Asset</option>
-                        <option value="STOCK">Stock</option>
-                        <option value="CONSUMABLE">Consumable</option>
-                        <option value="COMPONENT">Component</option>
+                        {% for value, label in form.fields.item_type.choices %}
+                        <option value="{{ value }}"{% if value == item_type %} selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
                     </select>
                 </div>
             </form>
 
             <nav class="nav bom__list" aria-label="Items">
-                <a class="nav__item is-active" href="#">
-                    <span class="bom__name">Dell Latitude 7440
-                        <span class="cell-sub">AST-00124 · Asset</span>
+                {% for item in items %}
+                <a class="nav__item{% if item.pk == selected.pk %} is-active{% endif %}" href="?item={{ item.pk }}"{% if item.pk == selected.pk %} aria-current="true"{% endif %}>
+                    <span class="bom__name">{{ item.name }}
+                        <span class="cell-sub">{% if item.sku %}{{ item.sku }} · {% endif %}{{ item.get_item_type_display }}</span>
                     </span>
-                    <span class="status status--ok">Active</span>
+                    <span class="status status--{{ item.tone }}">{{ item.status }}</span>
                 </a>
-                <a class="nav__item" href="#">
-                    <span class="bom__name">Dell Latitude 7420
-                        <span class="cell-sub">AST-00075 · Asset</span>
-                    </span>
-                    <span class="status status--idle">Inactive</span>
-                </a>
-                <a class="nav__item" href="#">
-                    <span class="bom__name">Dell U2723QE 27"
-                        <span class="cell-sub">AST-00131 · Asset</span>
-                    </span>
-                    <span class="status status--ok">Active</span>
-                </a>
-                <a class="nav__item" href="#">
-                    <span class="bom__name">Docking Station, USB-C
-                        <span class="cell-sub">CMP-120 · Component</span>
-                    </span>
-                    <span class="status status--ok">Active</span>
-                </a>
-                <a class="nav__item" href="#">
-                    <span class="bom__name">Laptop Sleeve 14"
-                        <span class="cell-sub">CMP-118 · Component</span>
-                    </span>
-                    <span class="status status--ok">Active</span>
-                </a>
-                <a class="nav__item" href="#">
-                    <span class="bom__name">12V Battery
-                        <span class="cell-sub">BAT-001 · Stock</span>
-                    </span>
-                    <span class="status status--ok">Active</span>
-                </a>
-                <a class="nav__item" href="#">
-                    <span class="bom__name">Radio Field Kit
-                        <span class="cell-sub">KIT-004 · Stock</span>
-                    </span>
-                    <span class="status status--ok">Active</span>
-                </a>
-                <a class="nav__item" href="#">
-                    <span class="bom__name">A4 Paper, 80 gsm
-                        <span class="cell-sub">STA-010 · Consumable</span>
-                    </span>
-                    <span class="status status--ok">Active</span>
-                </a>
-                <a class="nav__item" href="#">
-                    <span class="bom__name">Toner HP 415A Black
-                        <span class="cell-sub">TON-003 · Consumable</span>
-                    </span>
-                    <span class="status status--ok">Active</span>
-                </a>
+                {% empty %}
+                <p class="bom__total">There are no items{% if q or item_type %} that match the filter{% endif %}.</p>
+                {% endfor %}
             </nav>
 
             <div class="bom__foot">
-                <p class="bom__total">9 of 248 items. <b>Page 1 of 28.</b></p>
+                <p class="bom__total">{{ items|length }} of {{ item_count }} item{{ item_count|pluralize }}.</p>
             </div>
         </div>
 
         {% comment %} ================= MIDDLE: the item form =================
-             The form creates an Item. ItemForm in forms.py reads only
-             the fields with a model name: sku, name, item_type, serial,
-             description, active, depreciate, lifespan, lifeunits.
+             The form makes an Item, or changes the selected item. ItemForm
+             in forms.py reads only the fields with a model name: sku, name,
+             item_type, serial, description, active, depreciate, lifespan,
+             lifeunits.
              The other fields have no model field yet, and the form
              ignores them. Refer to views.py. {% endcomment %}
         <div class="card">
@@ -223,47 +181,36 @@
                 <div class="field-row">
                     <label class="visually-hidden" for="item-manufacturer">Manufacturer</label>
                     <input class="field" id="item-manufacturer" name="manufacturer" type="text"
-                           placeholder="Manufacturer" value="Dell">
+                           placeholder="Manufacturer">
 
                     <label class="visually-hidden" for="item-model">Model</label>
                     <input class="field" id="item-model" name="model" type="text"
-                           placeholder="Model" value="Latitude 7440">
+                           placeholder="Model">
                 </div>
 
                 <span class="field-row__label">Part Number &amp; Serial Number</span>
                 <div class="field-row">
                     <label class="visually-hidden" for="item-part-number">Part number</label>
                     <input class="field" id="item-part-number" name="part_number" type="text"
-                           placeholder="Part number" value="7440-CTO-BASE">
+                           placeholder="Part number">
 
                     <label class="visually-hidden" for="item-serial-number">Serial number</label>
                     <input class="field" id="item-serial-number" name="serial" type="text"
                            placeholder="Serial number" value="{{ form.serial.value|default_if_none:'' }}">
                 </div>
 
-                <span class="field-row__label">Version Number &amp; Country of Origin</span>
-                <div class="field-row">
+                <span class="field-row__label">Version Number</span>
+                <div class="field-row field-row--full">
                     <label class="visually-hidden" for="item-version">Version number</label>
                     <input class="field" id="item-version" name="version_number" type="text"
-                           placeholder="Version number" value="Rev A">
-
-                    <label class="visually-hidden" for="item-origin">Country of origin</label>
-                    <select class="field field--select" id="item-origin" name="country_of_origin">
-                        <option value="">Country of origin</option>
-                        <option>South Africa</option>
-                        <option selected>China</option>
-                        <option>Germany</option>
-                        <option>United States</option>
-                        <option>Japan</option>
-                        <option>Other</option>
-                    </select>
+                           placeholder="Version number">
                 </div>
 
                 <span class="field-row__label">Quantity</span>
                 <div class="field-row field-row--full">
                     <label class="visually-hidden" for="item-quantity">Quantity</label>
                     <input class="field" id="item-quantity" name="quantity" type="number"
-                           min="0" step="1" value="1">
+                           min="0" step="1" placeholder="Quantity">
                 </div>
 
                 <span class="field-row__label">Description</span>
@@ -277,7 +224,7 @@
                 <div class="field-row field-row--full">
                     <label class="visually-hidden" for="item-notes">Notes</label>
                     <textarea class="field field--area" id="item-notes" name="notes"
-                              placeholder="Internal notes">Sent for repair once. Screen replaced under warranty in June 2026.</textarea>
+                              placeholder="Internal notes"></textarea>
                 </div>
 
                 <div class="field-row field-row--full">
@@ -324,10 +271,10 @@
             </form>
 
             <div class="bom__foot">
-                <button class="tool" type="button">
+                <a class="tool" href="{% url 'inventory:items' %}">
                     <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
                     New Item
-                </button>
+                </a>
                 <button class="tool tool--primary" type="submit" form="item-form">
                     <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     Save Item
@@ -351,11 +298,7 @@
                 {% csrf_token %}
                 <label class="visually-hidden" for="rel-type">Relationship type</label>
                 <select class="field field--select field--wide" id="rel-type" name="relationship_type">
-                    <option value="CONTAINS">Contains</option>
-                    <option value="REPLACEMENT">Replacement</option>
-                    <option value="ACCESSORY" selected>Accessory</option>
-                    <option value="COMPATIBLE">Compatible</option>
-                    <option value="DEPENDENCY">Dependency</option>
+                    {% for value, label in relationship_types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
                 </select>
 
                 <label class="visually-hidden" for="rel-role">This item is the</label>
@@ -367,11 +310,7 @@
                 <label class="visually-hidden" for="rel-item">Related item</label>
                 <select class="field field--select field--wide" id="rel-item" name="related_item">
                     <option value="">Select an item</option>
-                    <option>Dell U2723QE 27" · AST-00131</option>
-                    <option>Docking Station, USB-C · CMP-120</option>
-                    <option>Laptop Sleeve 14" · CMP-118</option>
-                    <option>Dell Latitude 7420 · AST-00075</option>
-                    <option>Power Lead 1.8m · CMP-215</option>
+                    {% for item in related_choices %}<option value="{{ item.pk }}">{{ item.name }}{% if item.sku %} · {{ item.sku }}{% endif %}</option>{% endfor %}
                 </select>
 
                 <label class="visually-hidden" for="rel-qty">Quantity</label>
@@ -395,55 +334,29 @@
                  child, a child row points back at its parent. Reused from
                  the segment list of the Codes &amp; Tags page. {% endcomment %}
             <div class="seg-list bom__list" role="list" aria-label="Relationships of this item">
-
+                {% for relation in relationships %}
                 <div class="tree__row" role="listitem">
+                    {% if relation.role == "Parent of" %}
                     <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="var(--ink-soft)" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                    <span class="bom__name">Dell U2723QE 27"
-                        <span class="cell-sub">Accessory · Parent of · AST-00131</span>
-                    </span>
-                    <span class="tree__qty">× 1.000</span>
-                    <button class="seg-row__remove" type="button" aria-label="Remove this relationship">
-                        <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>
-                    </button>
-                </div>
-
-                <div class="tree__row" role="listitem">
-                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="var(--ink-soft)" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                    <span class="bom__name">Laptop Sleeve 14"
-                        <span class="cell-sub">Accessory · Parent of · CMP-118</span>
-                    </span>
-                    <span class="tree__qty">× 1.000</span>
-                    <button class="seg-row__remove" type="button" aria-label="Remove this relationship">
-                        <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>
-                    </button>
-                </div>
-
-                <div class="tree__row" role="listitem">
-                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="var(--ink-soft)" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                    <span class="bom__name">Docking Station, USB-C
-                        <span class="cell-sub">Compatible · Parent of · CMP-120</span>
-                    </span>
-                    <span class="tree__qty">× 1.000</span>
-                    <button class="seg-row__remove" type="button" aria-label="Remove this relationship">
-                        <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>
-                    </button>
-                </div>
-
-                <div class="tree__row" role="listitem">
+                    {% else %}
                     <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="var(--ink-soft)" stroke-width="2" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                    <span class="bom__name">Dell Latitude 7420
-                        <span class="cell-sub">Replacement · Child of · AST-00075</span>
+                    {% endif %}
+                    <span class="bom__name">{{ relation.item.name }}
+                        <span class="cell-sub">{{ relation.type }} · {{ relation.role }}{% if relation.item.sku %} · {{ relation.item.sku }}{% endif %}</span>
                     </span>
-                    <span class="tree__qty">× 1.000</span>
+                    <span class="tree__qty">× {{ relation.quantity|qty }}</span>
                     <button class="seg-row__remove" type="button" aria-label="Remove this relationship">
                         <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>
                     </button>
                 </div>
+                {% empty %}
+                <p class="chart-note">{% if selected %}The item has no relationships.{% else %}Select an item to see its relationships.{% endif %}</p>
+                {% endfor %}
             </div>
 
             <div class="bom__foot">
                 <p class="bom__total">
-                    4 relationships. The system checks for a circular
+                    {{ relationships|length }} relationship{{ relationships|length|pluralize }}. The system checks for a circular
                     relationship, such as an item that contains itself,
                     before it saves.
                 </p>
@@ -463,74 +376,21 @@
             </tr>
         </thead>
         <tbody>
+            {% for item in items %}
             <tr>
-                <td class="is-name">Dell Latitude 7440</td>
-                <td class="is-code">AST-00124</td>
-                <td>Asset</td>
-                <td class="is-qty">4</td>
-                <td><span class="status status--ok">Active</span></td>
+                <td class="is-name"><a href="?item={{ item.pk }}">{{ item.name }}</a></td>
+                <td class="is-code">{{ item.sku|default:"—" }}</td>
+                <td>{{ item.get_item_type_display }}</td>
+                <td class="is-qty">{{ item.relation_count }}</td>
+                <td><span class="status status--{{ item.tone }}">{{ item.status }}</span></td>
             </tr>
-            <tr>
-                <td class="is-name">Dell Latitude 7420</td>
-                <td class="is-code">AST-00075</td>
-                <td>Asset</td>
-                <td class="is-qty">1</td>
-                <td><span class="status status--idle">Inactive</span></td>
-            </tr>
-            <tr>
-                <td class="is-name">Dell U2723QE 27"</td>
-                <td class="is-code">AST-00131</td>
-                <td>Asset</td>
-                <td class="is-qty">1</td>
-                <td><span class="status status--ok">Active</span></td>
-            </tr>
-            <tr>
-                <td class="is-name">Radio Field Kit</td>
-                <td class="is-code">KIT-004</td>
-                <td>Stock</td>
-                <td class="is-qty">6</td>
-                <td><span class="status status--ok">Active</span></td>
-            </tr>
-            <tr>
-                <td class="is-name">12V Battery</td>
-                <td class="is-code">BAT-001</td>
-                <td>Stock</td>
-                <td class="is-qty">0</td>
-                <td><span class="status status--ok">Active</span></td>
-            </tr>
-            <tr>
-                <td class="is-name">Charging Dock, 6-way</td>
-                <td class="is-code">CMP-209</td>
-                <td>Component</td>
-                <td class="is-qty">2</td>
-                <td><span class="status status--ok">Active</span></td>
-            </tr>
-            <tr>
-                <td class="is-name">Docking Station, USB-C</td>
-                <td class="is-code">CMP-120</td>
-                <td>Component</td>
-                <td class="is-qty">1</td>
-                <td><span class="status status--ok">Active</span></td>
-            </tr>
-            <tr>
-                <td class="is-name">A4 Paper, 80 gsm</td>
-                <td class="is-code">STA-010</td>
-                <td>Consumable</td>
-                <td class="is-qty">0</td>
-                <td><span class="status status--ok">Active</span></td>
-            </tr>
-            <tr>
-                <td class="is-name">Toner HP 415A Black</td>
-                <td class="is-code">TON-003</td>
-                <td>Consumable</td>
-                <td class="is-qty">0</td>
-                <td><span class="status status--busy">On order</span></td>
-            </tr>
+            {% empty %}
+            <tr><td colspan="5">There are no items{% if q or item_type %} that match the filter{% endif %}.</td></tr>
+            {% endfor %}
         </tbody>
         <tfoot>
             <tr>
-                <td colspan="4">9 of 248 items</td>
-                <td>Page 1 of 28</td>
+                <td colspan="5">{{ items|length }} of {{ item_count }} item{{ item_count|pluralize }}</td>
             </tr>
         </tfoot>
     </table>

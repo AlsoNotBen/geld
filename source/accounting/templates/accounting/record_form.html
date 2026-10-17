@@ -1,0 +1,59 @@
+{% extends "accounting/module_base.html" %}
+
+{% comment %}
+  ============================================================================
+  accounting/templates/accounting/record_form.html
+  ----------------------------------------------------------------------------
+  The page of the form of one record: New Supplier, Edit Supplier, Edit
+  Customer, New Bank Account and Edit Bank Account. The view gives:
+      title · note · form · cancel_url · page_key
+  The form gives the fields. A checkbox shows as a switch, with the help
+  text of the field as its text. A text area takes both columns.
+  ============================================================================
+{% endcomment %}
+
+{% block page_key %}{{ page_key }}{% endblock %}
+
+{% block title %}{{ title }} · Accounting · Console{% endblock %}
+
+{% block toolbar %}{{ block.super }}{% endblock %}
+
+{% block content %}
+<section class="page">
+
+    <div class="page__head">
+        <h1 class="page__title">{{ title }}</h1>
+        <p class="page__note">{{ note }}</p>
+    </div>
+
+    <form class="card" method="post">
+        {% csrf_token %}
+        <div class="sheet__body sheet__body--split">
+            {% if form.errors %}
+            <div class="sheet__errors field--wide" role="alert">
+                {% for field in form %}{% for error in field.errors %}<p>{{ field.label }}: {{ error }}</p>{% endfor %}{% endfor %}
+                {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+            </div>
+            {% endif %}
+            {% for field in form %}
+            <div class="field{% if field.widget_type == 'textarea' %} field--wide{% endif %}">
+                <label class="field__label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {% if field.widget_type == "checkbox" %}
+                <label class="switch">
+                    {{ field }}
+                    <span class="switch__track" aria-hidden="true"></span>
+                    <span class="switch__text">{{ field.help_text }}</span>
+                </label>
+                {% else %}
+                {{ field }}
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        <div class="sheet__foot">
+            <button class="tool tool--primary" type="submit">Save</button>
+            <a class="tool tool--ghost" href="{{ cancel_url }}">Cancel</a>
+        </div>
+    </form>
+</section>
+{% endblock %}

@@ -97,7 +97,10 @@ def _pdf_response(request, module, key, inline):
         return HttpResponseBadRequest("One or more options are not valid.")
 
     if not inline:  # Download and Send use the download view. The preview does not issue.
-        document.issue(request, options)
+        try:
+            document.issue(request, options)
+        except ValidationError as error:    # E.g. an invoice without a customer
+            return HttpResponseBadRequest(" ".join(error.messages))
 
     context     = document.get_context(request, options)
     pdf         = render_pdf(document.template_name, context)

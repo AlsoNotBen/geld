@@ -65,6 +65,14 @@
             if (input.files.length) { add(input.files); } else { sync(); }
         });
 
+        // A reset button of the form empties the input. Empty the list too.
+        if (input.form) {
+            input.form.addEventListener("reset", function () {
+                files = [];
+                render();
+            });
+        }
+
         ["dragenter", "dragover"].forEach(function (type) {
             zone.addEventListener(type, function (e) {
                 e.preventDefault();

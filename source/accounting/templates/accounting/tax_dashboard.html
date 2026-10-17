@@ -1,10 +1,15 @@
 {% extends "accounting/module_base.html" %}
+{% load fin %}
 
 {% comment %}
   ============================================================================
   accounting/templates/accounting/tax_dashboard.html
   ----------------------------------------------------------------------------
-  The dashboard shows the tax position of the business today. It is a shell: the data below is dummy data in the markup.
+  The dashboard shows the tax position of the business from the ledger:
+      vat_payable   the credit balance of the tax accounts today
+      income_tax    the income tax expense of the global date range
+  The module has no model for the tax returns yet, thus the list of the
+  next due dates is empty.
   ============================================================================
 {% endcomment %}
 
@@ -19,7 +24,7 @@
 
     <div class="page__head">
         <h1 class="page__title">Tax Dashboard</h1>
-        <p class="page__note">The dashboard shows the tax position of the business today.</p>
+        <p class="page__note">The dashboard shows the tax position of the business from the ledger.</p>
     </div>
 
     <div class="actionbar" role="group" aria-label="Page controls">
@@ -33,29 +38,17 @@
                 Export
             </button>
         </div>
-        <p class="actionbar__hint">The figures show {{ period|default:"FY 2026" }}.</p>
+        <p class="actionbar__hint">VAT Payable shows the balance today. Income Tax shows {{ range_label }}.</p>
     </div>
 
     <div class="cards">
         <div class="card">
             <span class="card__label">VAT Payable</span>
-            <div class="card__value is-debit" data-unit="ZAR">26,340.00</div>
+            <div class="card__value is-debit" data-unit="{{ request.company.base_currency_id }}">{{ vat_payable|money }}</div>
         </div>
         <div class="card">
-            <span class="card__label">PAYE Payable</span>
-            <div class="card__value is-debit" data-unit="ZAR">62,480.00</div>
-        </div>
-        <div class="card">
-            <span class="card__label">Provisional Due</span>
-            <div class="card__value is-debit" data-unit="ZAR">202,500.00</div>
-        </div>
-        <div class="card">
-            <span class="card__label">Income Tax Est.</span>
-            <div class="card__value is-debit" data-unit="ZAR">381,321.00</div>
-        </div>
-        <div class="card">
-            <span class="card__label">Open Returns</span>
-            <div class="card__value is-count">4</div>
+            <span class="card__label">Income Tax</span>
+            <div class="card__value is-debit" data-unit="{{ request.company.base_currency_id }}">{{ income_tax|money }}</div>
         </div>
     </div>
 
@@ -65,18 +58,8 @@
             <tr><th>Tax</th><th>Period</th><th>Due</th><th>Status</th></tr>
         </thead>
         <tbody>
-            <tr><td>PAYE</td><td>2026-01</td><td>2026-02-07</td><td><span class="status status--busy">Due</span></td></tr>
-            <tr><td>VAT</td><td>2026-01</td><td>2026-02-25</td><td><span class="status status--busy">Due</span></td></tr>
-            <tr><td>Provisional</td><td>2026 · Second</td><td>2026-02-28</td><td><span class="status status--busy">Due</span></td></tr>
+            <tr><td colspan="4">There are no tax returns.</td></tr>
         </tbody>
     </table>
-
-    <h2 class="page__subtitle">Items that need an action</h2>
-    <div class="notes">
-        <div class="card">
-            <span class="card__label">Due soon</span>
-            <p class="notes__text">The PAYE return for January is due on 2026-02-07.</p>
-        </div>
-    </div>
 </section>
 {% endblock %}

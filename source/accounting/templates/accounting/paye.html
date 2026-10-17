@@ -4,7 +4,8 @@
   ============================================================================
   accounting/templates/accounting/paye.html
   ----------------------------------------------------------------------------
-  PAYE is the employee tax that the business keeps back from salaries each month and pays to the revenue service. It is a shell: the data below is dummy data in the markup.
+  PAYE is the employee tax that the business keeps back from salaries each month and pays to the revenue service.
+  The module has no model for the returns yet, thus the list is empty.
   ============================================================================
 {% endcomment %}
 
@@ -44,9 +45,7 @@
             <tr><th>Month</th><th>Due</th><th>Employees</th><th>Status</th><th>PAYE</th></tr>
         </thead>
         <tbody>
-            <tr><td>2026-01</td><td>2026-02-07</td><td class="is-count">14</td><td><span class="status status--busy">Due</span></td><td class="is-debit">62,480.00</td></tr>
-            <tr><td>2025-12</td><td>2026-01-07</td><td class="is-count">14</td><td><span class="status status--ok">Submitted</span></td><td class="is-debit">71,915.00</td></tr>
-            <tr><td>2025-11</td><td>2025-12-07</td><td class="is-count">13</td><td><span class="status status--ok">Submitted</span></td><td class="is-debit">58,300.00</td></tr>
+            <tr><td colspan="5">There are no PAYE returns.</td></tr>
         </tbody>
     </table>
 </section>

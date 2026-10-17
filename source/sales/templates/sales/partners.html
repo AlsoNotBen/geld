@@ -1,11 +1,15 @@
 {% extends "sales/module_base.html" %}
+{% load fin %}
 
 {% comment %}
   ============================================================================
   sales/templates/sales/partners.html
   ----------------------------------------------------------------------------
-  The partners page of the Sales section. It is a shell: the rows below are
-  dummy data in the markup.
+  The partners page of the Sales section. A partner is a customer (see
+  customer_entities). The view gives one row for each:
+      id · name · is_supplier · is_active · contact · balance
+  The contact is the email, else the phone. Open goes to the Edit Customer
+  page of the Accounting module.
 
   The table uses the table--leads variant, because the columns are the same
   shape as the leads page: a wide name, soft columns, a status pill, a mono
@@ -48,7 +52,7 @@
             </button>
         </div>
 
-        <p class="actionbar__hint">The list shows 6 of 48 partners.</p>
+        <p class="actionbar__hint">The list shows {{ partners|length }} partner{{ partners|length|pluralize }}.</p>
     </div>
 
     <table class="table table--leads">
@@ -56,54 +60,18 @@
             <tr><th>Name</th><th>Type</th><th>Status</th><th>Contact</th><th>Balance</th><th><span class="visually-hidden">Actions</span></th></tr>
         </thead>
         <tbody>
+            {% for partner in partners %}
             <tr>
-                <td>Sandton Data Centre</td>
-                <td>Customer</td>
-                <td><span class="status status--ok">Active</span></td>
-                <td>t.molefe@sandtondc.co.za</td>
-                <td>88,000.00</td>
-                <td><button class="tool tool--sm" type="button">Open</button></td>
+                <td>{{ partner.name }}</td>
+                <td>{% if partner.is_supplier %}Customer and supplier{% else %}Customer{% endif %}</td>
+                <td>{% if partner.is_active %}<span class="status status--ok">Active</span>{% else %}<span class="status status--idle">Inactive</span>{% endif %}</td>
+                <td>{{ partner.contact|default:"—" }}</td>
+                <td>{{ partner.balance|money }}</td>
+                <td><a class="tool tool--sm" href="{% url 'accounting:customer_edit' partner.id %}" aria-label="Open {{ partner.name }}">Open</a></td>
             </tr>
-            <tr>
-                <td>Halcyon Interiors</td>
-                <td>Customer</td>
-                <td><span class="status status--ok">Active</span></td>
-                <td>accounts@halcyon.co.za</td>
-                <td>21,450.00</td>
-                <td><button class="tool tool--sm" type="button">Open</button></td>
-            </tr>
-            <tr>
-                <td>Vaal Metal Press</td>
-                <td>Customer</td>
-                <td><span class="status status--out">On hold</span></td>
-                <td>j.duplessis@vaalmetal.co.za</td>
-                <td>3,900.00</td>
-                <td><button class="tool tool--sm" type="button">Open</button></td>
-            </tr>
-            <tr>
-                <td>Karoo Fresh Produce</td>
-                <td>Customer</td>
-                <td><span class="status status--low">Limit near</span></td>
-                <td>orders@karoofresh.co.za</td>
-                <td>6,250.00</td>
-                <td><button class="tool tool--sm" type="button">Open</button></td>
-            </tr>
-            <tr>
-                <td>Protea Print Works</td>
-                <td>Customer and supplier</td>
-                <td><span class="status status--ok">Active</span></td>
-                <td>n.abrahams@proteaprint.co.za</td>
-                <td>15,600.00</td>
-                <td><button class="tool tool--sm" type="button">Open</button></td>
-            </tr>
-            <tr>
-                <td>Garden Route Timber</td>
-                <td>Customer</td>
-                <td><span class="status status--idle">Inactive</span></td>
-                <td>info@grtimber.co.za</td>
-                <td>1,320.00</td>
-                <td><button class="tool tool--sm" type="button">Open</button></td>
-            </tr>
+            {% empty %}
+            <tr><td colspan="6">There are no partners.</td></tr>
+            {% endfor %}
         </tbody>
     </table>
 </section>

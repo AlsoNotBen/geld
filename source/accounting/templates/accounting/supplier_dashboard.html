@@ -1,10 +1,13 @@
 {% extends "accounting/module_base.html" %}
+{% load fin %}
 
 {% comment %}
   ============================================================================
   accounting/templates/accounting/supplier_dashboard.html
   ----------------------------------------------------------------------------
-  The dashboard shows the position of the suppliers today. It is a shell: the data below is dummy data in the markup.
+  The dashboard shows the position of the suppliers today: the unpaid
+  bills, the overdue part and the suppliers with the largest open amounts.
+  Paid and Creditor Days use the global date range.
   ============================================================================
 {% endcomment %}
 
@@ -33,50 +36,63 @@
                 Export
             </button>
         </div>
-        <p class="actionbar__hint">The figures show {{ period|default:"FY 2026" }}.</p>
+        <p class="actionbar__hint">Paid and Creditor Days show {{ range_label }}.</p>
     </div>
 
     <div class="cards">
         <div class="card">
             <span class="card__label">Suppliers</span>
-            <div class="card__value is-count">22</div>
+            <div class="card__value is-count">{{ supplier_count }}</div>
         </div>
         <div class="card">
             <span class="card__label">Payable</span>
-            <div class="card__value is-debit" data-unit="ZAR">18,110.00</div>
+            <div class="card__value is-debit" data-unit="{{ request.company.base_currency_id }}">{{ payable|money }}</div>
         </div>
         <div class="card">
             <span class="card__label">Overdue</span>
-            <div class="card__value is-overdue" data-unit="ZAR">12,880.00</div>
+            <div class="card__value is-overdue" data-unit="{{ request.company.base_currency_id }}">{{ overdue|money }}</div>
         </div>
         <div class="card">
             <span class="card__label">Paid</span>
-            <div class="card__value is-debit" data-unit="ZAR">286,400.00</div>
+            <div class="card__value is-debit" data-unit="{{ request.company.base_currency_id }}">{{ paid|money }}</div>
         </div>
         <div class="card">
             <span class="card__label">Creditor Days</span>
-            <div class="card__value is-count">31</div>
+            <div class="card__value is-count">{{ creditor_days|default_if_none:"—" }}</div>
         </div>
     </div>
 
     <h2 class="page__subtitle">Top suppliers by balance</h2>
-    <table class="table">
+    <table class="table" data-num>
         <thead>
             <tr><th>Supplier</th><th>Bills</th><th>Balance</th></tr>
         </thead>
         <tbody>
-            <tr><td>Highveld Fuel Services</td><td class="is-count">5</td><td class="is-overdue">12,880.00</td></tr>
-            <tr><td>Cape Office Supplies</td><td class="is-count">8</td><td class="is-debit">3,240.00</td></tr>
-            <tr><td>Atlantic Cloud Hosting</td><td class="is-count">2</td><td class="is-debit">1,990.00</td></tr>
+            {% for row in top %}
+            <tr>
+                <td>{{ row.name }}</td>
+                <td class="is-count">{{ row.count }}</td>
+                <td class="{% if row.is_overdue %}is-overdue{% else %}is-debit{% endif %}">{{ row.balance|money }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3">There are no unpaid bills.</td></tr>
+            {% endfor %}
         </tbody>
     </table>
 
     <h2 class="page__subtitle">Items that need an action</h2>
     <div class="notes">
+        {% for item in late %}
+        <div class="card">
+            <span class="card__label">Late bill</span>
+            <p class="notes__text">Bill {{ item.number }} of {{ item.name }} is {{ item.days }} day{{ item.days|pluralize }} late. The open amount is {{ item.balance|money }}. Pay it in the next payment run.</p>
+        </div>
+        {% empty %}
         <div class="card">
             <span class="card__label">Late bills</span>
-            <p class="notes__text">One bill to Highveld Fuel Services is late. Pay it in the next payment run.</p>
+            <p class="notes__text">No bill is late.</p>
         </div>
+        {% endfor %}
     </div>
 </section>
 {% endblock %}

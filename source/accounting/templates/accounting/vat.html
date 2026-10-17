@@ -4,7 +4,8 @@
   ============================================================================
   accounting/templates/accounting/vat.html
   ----------------------------------------------------------------------------
-  This page shows the VAT returns of the business. Submit each return before the due date. It is a shell: the data below is dummy data in the markup.
+  This page shows the VAT returns of the business. Submit each return before the due date.
+  The module has no model for the returns yet, thus the list is empty.
   ============================================================================
 {% endcomment %}
 
@@ -44,9 +45,7 @@
             <tr><th>Period</th><th>Due</th><th>Output VAT</th><th>Input VAT</th><th>Status</th><th>Payable</th></tr>
         </thead>
         <tbody>
-            <tr><td>2026-01</td><td>2026-02-25</td><td class="is-credit">48,210.00</td><td class="is-debit">21,870.00</td><td><span class="status status--busy">Due</span></td><td class="is-debit">26,340.00</td></tr>
-            <tr><td>2025-11</td><td>2025-12-25</td><td class="is-credit">52,900.00</td><td class="is-debit">24,115.00</td><td><span class="status status--ok">Submitted</span></td><td class="is-debit">28,785.00</td></tr>
-            <tr><td>2025-09</td><td>2025-10-25</td><td class="is-credit">44,300.00</td><td class="is-debit">19,600.00</td><td><span class="status status--ok">Submitted</span></td><td class="is-debit">24,700.00</td></tr>
+            <tr><td colspan="6">There are no VAT returns.</td></tr>
         </tbody>
     </table>
 </section>

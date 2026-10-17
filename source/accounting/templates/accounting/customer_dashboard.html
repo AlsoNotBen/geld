@@ -85,7 +85,7 @@
         {% for item in late %}
         <div class="card">
             <span class="card__label">Late payment</span>
-            <p class="notes__text">{{ item.name }} is {{ item.days }} day{{ item.days|pluralize }} late on {{ item.number }} ({{ item.balance|money }}). Send a reminder.</p>
+            <p class="notes__text">{{ item.name }} is {{ item.days }} day{{ item.days|pluralize }} late on {{ item.number }}. The open amount is {{ item.balance|money }}. Send a reminder.</p>
         </div>
         {% empty %}
         <div class="card">

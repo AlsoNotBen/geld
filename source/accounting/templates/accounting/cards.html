@@ -4,7 +4,8 @@
   ============================================================================
   accounting/templates/accounting/cards.html
   ----------------------------------------------------------------------------
-  This page shows the company cards and the money that each card spent in this period. It is a shell: the data below is dummy data in the markup.
+  This page shows the company cards and the money that each card spent in
+  this period. The module has no card model yet, thus the list is empty.
   ============================================================================
 {% endcomment %}
 
@@ -44,9 +45,7 @@
             <tr><th>Card</th><th>Holder</th><th>Bank</th><th>Limit</th><th>Status</th><th>Spent</th></tr>
         </thead>
         <tbody>
-            <tr><td>•••• 1182</td><td>Lerato Nkosi</td><td>FNB</td><td class="is-credit">20,000.00</td><td><span class="status status--ok">Active</span></td><td class="is-debit">6,412.30</td></tr>
-            <tr><td>•••• 7745</td><td>James Botha</td><td>FNB</td><td class="is-credit">10,000.00</td><td><span class="status status--ok">Active</span></td><td class="is-debit">2,180.00</td></tr>
-            <tr><td>•••• 3021</td><td>Sipho Dlamini</td><td>Nedbank</td><td class="is-credit">5,000.00</td><td><span class="status status--out">Blocked</span></td><td class="is-debit">0.00</td></tr>
+            <tr><td colspan="6">There are no cards.</td></tr>
         </tbody>
     </table>
 </section>

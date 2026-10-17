@@ -4,7 +4,9 @@
   ============================================================================
   accounting/templates/accounting/payment_runs.html
   ----------------------------------------------------------------------------
-  A payment run pays many bills at one time. Make a run, examine it, then send the file to the bank. It is a shell: the data below is dummy data in the markup.
+  A payment run pays many bills at one time. Make a run, examine it, then
+  send the file to the bank. The module has no payment run model yet, thus
+  the list is empty.
   ============================================================================
 {% endcomment %}
 
@@ -44,9 +46,7 @@
             <tr><th>Date</th><th>Run</th><th>Account</th><th>Bills</th><th>Status</th><th>Amount</th></tr>
         </thead>
         <tbody>
-            <tr><td>2026-02-25</td><td>PR-0019</td><td>FNB · Main Current</td><td class="is-count">7</td><td><span class="status status--idle">Draft</span></td><td class="is-debit">41,300.00</td></tr>
-            <tr><td>2026-01-25</td><td>PR-0018</td><td>FNB · Main Current</td><td class="is-count">9</td><td><span class="status status--ok">Paid</span></td><td class="is-debit">58,720.00</td></tr>
-            <tr><td>2025-12-23</td><td>PR-0017</td><td>FNB · Main Current</td><td class="is-count">6</td><td><span class="status status--ok">Paid</span></td><td class="is-debit">33,410.00</td></tr>
+            <tr><td colspan="6">There are no payment runs.</td></tr>
         </tbody>
     </table>
 </section>

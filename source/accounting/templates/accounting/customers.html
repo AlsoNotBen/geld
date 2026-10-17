@@ -8,9 +8,10 @@
   This page shows all the customers of the business and the money that each
   customer owes. A customer is an entity with a lead or with a sales
   invoice. The view gives one row for each:
-      name · email · phone · terms · is_active · balance · is_overdue
+      id · name · email · phone · terms · is_active · balance · is_overdue
   The terms are the payment terms of the last invoice of the customer.
-  New Customer opens the New Lead overlay (see lead_form.js).
+  New Customer opens the New Lead overlay (see lead_form.js). The Edit
+  button of a row opens the Edit Customer page.
   ============================================================================
 {% endcomment %}
 
@@ -45,9 +46,9 @@
         </div>
     </div>
 
-    <table class="table" data-num>
+    <table class="table table--edit" data-num>
         <thead>
-            <tr><th>Customer</th><th>Email</th><th>Phone</th><th>Terms</th><th>Status</th><th>Balance</th></tr>
+            <tr><th>Customer</th><th>Email</th><th>Phone</th><th>Terms</th><th>Status</th><th>Balance</th><th><span class="visually-hidden">Edit</span></th></tr>
         </thead>
         <tbody>
             {% for customer in customers %}
@@ -58,9 +59,10 @@
                 <td>{{ customer.terms|default:"—" }}</td>
                 <td>{% if customer.is_active %}<span class="status status--ok">Active</span>{% else %}<span class="status status--idle">Inactive</span>{% endif %}</td>
                 <td class="{% if customer.is_overdue %}is-overdue{% else %}is-credit{% endif %}">{{ customer.balance|money }}</td>
+                <td>{% include "accounting/_edit_button.html" with url_name="accounting:customer_edit" pk=customer.id label=customer.name %}</td>
             </tr>
             {% empty %}
-            <tr><td colspan="6">There are no customers. Use New Customer to add one.</td></tr>
+            <tr><td colspan="7">There are no customers. Use New Customer to add one.</td></tr>
             {% endfor %}
         </tbody>
     </table>

@@ -1,4 +1,5 @@
 {% extends "inventory/module_base.html" %}
+{% load fin stock %}
 
 {% comment %}
   ============================================================================
@@ -12,8 +13,10 @@
       .cards         the figures, in two bands of five
       .table         the lists: attention, new items, last movements
 
-  All figures and rows below are dummy data. They live in this template,
-  because the module has no model yet.
+  The view gives the figures from the items and the stock movements (see
+  stock_levels in views.py). An item needs attention when it has no stock,
+  or when its stock take is due. The module has no minimum level and no
+  location yet, thus the lists show neither.
   ============================================================================
 {% endcomment %}
 
@@ -29,8 +32,8 @@
         <p class="page__note">
             The overview is the first page of the Inventory module. It shows
             what the business holds today: the value of the stock, the number
-            of assets, the quantity on the shelves, and the items that are
-            low or empty. The three lists below show the items that need an
+            of assets, the number of items of each type, and the items that
+            are empty. The three lists below show the items that need an
             action, the items that came in last, and the last movements of
             stock. Use this page to find an item that needs an action before
             you open a list.
@@ -54,64 +57,64 @@
             </button>
         </div>
 
-        <p class="actionbar__hint">The figures show all locations on {{ as_at|default:"05 September 2026" }}.</p>
+        <p class="actionbar__hint">The figures show all items on {{ today|date:"d F Y" }}.</p>
     </div>
 
     {% comment %} Band 1: the value, the count of things, and the two
-         quantities that ask for an action. {% endcomment %}
+         figures that ask for an action. {% endcomment %}
     <div class="cards">
         <div class="card">
             <span class="card__label">Inventory Value</span>
-            <div class="card__value" data-unit="ZAR">{{ inventory_value|default:"1 284 950.00" }}</div>
+            <div class="card__value" data-unit="{{ request.company.base_currency_id }}">{{ inventory_value|money }}</div>
         </div>
 
         <div class="card">
             <span class="card__label">Total Assets</span>
-            <div class="card__value is-count">{{ asset_count|default:"318" }}</div>
+            <div class="card__value is-count">{{ asset_count }}</div>
         </div>
 
         <div class="card">
-            <span class="card__label">Kits Ready</span>
-            <div class="card__value is-credit">{{ stock_units|default:"4 126" }}</div>
-        </div>
-
-        {% comment %} Yellow: the item asks for an order. {% endcomment %}
-        <div class="card">
-            <span class="card__label">Low Stock Items</span>
-            <div class="card__value is-overdue is-count">{{ low_stock|default:"6" }}</div>
+            <span class="card__label">Stock Items</span>
+            <div class="card__value is-count">{{ stock_count }}</div>
         </div>
 
         {% comment %} Red: the item stops the work. {% endcomment %}
         <div class="card">
             <span class="card__label">Out of Stock</span>
-            <div class="card__value is-debit is-count">{{ out_of_stock|default:"2" }}</div>
+            <div class="card__value is-debit is-count">{{ out|length }}</div>
+        </div>
+
+        {% comment %} Yellow: the stock take of the item is due. {% endcomment %}
+        <div class="card">
+            <span class="card__label">Stock Takes Due</span>
+            <div class="card__value is-overdue is-count">{{ due|length }}</div>
         </div>
     </div>
 
     <div class="cards">
         <div class="card">
-            <span class="card__label">Items Awaiting Shipment</span>
-            <div class="card__value is-count">{{ consumable_count|default:"42" }}</div>
-        </div>
-
-        <div class="card">
-            <span class="card__label">Items Awaiting Delivery</span>
-            <div class="card__value is-overdue is-count">{{ kit_count|default:"9" }}</div>
+            <span class="card__label">Consumables</span>
+            <div class="card__value is-count">{{ consumable_count }}</div>
         </div>
 
         <div class="card">
             <span class="card__label">Components</span>
-            <div class="card__value is-count">{{ component_count|default:"64" }}</div>
+            <div class="card__value is-count">{{ component_count }}</div>
         </div>
 
         <div class="card">
-            <span class="card__label">Work In Progress Items</span>
-            <div class="card__value is-count">{{ movement_count|default:"38" }}</div>
+            <span class="card__label">Kits</span>
+            <div class="card__value is-count">{{ kit_count }}</div>
         </div>
 
         <div class="card">
-            <span class="card__label">Assets in Repair</span>
-            <div class="card__value is-overdue is-count">{{ repair_count|default:"4" }}</div>
+            <span class="card__label">Inactive Items</span>
+            <div class="card__value is-count">{{ inactive_count }}</div>
+        </div>
+
+        <div class="card">
+            <span class="card__label">Movements (7 d)</span>
+            <div class="card__value is-count">{{ movement_count }}</div>
         </div>
     </div>
 
@@ -124,81 +127,34 @@
                 <th>Part</th>
                 <th>Code</th>
                 <th class="is-qty">On hand</th>
-                <th class="is-qty">Minimum</th>
-                <th>Location</th>
                 <th>Status</th>
             </tr>
         </thead>
         <tbody>
+            {% for item in out %}
             <tr>
-                <td class="is-name">Diesel 50L Drum</td>
-                <td>Stock</td>
-                <td class="is-code">FUE-005</td>
-                <td class="is-qty is-out">0</td>
-                <td class="is-qty">4</td>
-                <td>Site Store</td>
+                <td class="is-name">{{ item.name }}</td>
+                <td>{{ item.get_item_type_display }}</td>
+                <td class="is-code">{{ item.sku|default:"—" }}</td>
+                <td class="is-qty is-out">{{ item.on_hand|qty }}</td>
                 <td><span class="status status--out">Out of stock</span></td>
             </tr>
-            <tr>
-                <td class="is-name">Toner HP 415A Black</td>
-                <td>Consumable</td>
-                <td class="is-code">TON-003</td>
-                <td class="is-qty is-out">0</td>
-                <td class="is-qty">3</td>
-                <td>Pretoria Office</td>
-                <td><span class="status status--busy">On order</span></td>
-            </tr>
-            <tr>
-                <td class="is-name">Work Gloves (pair)</td>
-                <td>Consumable</td>
-                <td class="is-code">PPE-108</td>
-                <td class="is-qty is-low">18</td>
-                <td class="is-qty">40</td>
-                <td>Durban Depot</td>
-                <td><span class="status status--low">Low stock</span></td>
-            </tr>
-            <tr>
-                <td class="is-name">RJ45 Connector (100 pack)</td>
-                <td>Stock</td>
-                <td class="is-code">CON-220</td>
-                <td class="is-qty is-low">4</td>
-                <td class="is-qty">10</td>
-                <td>Workshop</td>
-                <td><span class="status status--low">Low stock</span></td>
-            </tr>
+            {% endfor %}
+            {% for schedule in due %}
             <tr>
                 <td class="is-name">
-                    Bosch GSB 18V Drill
-                    <span class="cell-sub">AST-00344 · last seen 12 Aug 2026</span>
+                    {{ schedule.item.name }}
+                    <span class="cell-sub">Stock take due {{ schedule.next_due|date:"d M Y" }}</span>
                 </td>
-                <td>Asset</td>
-                <td class="is-code">AST-00344</td>
-                <td class="is-qty">1</td>
-                <td class="is-qty">—</td>
-                <td>Site Store</td>
-                <td><span class="status status--out">Missing</span></td>
+                <td>{{ schedule.item.get_item_type_display }}</td>
+                <td class="is-code">{{ schedule.item.sku|default:"—" }}</td>
+                <td class="is-qty">{{ schedule.item.on_hand|qty }}</td>
+                <td><span class="status status--low">Stock take due</span></td>
             </tr>
-            <tr>
-                <td class="is-name">
-                    Ford Ranger XL
-                    <span class="cell-sub">AST-00051 · 118,400 km</span>
-                </td>
-                <td>Asset</td>
-                <td class="is-code">AST-00051</td>
-                <td class="is-qty">1</td>
-                <td class="is-qty">—</td>
-                <td>Durban Depot</td>
-                <td><span class="status status--low">Service due</span></td>
-            </tr>
-            <tr>
-                <td class="is-name">Network Switch 8-port</td>
-                <td>Stock</td>
-                <td class="is-code">NET-045</td>
-                <td class="is-qty is-low">2</td>
-                <td class="is-qty">4</td>
-                <td>Cape Town Branch</td>
-                <td><span class="status status--low">Low stock</span></td>
-            </tr>
+            {% endfor %}
+            {% if not out and not due %}
+            <tr><td colspan="5">No item needs attention.</td></tr>
+            {% endif %}
         </tbody>
     </table>
 
@@ -211,72 +167,24 @@
                 <th>Part</th>
                 <th>Code</th>
                 <th class="is-qty">Quantity</th>
-                <th>Location</th>
-                <th>Added</th>
                 <th>Status</th>
             </tr>
         </thead>
         <tbody>
+            {% for item in recent_items %}
             <tr>
                 <td class="is-name">
-                    Dell Latitude 7440
-                    <span class="cell-sub">Serial 7HJ4K2Q</span>
+                    {{ item.name }}
+                    {% if item.serial %}<span class="cell-sub">Serial {{ item.serial }}</span>{% endif %}
                 </td>
-                <td>Asset</td>
-                <td class="is-code">AST-00124</td>
-                <td class="is-qty">1</td>
-                <td>Pretoria Office</td>
-                <td class="is-code">04 Sep 2026</td>
-                <td><span class="status status--ok">Active</span></td>
+                <td>{{ item.get_item_type_display }}</td>
+                <td class="is-code">{{ item.sku|default:"—" }}</td>
+                <td class="is-qty">{% if item.item_type == "ASSET" %}—{% else %}{{ item.on_hand|qty }}{% endif %}</td>
+                <td><span class="status status--{{ item.tone }}">{{ item.status }}</span></td>
             </tr>
-            <tr>
-                <td class="is-name">Safety Helmet, white</td>
-                <td>Stock</td>
-                <td class="is-code">PPE-101</td>
-                <td class="is-qty">40</td>
-                <td>Durban Depot</td>
-                <td class="is-code">04 Sep 2026</td>
-                <td><span class="status status--ok">In stock</span></td>
-            </tr>
-            <tr>
-                <td class="is-name">Radio Field Kit</td>
-                <td>Kit</td>
-                <td class="is-code">KIT-004</td>
-                <td class="is-qty">4</td>
-                <td>Johannesburg Warehouse</td>
-                <td class="is-code">03 Sep 2026</td>
-                <td><span class="status status--ok">Assembled</span></td>
-            </tr>
-            <tr>
-                <td class="is-name">Nitrile Gloves (box of 100)</td>
-                <td>Consumable</td>
-                <td class="is-code">PPE-140</td>
-                <td class="is-qty">24</td>
-                <td>Workshop</td>
-                <td class="is-code">02 Sep 2026</td>
-                <td><span class="status status--ok">In stock</span></td>
-            </tr>
-            <tr>
-                <td class="is-name">
-                    Motorola DP4400e
-                    <span class="cell-sub">Serial MT9920881</span>
-                </td>
-                <td>Asset</td>
-                <td class="is-code">AST-00208</td>
-                <td class="is-qty">1</td>
-                <td>Durban Depot</td>
-                <td class="is-code">01 Sep 2026</td>
-                <td><span class="status status--ok">Active</span></td>
-            </tr>
-            <tr>
-                <td class="is-name">Cat6 Patch Lead 2m</td>
-                <td>Component</td>
-                <td class="is-code">CMP-311</td>
-                <td class="is-qty">120</td>
-                <td>Workshop</td>
-                <td class="is-code">29 Aug 2026</td>
-                <td><span class="status status--ok">In stock</span></td>
-            </tr>
+            {% empty %}
+            <tr><td colspan="5">There are no items.</td></tr>
+            {% endfor %}
         </tbody>
     </table>
 
@@ -290,53 +198,21 @@
             <tr><th>Date</th><th>Reference</th><th>Movement</th><th>Change</th></tr>
         </thead>
         <tbody>
+            {% for row in movements %}
             <tr>
-                <td>04 Sep 2026</td>
-                <td>GRN-0442</td>
-                <td>Received 40 × Safety Helmet from Sasol Safety Supplies · Durban Depot</td>
-                <td class="is-credit">+40</td>
+                <td>{{ row.date|date:"d M Y" }}</td>
+                <td>{{ row.reference|default:"—" }}</td>
+                <td>{{ row.text }}</td>
+                <td class="{% if row.change < 0 %}is-debit{% else %}is-credit{% endif %}">{{ row.change|qty:True }}</td>
             </tr>
-            <tr>
-                <td>04 Sep 2026</td>
-                <td>MOV-1188</td>
-                <td>Issued 6 × 12V Battery to Workshop · R. van Zyl</td>
-                <td class="is-debit">−6</td>
-            </tr>
-            <tr>
-                <td>03 Sep 2026</td>
-                <td>ASM-0034</td>
-                <td>Assembled 4 × Radio Field Kit · 16 components consumed</td>
-                <td class="is-debit">−16</td>
-            </tr>
-            <tr>
-                <td>03 Sep 2026</td>
-                <td>MOV-1187</td>
-                <td>Transferred 5 × Cat6 Cable 305m to Site Store</td>
-                <td class="is-debit">−5</td>
-            </tr>
-            <tr>
-                <td>03 Sep 2026</td>
-                <td>ADJ-0091</td>
-                <td>Stock take correction · RJ45 Connector · Workshop</td>
-                <td class="is-debit">−2</td>
-            </tr>
-            <tr>
-                <td>02 Sep 2026</td>
-                <td>GRN-0441</td>
-                <td>Received 24 × Radio Battery Pack from Altech Radio · Pretoria Office</td>
-                <td class="is-credit">+24</td>
-            </tr>
-            <tr>
-                <td>01 Sep 2026</td>
-                <td>MOV-1185</td>
-                <td>Issued 2 × Hydraulic Oil 20L to Workshop · K. Naidoo</td>
-                <td class="is-debit">−2</td>
-            </tr>
+            {% empty %}
+            <tr><td colspan="4">There are no stock movements.</td></tr>
+            {% endfor %}
         </tbody>
         <tfoot>
             <tr>
                 <td colspan="3">Net change, last seven days</td>
-                <td class="is-credit">+33</td>
+                <td class="{% if week_change < 0 %}is-debit{% else %}is-credit{% endif %}">{{ week_change|qty:True }}</td>
             </tr>
         </tfoot>
     </table>

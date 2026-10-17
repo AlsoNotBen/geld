@@ -12,11 +12,9 @@
   segment in both places, and again in the example code at the foot of
   the builder.
 
-  The QR code and the barcode are dummy marks. Neither one decodes to a
-  real value. They stand in the .code-swatch, the one light shape of the
-  page, because a real mark needs a light ground to read at all.
-
-  All figures, formats, categories and codes below are dummy data.
+  The module has no model for a code format or a category yet, thus the
+  builder, the preview and the library are empty. The Applies to select
+  lists the item types.
   ============================================================================
 {% endcomment %}
 
@@ -61,7 +59,7 @@
             </button>
         </div>
 
-        <p class="actionbar__hint">Asset Tag Format · 12 characters · 4 of 5 segments used.</p>
+        <p class="actionbar__hint">There is no code format yet.</p>
     </div>
 
     <h2 class="page__subtitle">Customize Barcode and SKU Formats</h2>
@@ -75,19 +73,15 @@
                 {% csrf_token %}
                 <label class="visually-hidden" for="fmt-name">Format name</label>
                 <input class="field field--wide" id="fmt-name" name="format_name" type="text"
-                       value="Asset Tag Format">
+                       placeholder="Format name">
 
                 <label class="visually-hidden" for="fmt-length">Total length</label>
                 <input class="field field--sm" id="fmt-length" name="length" type="number"
-                       min="1" max="32" value="12">
+                       min="1" max="32" placeholder="Length">
 
                 <label class="visually-hidden" for="fmt-applies">Applies to</label>
                 <select class="field field--select" id="fmt-applies" name="applies_to">
-                    <option>Assets</option>
-                    <option>Stock Items</option>
-                    <option>Consumables</option>
-                    <option>Kits</option>
-                    <option>Locations</option>
+                    {% for value, label in item_types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
                 </select>
 
                 <label class="visually-hidden" for="fmt-symbology">Code type</label>
@@ -98,137 +92,23 @@
                 </select>
             </form>
 
-            <div class="code-strip" role="img" aria-label="A 12-character code split into four segments: three characters for location, three for asset type, two for the year, and four for the sequence number.">
-                <span class="code-strip__seg chart-c1" style="width: 25%">LOC · 3</span>
-                <span class="code-strip__seg chart-c2" style="width: 25%">TYP · 3</span>
-                <span class="code-strip__seg chart-c4" style="width: 16.66%">YR · 2</span>
-                <span class="code-strip__seg chart-c3" style="width: 33.34%">SEQ · 4</span>
-            </div>
-
-            <div class="seg-list" role="list" aria-label="Segments of this format">
-
-                <div class="tree__row" role="listitem">
-                    <span class="status seg-row__order" style="color: var(--navy); background: var(--gold);">1</span>
-                    <label class="visually-hidden" for="seg-len-1">Length of segment 1</label>
-                    <input class="field seg-row__len" id="seg-len-1" name="seg_length_1" type="number" min="1" max="9" value="3">
-                    <label class="visually-hidden" for="seg-cat-1">Category of segment 1</label>
-                    <select class="field field--select seg-row__cat" id="seg-cat-1" name="seg_category_1">
-                        <option value="">Select a category</option>
-                        <option selected>LOC — Location</option>
-                        <option>TYP — Asset Type</option>
-                        <option>VEN — Vendor</option>
-                        <option>YR — Year Acquired</option>
-                        <option>SEQ — Sequence Number</option>
-                        <option>DEP — Department</option>
-                        <option>COND — Condition Code</option>
-                    </select>
-                    <button class="seg-row__remove" type="button" aria-label="Remove segment 1">
-                        <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>
-                    </button>
-                </div>
-
-                <div class="tree__row" role="listitem">
-                    <span class="status seg-row__order" style="color: var(--navy); background: var(--credit);">2</span>
-                    <label class="visually-hidden" for="seg-len-2">Length of segment 2</label>
-                    <input class="field seg-row__len" id="seg-len-2" name="seg_length_2" type="number" min="1" max="9" value="3">
-                    <label class="visually-hidden" for="seg-cat-2">Category of segment 2</label>
-                    <select class="field field--select seg-row__cat" id="seg-cat-2" name="seg_category_2">
-                        <option value="">Select a category</option>
-                        <option>LOC — Location</option>
-                        <option selected>TYP — Asset Type</option>
-                        <option>VEN — Vendor</option>
-                        <option>YR — Year Acquired</option>
-                        <option>SEQ — Sequence Number</option>
-                        <option>DEP — Department</option>
-                        <option>COND — Condition Code</option>
-                    </select>
-                    <button class="seg-row__remove" type="button" aria-label="Remove segment 2">
-                        <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>
-                    </button>
-                </div>
-
-                <div class="tree__row" role="listitem">
-                    <span class="status seg-row__order" style="color: var(--navy); background: var(--overdue);">3</span>
-                    <label class="visually-hidden" for="seg-len-3">Length of segment 3</label>
-                    <input class="field seg-row__len" id="seg-len-3" name="seg_length_3" type="number" min="1" max="9" value="2">
-                    <label class="visually-hidden" for="seg-cat-3">Category of segment 3</label>
-                    <select class="field field--select seg-row__cat" id="seg-cat-3" name="seg_category_3">
-                        <option value="">Select a category</option>
-                        <option>LOC — Location</option>
-                        <option>TYP — Asset Type</option>
-                        <option>VEN — Vendor</option>
-                        <option selected>YR — Year Acquired</option>
-                        <option>SEQ — Sequence Number</option>
-                        <option>DEP — Department</option>
-                        <option>COND — Condition Code</option>
-                    </select>
-                    <button class="seg-row__remove" type="button" aria-label="Remove segment 3">
-                        <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>
-                    </button>
-                </div>
-
-                <div class="tree__row" role="listitem">
-                    <span class="status seg-row__order" style="color: var(--navy); background: var(--debit);">4</span>
-                    <label class="visually-hidden" for="seg-len-4">Length of segment 4</label>
-                    <input class="field seg-row__len" id="seg-len-4" name="seg_length_4" type="number" min="1" max="9" value="4">
-                    <label class="visually-hidden" for="seg-cat-4">Category of segment 4</label>
-                    <select class="field field--select seg-row__cat" id="seg-cat-4" name="seg_category_4">
-                        <option value="">Select a category</option>
-                        <option>LOC — Location</option>
-                        <option>TYP — Asset Type</option>
-                        <option>VEN — Vendor</option>
-                        <option>YR — Year Acquired</option>
-                        <option selected>SEQ — Sequence Number</option>
-                        <option>DEP — Department</option>
-                        <option>COND — Condition Code</option>
-                    </select>
-                    <button class="seg-row__remove" type="button" aria-label="Remove segment 4">
-                        <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>
-                    </button>
-                </div>
-            </div>
+            <p class="chart-note">The format has no segments.</p>
 
             <div class="bom__foot">
                 <button class="tool" type="button">
                     <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
                     Add Segment
                 </button>
-                <p class="bom__total">4 of 5 segments used. 12 of 12 characters assigned.</p>
+                <p class="bom__total">A format holds up to five segments.</p>
             </div>
-
-            <div class="code-output">
-                <span class="code-output__part" style="border-color: var(--gold);">LOC</span><span class="code-output__sep">-</span><span class="code-output__part" style="border-color: var(--credit);">TYP</span><span class="code-output__sep">-</span><span class="code-output__part" style="border-color: var(--overdue);">YR</span><span class="code-output__sep">-</span><span class="code-output__part" style="border-color: var(--debit);">SEQ</span>
-            </div>
-            <p class="chart-note">
-                Pattern of the format. An example: PTA-LAP-26-0042, for a
-                laptop bought in Pretoria in 2026, the 42nd of the year.
-            </p>
         </div>
 
         {% comment %} ================= RIGHT: the preview ================= {% endcomment %}
         <div class="card">
             <span class="card__label">Preview</span>
 
-            <div class="code-preview" style="margin-top: 14px;">
-                <div>
-                    <div class="code-swatch">
-                        <svg class="qr-mock" viewBox="0 0 21 21" role="img" aria-label="A sample QR code for the previewed value"><g fill="var(--navy)"><rect x="0" y="0" width="7" height="7"/><rect x="1" y="1" width="5" height="5" fill="#FFFFFF"/><rect x="2" y="2" width="3" height="3"/><rect x="14" y="0" width="7" height="7"/><rect x="15" y="1" width="5" height="5" fill="#FFFFFF"/><rect x="16" y="2" width="3" height="3"/><rect x="0" y="14" width="7" height="7"/><rect x="1" y="15" width="5" height="5" fill="#FFFFFF"/><rect x="2" y="16" width="3" height="3"/><rect x="0" y="10" width="1" height="1"/><rect x="0" y="11" width="1" height="1"/><rect x="1" y="7" width="1" height="1"/><rect x="1" y="8" width="1" height="1"/><rect x="1" y="12" width="1" height="1"/><rect x="1" y="13" width="1" height="1"/><rect x="2" y="9" width="1" height="1"/><rect x="2" y="10" width="1" height="1"/><rect x="3" y="10" width="1" height="1"/><rect x="3" y="11" width="1" height="1"/><rect x="4" y="7" width="1" height="1"/><rect x="4" y="8" width="1" height="1"/><rect x="4" y="12" width="1" height="1"/><rect x="4" y="13" width="1" height="1"/><rect x="5" y="9" width="1" height="1"/><rect x="5" y="10" width="1" height="1"/><rect x="6" y="10" width="1" height="1"/><rect x="6" y="11" width="1" height="1"/><rect x="7" y="2" width="1" height="1"/><rect x="7" y="3" width="1" height="1"/><rect x="7" y="7" width="1" height="1"/><rect x="7" y="8" width="1" height="1"/><rect x="7" y="12" width="1" height="1"/><rect x="7" y="13" width="1" height="1"/><rect x="7" y="17" width="1" height="1"/><rect x="7" y="18" width="1" height="1"/><rect x="8" y="0" width="1" height="1"/><rect x="8" y="4" width="1" height="1"/><rect x="8" y="5" width="1" height="1"/><rect x="8" y="9" width="1" height="1"/><rect x="8" y="10" width="1" height="1"/><rect x="8" y="14" width="1" height="1"/><rect x="8" y="15" width="1" height="1"/><rect x="8" y="19" width="1" height="1"/><rect x="8" y="20" width="1" height="1"/><rect x="9" y="0" width="1" height="1"/><rect x="9" y="1" width="1" height="1"/><rect x="9" y="5" width="1" height="1"/><rect x="9" y="6" width="1" height="1"/><rect x="9" y="10" width="1" height="1"/><rect x="9" y="11" width="1" height="1"/><rect x="9" y="15" width="1" height="1"/><rect x="9" y="16" width="1" height="1"/><rect x="9" y="20" width="1" height="1"/><rect x="10" y="2" width="1" height="1"/><rect x="10" y="3" width="1" height="1"/><rect x="10" y="7" width="1" height="1"/><rect x="10" y="8" width="1" height="1"/><rect x="10" y="12" width="1" height="1"/><rect x="10" y="13" width="1" height="1"/><rect x="10" y="17" width="1" height="1"/><rect x="10" y="18" width="1" height="1"/><rect x="11" y="0" width="1" height="1"/><rect x="11" y="4" width="1" height="1"/><rect x="11" y="5" width="1" height="1"/><rect x="11" y="9" width="1" height="1"/><rect x="11" y="10" width="1" height="1"/><rect x="11" y="14" width="1" height="1"/><rect x="11" y="15" width="1" height="1"/><rect x="11" y="19" width="1" height="1"/><rect x="11" y="20" width="1" height="1"/><rect x="12" y="0" width="1" height="1"/><rect x="12" y="1" width="1" height="1"/><rect x="12" y="5" width="1" height="1"/><rect x="12" y="6" width="1" height="1"/><rect x="12" y="10" width="1" height="1"/><rect x="12" y="11" width="1" height="1"/><rect x="12" y="15" width="1" height="1"/><rect x="12" y="16" width="1" height="1"/><rect x="12" y="20" width="1" height="1"/><rect x="13" y="2" width="1" height="1"/><rect x="13" y="3" width="1" height="1"/><rect x="13" y="7" width="1" height="1"/><rect x="13" y="8" width="1" height="1"/><rect x="13" y="12" width="1" height="1"/><rect x="13" y="13" width="1" height="1"/><rect x="13" y="17" width="1" height="1"/><rect x="13" y="18" width="1" height="1"/><rect x="14" y="9" width="1" height="1"/><rect x="14" y="10" width="1" height="1"/><rect x="14" y="14" width="1" height="1"/><rect x="14" y="15" width="1" height="1"/><rect x="14" y="19" width="1" height="1"/><rect x="14" y="20" width="1" height="1"/><rect x="15" y="10" width="1" height="1"/><rect x="15" y="11" width="1" height="1"/><rect x="15" y="15" width="1" height="1"/><rect x="15" y="16" width="1" height="1"/><rect x="15" y="20" width="1" height="1"/><rect x="16" y="7" width="1" height="1"/><rect x="16" y="8" width="1" height="1"/><rect x="16" y="12" width="1" height="1"/><rect x="16" y="13" width="1" height="1"/><rect x="16" y="17" width="1" height="1"/><rect x="16" y="18" width="1" height="1"/><rect x="17" y="9" width="1" height="1"/><rect x="17" y="10" width="1" height="1"/><rect x="17" y="14" width="1" height="1"/><rect x="17" y="15" width="1" height="1"/><rect x="17" y="19" width="1" height="1"/><rect x="17" y="20" width="1" height="1"/><rect x="18" y="10" width="1" height="1"/><rect x="18" y="11" width="1" height="1"/><rect x="18" y="15" width="1" height="1"/><rect x="18" y="16" width="1" height="1"/><rect x="18" y="20" width="1" height="1"/><rect x="19" y="7" width="1" height="1"/><rect x="19" y="8" width="1" height="1"/><rect x="19" y="12" width="1" height="1"/><rect x="19" y="13" width="1" height="1"/><rect x="19" y="17" width="1" height="1"/><rect x="19" y="18" width="1" height="1"/><rect x="20" y="9" width="1" height="1"/><rect x="20" y="10" width="1" height="1"/><rect x="20" y="14" width="1" height="1"/><rect x="20" y="15" width="1" height="1"/><rect x="20" y="19" width="1" height="1"/><rect x="20" y="20" width="1" height="1"/></g></svg>
-                    </div>
-                    <span class="code-preview__cap">QR Code</span>
-                </div>
-                <div>
-                    <div class="code-swatch">
-                        <svg class="barcode-mock" viewBox="0 0 74 46" preserveAspectRatio="none" role="img" aria-label="A sample barcode for the previewed value"><g fill="var(--navy)"><rect x="4" y="0" width="2" height="46"/><rect x="7" y="0" width="3" height="46"/><rect x="11" y="0" width="2" height="46"/><rect x="16" y="0" width="1" height="46"/><rect x="18" y="0" width="2" height="46"/><rect x="23" y="0" width="1" height="46"/><rect x="26" y="0" width="1" height="46"/><rect x="30" y="0" width="2" height="46"/><rect x="33" y="0" width="1" height="46"/><rect x="36" y="0" width="3" height="46"/><rect x="40" y="0" width="2" height="46"/><rect x="43" y="0" width="3" height="46"/><rect x="47" y="0" width="2" height="46"/><rect x="52" y="0" width="1" height="46"/><rect x="54" y="0" width="2" height="46"/><rect x="57" y="0" width="3" height="46"/><rect x="62" y="0" width="1" height="46"/><rect x="66" y="0" width="1" height="46"/><rect x="69" y="0" width="1" height="46"/></g></svg>
-                    </div>
-                    <span class="code-preview__cap">Barcode · Code 128</span>
-                </div>
-            </div>
-
-            <div class="code-output" style="text-align: center;">PTA-LAP-26-0042</div>
-            <p class="chart-note" style="text-align: center;">
-                Example value for Asset Tag Format. Neither mark decodes:
-                this page previews the layout of a format, it does not
-                render a real symbol.
+            <p class="chart-note" style="margin-top: 14px; text-align: center;">
+                Add segments to the format to preview a code.
             </p>
 
             <div class="bom__foot" style="justify-content: center;">
@@ -291,48 +171,7 @@
                 </tr>
             </thead>
             <tbody>
-                <tr>
-                    <td class="is-code">LOC</td>
-                    <td class="is-name">Location</td>
-                    <td>Asset Tag Format · Segment 1</td>
-                    <td><span class="status status--ok">In use</span></td>
-                </tr>
-                <tr>
-                    <td class="is-code">TYP</td>
-                    <td class="is-name">Asset Type</td>
-                    <td>Asset Tag Format · Segment 2</td>
-                    <td><span class="status status--ok">In use</span></td>
-                </tr>
-                <tr>
-                    <td class="is-code">YR</td>
-                    <td class="is-name">Year Acquired</td>
-                    <td>Asset Tag Format · Segment 3</td>
-                    <td><span class="status status--ok">In use</span></td>
-                </tr>
-                <tr>
-                    <td class="is-code">SEQ</td>
-                    <td class="is-name">Sequence Number</td>
-                    <td>Asset Tag Format · Segment 4 · Stock SKU Format · Segment 3</td>
-                    <td><span class="status status--ok">In use</span></td>
-                </tr>
-                <tr>
-                    <td class="is-code">VEN</td>
-                    <td class="is-name">Vendor</td>
-                    <td>Stock SKU Format · Segment 2</td>
-                    <td><span class="status status--ok">In use</span></td>
-                </tr>
-                <tr>
-                    <td class="is-code">DEP</td>
-                    <td class="is-name">Department</td>
-                    <td>—</td>
-                    <td><span class="status status--idle">Unused</span></td>
-                </tr>
-                <tr>
-                    <td class="is-code">COND</td>
-                    <td class="is-name">Condition Code</td>
-                    <td>—</td>
-                    <td><span class="status status--idle">Unused</span></td>
-                </tr>
+                <tr><td colspan="4">There are no categories.</td></tr>
             </tbody>
         </table>
     </div>

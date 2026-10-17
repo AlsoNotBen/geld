@@ -4,25 +4,25 @@ accounting/documents.py
 The document types of the Accounting module. The documents app finds
 this file at start and imports it (see documents/apps.py).
 
-The module has no models yet. Thus the customers and the item catalog
-below are sample data. Replace them with queries when the models
-exist:
+The data of the company fills the options of each document:
 
-    - SAMPLE_CUSTOMERS becomes the customers table. Build the choices
-      of the customer field from it, and read the address in
-      _customer().
-    - CATALOG becomes the products or services table. It fills the
-      "Add from the catalog" select of the line item editor.
-    - SAMPLE_ACTIVITY is the account of a sample customer in the
-      statement. A real customer gets the posted lines of its
-      receivable account (see _ledger).
+    - the active customers (customer_entities) give the choices of the
+      customer field. _customer() reads the address and the numbers.
+    - the services and the active stock items give the "Add from the
+      catalog" select of the line item editor (see catalog).
+    - the base currency, the standard tax code and the first active bank
+      account give the currency, the tax rate and the payment details.
+    - the posted lines of the receivable account of the customer give the
+      account in the statement (see _ledger).
 """
 
 import calendar
 import datetime
 from decimal import Decimal, ROUND_HALF_UP
 from django import forms
+from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Q
 from documents.forms import (DocumentOptionsForm, LineItemsField, SelectWithAddButton)
 from documents.registry import DocumentType, register
 from accounting.models import *
@@ -32,42 +32,6 @@ from accounting.posting import RECEIVABLE, post_invoice_entry
 CENT = Decimal("0.01")
 ZERO = Decimal("0")
 
-#TODO: Intelligently choose the samples used to pre-populate documents to the most likely option (based on recency/frequency or something)
-SAMPLE_CUSTOMERS = {
-    "aster": {
-        "name": "Aster Botanicals (Pty) Ltd",
-        "details": "48 Protea Road\n7700 Rondebosch",
-        "email": "accounts@aster.example",
-        "vat_number": "4870 215 963",
-        "registration_number": "2014/087321/07",
-    },
-    "meridian": {
-        "name": "Meridian Freight CC",
-        "details": "Unit 9, Harbour Park\n4001 Durban",
-        "email": "finance@meridian.example",
-        "vat_number": "4310 662 487",
-        "registration_number": "2003/041872/23",
-    },
-    "kloof": {
-        "name": "Kloof & Daughters Attorneys",
-        "details": "221 Long Street\n8001 Cape Town",
-        "email": "billing@kloof.example",
-        "vat_number": "4590 118 274",
-    },
-}
-
-# The account activity of a sample customer, for the statement preview.
-# Each row: days ago, reference, description, debit, credit, days to pay.
-SAMPLE_ACTIVITY = [
-    (100, "INV-00012", "Invoice",          "8500.00", "0",       30),
-    (75,  "PAY-00007", "Payment received", "0",       "5000.00", 0),
-    (58,  "INV-00019", "Invoice",          "4200.00", "0",       30),
-    (20,  "PAY-00011", "Payment received", "0",       "2000.00", 0),
-    (15,  "INV-00027", "Invoice",          "6900.00", "0",       30),
-    (8,   "CRN-00003", "Credit note",      "0",       "450.00",  0),
-    (4,   "INV-00031", "Invoice",          "2300.00", "0",       30),
-]
-
 AGEING_LABELS = ["Current", "1–30 days", "31–60 days", "61–90 days", "90+ days"]
 
 
@@ -75,53 +39,71 @@ def age_bucket(days):
     """The index in AGEING_LABELS of an amount that is the number of days after its due date."""
     return 0 if days <= 0 else min((days - 1) // 30 + 1, 4)
 
-CATALOG = [
-    {"description": "CRM implementation — discovery workshop",
-     "unit": "day", "unit_price": "640.00"},
-    {"description": "Data migration from the legacy system",
-     "unit": "fixed", "unit_price": "1450.00"},
-    {"description": "User training, remote",
-     "unit": "session", "unit_price": "380.00"},
-    {"description": "Support retainer — first month",
-     "unit": "month", "unit_price": "290.00"},
-    {"description": "Custom report pack",
-     "unit": "fixed", "unit_price": "520.00"},
-]
-
-INITIAL_LINES = [
-    {**CATALOG[0], "quantity": "2"},
-    {**CATALOG[1], "quantity": "1"},
-    {**CATALOG[2], "quantity": "3"},
-]
-
-
-SAMPLE_CHOICES = [(key, value["name"]) for key, value in SAMPLE_CUSTOMERS.items()]
-
 
 def _customers(company):
-    """The entities of the leads of the company. The key of each is its pk."""
-    from accounting.models import Entity
-    return Entity.objects.filter(company=company, leads__isnull=False).distinct()
+    """The active customers of the company. The key of each is its pk."""
+    return customer_entities(company).filter(is_active=True)
 
 
 def _customer_choices(company):
-    return SAMPLE_CHOICES + [(str(e.pk), e.name) for e in _customers(company)]
+    """The customers, after an empty choice. The first preview has no customer."""
+    return [("", "Select a customer")] + [(str(e.pk), e.name) for e in _customers(company)]
 
 
 def _customer(options, company):
-    """Return the customer record for the selected choice.
+    """Return the customer record for the selected choice. No choice gives
+    an empty record.
 
     The statement also reads the email, the entity, and the VAT and
     registration numbers. An organization only has these two numbers.
     """
-    key = options["customer"]
-    if key.isdigit():
-        entity = _customers(company).select_related("organization_profile").filter(pk=key).first()
-        if entity:
-            org = getattr(entity, "organization_profile", None) if entity.type == entity.EntityType.ORGANIZATION else None
-            return {"name": entity.name, "details": entity.address, "email": entity.email, "entity": entity,
-                    "vat_number": org and org.tax_number, "registration_number": org and org.registration_number}
-    return SAMPLE_CUSTOMERS.get(key, {"name": key, "details": ""})
+    entity = (_customers(company).select_related("organization_profile")
+              .filter(pk=options["customer"] or None).first())
+    if not entity:
+        return {"name": "", "details": ""}
+    org = getattr(entity, "organization_profile", None) if entity.type == entity.EntityType.ORGANIZATION else None
+    return {"name": entity.name, "details": entity.address, "email": entity.email, "entity": entity,
+            "vat_number": org and org.tax_number, "registration_number": org and org.registration_number}
+
+
+def catalog(company, item_types, purchase=False):
+    """The rows of the "Add from the catalog" select. A sale lists the
+    services of the company, then the active items of the types, with no
+    price: the data has no sale price, thus the user types it. A purchase
+    lists the items only, with the cost of each item as its price."""
+    services = [] if purchase else Service.objects.filter(company=company).order_by("name")
+    rows = [{"description": s.name, "unit": "", "unit_price": ""} for s in services]
+    for item in Item.objects.filter(item_type__in=item_types, active=True, obsoleted=False).order_by("name"):
+        price = item.cost if purchase and item.cost is not None else ""
+        rows.append({"description": item.name, "unit": "", "unit_price": str(price)})
+    return rows
+
+
+def currency_symbol(company):
+    """The symbol of the base currency of the company, else its code."""
+    return company.base_currency.symbol or company.base_currency_id
+
+
+def standard_rate(company):
+    """The rate of the standard tax code of the company that applies today, else zero."""
+    today = datetime.date.today()
+    code = (TaxCode.objects.filter(company=company, kind=TaxCode.Kind.STANDARD, valid_from__lte=today)
+            .filter(Q(valid_to__isnull=True) | Q(valid_to__gte=today)).order_by("-valid_from").first())
+    return code.rate if code else ZERO
+
+
+def _bank_details(company, reference):
+    """The details of the first active bank account of the company, for a payment."""
+    bank = BankAccount.objects.filter(company=company, is_active=True).order_by("id").first()
+    if not bank:
+        return ""
+    return "\n".join(filter(None, [
+        bank.bank or bank.name,
+        bank.account_number and f"Account {bank.account_number}",
+        bank.sort_code and f"Branch {bank.sort_code}",
+        bank.iban and f"IBAN {bank.iban}",
+        f"Reference: {reference}",
+    ]))
 
 
 def _in_days(days):
@@ -194,10 +176,11 @@ class SalesDocumentOptionsForm(DocumentOptionsForm):
         "currency", "tax_rate", "payment_details",
     )
 
+    # SalesDocument.get_options_form gives the customers, the catalog, the
+    # currency, the tax rate and the payment details of the company.
     customer = forms.ChoiceField(
         label="Customer",
-        choices=SAMPLE_CHOICES,     # SalesDocument.get_options_form adds the customers of the company.
-        initial="aster",
+        required=False,             # The first preview has no customer. An invoice needs one (see InvoiceDocument.issue).
         widget=SelectWithAddButton(
             action="new-customer", button_label="Add a new customer",
             search_action="search-customer", search_label="Search the customers",
@@ -205,8 +188,7 @@ class SalesDocumentOptionsForm(DocumentOptionsForm):
     )
     line_items = LineItemsField(
         label="Line items",
-        catalog=CATALOG,
-        initial=INITIAL_LINES,
+        initial=[],
     )
     terms = forms.ChoiceField(
         label="Payment terms",
@@ -222,12 +204,12 @@ class SalesDocumentOptionsForm(DocumentOptionsForm):
     )
     currency = forms.CharField(
         label="Currency symbol",
-        initial="R",
+        required=False,
         max_length=4,
     )
     tax_rate = forms.DecimalField(
         label="Tax rate (%)",
-        initial=Decimal("15"),
+        initial=ZERO,
         min_value=Decimal("0"),
         max_value=Decimal("100"),
         decimal_places=2,
@@ -261,7 +243,6 @@ class InvoiceOptionsForm(SalesDocumentOptionsForm):
     payment_details = forms.CharField(
         label="Payment Details",
         required=False,
-        initial="First National Bank\nAccount 620 4471 9902\nBranch 250655\nReference: the invoice number",
         widget=forms.Textarea(attrs={"rows": 4}),
     )
 
@@ -308,7 +289,6 @@ class StatementOptionsForm(SalesDocumentOptionsForm):
     bank_details = forms.CharField(
         label="Bank details",
         required=False,
-        initial="First National Bank\nAccount 620 4471 9902\nBranch 250655\nReference: the statement number",
         widget=forms.Textarea(attrs={"rows": 4}),
     )
 
@@ -327,8 +307,18 @@ class SalesDocument(DocumentType):
     def get_options_form(self, data=None, request=None):
         form = super().get_options_form(data, request)
         if request:
-            form.fields["number"].initial = NumberSequence.peek(request.company, self.key, self.prefix)
-            form.fields["customer"].choices = _customer_choices(request.company)
+            company, fields = request.company, form.fields
+            fields["number"].initial = NumberSequence.peek(company, self.key, self.prefix)
+            fields["customer"].choices = _customer_choices(company)
+            fields["currency"].initial = currency_symbol(company)
+            if "line_items" in fields:
+                fields["line_items"].widget.catalog = catalog(company, [Item.ItemType.STOCK])
+            if "tax_rate" in fields:
+                fields["tax_rate"].initial = standard_rate(company)
+            if "payment_details" in fields:
+                fields["payment_details"].initial = _bank_details(company, "the invoice number")
+            if "bank_details" in fields:
+                fields["bank_details"].initial = _bank_details(company, "the statement number")
         return form
 
     def issue(self, request, options):
@@ -360,13 +350,14 @@ class InvoiceDocument(SalesDocument):
         money = _build_lines(options["line_items"], options["tax_rate"])
         customer = _customer(options, request.company)
         entity = customer.get("entity")
+        if not entity:
+            raise ValidationError("Select a customer.")
         with transaction.atomic():
             super().issue(request, options)
             entry = post_invoice_entry(request.company, options["number"], options["issue_date"],
                                        money["total"], money["tax"], narration=customer["name"], entity=entity)
             if entry:
-                document = _invoice_record(request.company, options, entity, entry) if entity else None
-                AuditLog.record(request, AuditLog.Action.CREATE, document or entry)
+                AuditLog.record(request, AuditLog.Action.CREATE, _invoice_record(request.company, options, entity, entry))
 
 
 def _invoice_record(company, options, entity, entry):
@@ -419,17 +410,6 @@ def _ledger(company, entity):
         elif entry.entry_type == JournalEntry.EntryType.SALES:
             row["description"] = "Invoice"
         rows.append(row)
-    return rows
-
-
-def _sample_ledger():
-    """Return the rows of a sample customer. The dates move with today."""
-    today = datetime.date.today()
-    rows = []
-    for days, reference, description, debit, credit, terms in SAMPLE_ACTIVITY:
-        date = today - datetime.timedelta(days=days)
-        rows.append({"date": date, "due": date + datetime.timedelta(days=terms), "reference": reference,
-                     "description": description, "debit": Decimal(debit), "credit": Decimal(credit)})
     return rows
 
 
@@ -503,8 +483,5 @@ class StatementDocument(SalesDocument):
 
     def get_context(self, request, options):
         customer = _customer(options, request.company)
-        if customer.get("entity"):
-            ledger = _ledger(request.company, customer["entity"])
-        else:
-            ledger = _sample_ledger() if options["customer"] in SAMPLE_CUSTOMERS else []
+        ledger = _ledger(request.company, customer["entity"]) if customer.get("entity") else []
         return {"options": options, "customer": customer, "terms": _terms_label(options), **_statement(ledger, options)}

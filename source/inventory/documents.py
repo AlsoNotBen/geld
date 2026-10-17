@@ -4,12 +4,11 @@ inventory/documents.py
 The document types of the Inventory module. The documents app finds
 this file at start and imports it (see documents/apps.py).
 
-The module has no supplier or item models yet. Thus the suppliers and
-the item catalog below are sample data. Replace them with queries when
-the models exist:
-
-    - SAMPLE_SUPPLIERS becomes the suppliers table.
-    - CATALOG becomes the stock items table.
+The data of the company fills the options of each document: the active
+suppliers (supplier_entities) give the choices of the supplier field,
+and the active stock items, consumables and components give the catalog,
+with the cost of each item as its unit price. The number of a document
+comes from a NumberSequence with the name of its key.
 """
 
 import datetime
@@ -17,61 +16,27 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from django import forms
 
+from accounting.documents import catalog, currency_symbol, standard_rate
+from accounting.models import NumberSequence, supplier_entities
 from documents.forms import (
     DocumentOptionsForm, LineItemsField, SelectWithAddButton,
 )
 from documents.registry import DocumentType, register
+from inventory.models import Item
 
 
 CENT = Decimal("0.01")
-
-SAMPLE_SUPPLIERS = {
-    "cape-fasteners": {
-        "name": "Cape Fasteners (Pty) Ltd",
-        "details": "14 Bofors Circle\n7405 Epping",
-    },
-    "atlas-electrical": {
-        "name": "Atlas Electrical Wholesale",
-        "details": "3 Cobalt Road\n7460 Montague Gardens",
-    },
-    "southern-packaging": {
-        "name": "Southern Packaging CC",
-        "details": "Unit 12, Gateway Park\n7100 Somerset West",
-    },
-}
-
-# Sample stock items. All values are strings, because the line items
-# travel as JSON. The clean method of LineItemsField turns the numbers
-# into Decimal values.
-CATALOG = [
-    {"description": "M8 x 40 hex bolt, zinc plated (box of 100)",
-     "unit": "box", "unit_price": "185.00"},
-    {"description": "2.5 mm² twin and earth cable (100 m roll)",
-     "unit": "roll", "unit_price": "1240.00"},
-    {"description": "Corrugated carton 400 x 300 x 300 mm",
-     "unit": "each", "unit_price": "9.60"},
-    {"description": "Nitrile gloves, size L (box of 100)",
-     "unit": "box", "unit_price": "142.00"},
-    {"description": "Pallet wrap 500 mm x 300 m",
-     "unit": "roll", "unit_price": "78.50"},
-]
-
-INITIAL_LINES = [
-    {**CATALOG[0], "quantity": "4"},
-    {**CATALOG[1], "quantity": "2"},
-    {**CATALOG[2], "quantity": "150"},
-]
+PURCHASED = [Item.ItemType.STOCK, Item.ItemType.CONSUMABLE, Item.ItemType.COMPONENT]
 
 
-def _supplier_choices():
-    return [(key, value["name"]) for key, value in SAMPLE_SUPPLIERS.items()]
+def _suppliers(company):
+    return supplier_entities(company).filter(is_active=True)
 
 
-def _supplier(options):
-    """Return the supplier record for the selected choice."""
-    return SAMPLE_SUPPLIERS.get(
-        options["supplier"], {"name": options["supplier"], "details": ""},
-    )
+def _supplier(options, company):
+    """Return the supplier record for the selected choice. No choice gives an empty record."""
+    entity = _suppliers(company).filter(pk=options["supplier"] or None).first()
+    return {"name": entity.name, "details": entity.address} if entity else {"name": "", "details": ""}
 
 
 def _in_days(days):
@@ -105,29 +70,29 @@ def _build_lines(lines, tax_rate):
 
 
 class StockDocumentOptionsForm(DocumentOptionsForm):
-    """Options that the purchase order and the goods receipt share."""
+    """Options that the purchase order and the goods receipt share.
+    StockDocument.get_options_form gives the suppliers, the catalog, the
+    currency and the tax rate of the company."""
 
     supplier = forms.ChoiceField(
         label="Supplier",
-        choices=_supplier_choices,
-        initial="cape-fasteners",
+        required=False,     # The first preview has no supplier.
         widget=SelectWithAddButton(
             action="new-supplier", button_label="Add a new supplier",
         ),
     )
     line_items = LineItemsField(
         label="Line items",
-        catalog=CATALOG,
-        initial=INITIAL_LINES,
+        initial=[],
     )
     currency = forms.CharField(
         label="Currency symbol",
-        initial="R",
+        required=False,
         max_length=4,
     )
     tax_rate = forms.DecimalField(
         label="Tax rate (%)",
-        initial=Decimal("15"),
+        initial=Decimal("0"),
         min_value=Decimal("0"),
         max_value=Decimal("100"),
         decimal_places=2,
@@ -145,18 +110,17 @@ class PurchaseOrderOptionsForm(StockDocumentOptionsForm):
         "line_items", "currency", "tax_rate", "terms", "notes",
     ]
 
-    number = forms.CharField(label="Order number", initial="PO-2026-0108")
+    number = forms.CharField(label="Order number")
     issue_date = _date_field("Issue date")
     delivery_date = _date_field("Delivery date", days_ahead=7)
     deliver_to = forms.CharField(
         label="Deliver to",
-        initial="Main Warehouse\n12 Fynbos Lane\n8001 Cape Town",
         widget=forms.Textarea(attrs={"rows": 3}),
     )
     terms = forms.CharField(
         label="Terms",
         required=False,
-        initial="Payment 30 days from the date of the invoice.\nQuote the order number on the delivery note and on the invoice.",
+        initial="Quote the order number on the delivery note and on the invoice.",
         widget=forms.Textarea(attrs={"rows": 3}),
     )
 
@@ -168,49 +132,69 @@ class GoodsReceiptOptionsForm(StockDocumentOptionsForm):
         "notes",
     ]
 
-    number = forms.CharField(label="Receipt number", initial="GRN-2026-0073")
+    number = forms.CharField(label="Receipt number")
     received_date = _date_field("Received date")
-    order_number = forms.CharField(label="Order number", initial="PO-2026-0108")
+    order_number = forms.CharField(label="Order number", required=False)
     delivery_note = forms.CharField(
         label="Delivery note",
         required=False,
-        initial="DN-55821",
     )
     received_at = forms.CharField(
         label="Received at",
-        initial="Main Warehouse, Bay 3",
     )
 
 
-@register
-class PurchaseOrderDocument(DocumentType):
+class StockDocument(DocumentType):
+    """The purchase order and the goods receipt. The number comes from a
+    NumberSequence with the name of the key. The company gives the place
+    of the delivery."""
     module = "inventory"
+    prefix = ""
+
+    def get_options_form(self, data=None, request=None):
+        form = super().get_options_form(data, request)
+        if request:
+            company, fields = request.company, form.fields
+            fields["number"].initial = NumberSequence.peek(company, self.key, self.prefix)
+            fields["supplier"].choices = [("", "Select a supplier")] + [
+                (str(e.pk), e.name) for e in _suppliers(company)]
+            fields["line_items"].widget.catalog = catalog(company, PURCHASED, purchase=True)
+            fields["currency"].initial = currency_symbol(company)
+            fields["tax_rate"].initial = standard_rate(company)
+            if "deliver_to" in fields:
+                fields["deliver_to"].initial = "\n".join(filter(None, [company.name, company.address]))
+            if "received_at" in fields:
+                fields["received_at"].initial = company.name
+        return form
+
+    def issue(self, request, options):
+        # Take the number only when the document uses the next number. Thus a second download takes no number.
+        if options["number"] == NumberSequence.peek(request.company, self.key, self.prefix):
+            NumberSequence.take(request.company, self.key)
+
+    def get_context(self, request, options):
+        money = _build_lines(options["line_items"], options["tax_rate"])
+        return {"options": options, "supplier": _supplier(options, request.company), **money}
+
+    def get_filename(self, options):
+        return f"{options['number']}.pdf"
+
+
+@register
+class PurchaseOrderDocument(StockDocument):
     key = "purchase-order"
+    prefix = "PO-"
     label = "New Purchase Order"
     description = "An order to a supplier with line items, totals and delivery details."
     template_name = "inventory/pdf/purchase_order.html"
     options_form_class = PurchaseOrderOptionsForm
 
-    def get_context(self, request, options):
-        money = _build_lines(options["line_items"], options["tax_rate"])
-        return {"options": options, "supplier": _supplier(options), **money}
-
-    def get_filename(self, options):
-        return f"{options['number']}.pdf"
-
 
 @register
-class GoodsReceiptDocument(DocumentType):
-    module = "inventory"
+class GoodsReceiptDocument(StockDocument):
     key = "goods-receipt"
+    prefix = "GRN-"
     label = "New Goods Receipt"
     description = "A record of the goods that came in against a purchase order."
     template_name = "inventory/pdf/goods_receipt.html"
     options_form_class = GoodsReceiptOptionsForm
-
-    def get_context(self, request, options):
-        money = _build_lines(options["line_items"], options["tax_rate"])
-        return {"options": options, "supplier": _supplier(options), **money}
-
-    def get_filename(self, options):
-        return f"{options['number']}.pdf"

@@ -4,7 +4,11 @@
   ============================================================================
   accounting/templates/accounting/import_statement.html
   ----------------------------------------------------------------------------
-  Upload a bank statement file. The module reads the lines, then you match each line on the Reconcile page. It is a shell: the data below is dummy data in the markup.
+  Upload a bank statement file. The module reads the lines, then you match
+  each line on the Reconcile page. The view gives the active bank accounts.
+  The upload field is the field of the filestore app, as in the New Note
+  overlay. The module does not read the file yet, thus no import shows in
+  the Last imports table.
   ============================================================================
 {% endcomment %}
 
@@ -27,15 +31,21 @@
         <div class="sheet__body sheet__body--split">
             <div class="field">
                 <label class="field__label" for="f-account">Bank account</label>
-                <select class="field__control" id="f-account" name="account"><option>FNB · Main Current</option><option>Nedbank · Savings</option><option>Standard Bank · Payroll</option></select>
+                <select class="field__control" id="f-account" name="account" required>
+                    {% for bank in banks %}
+                    <option value="{{ bank.pk }}">{% if bank.bank %}{{ bank.bank }} · {% endif %}{{ bank.name }}</option>
+                    {% empty %}
+                    <option value="">No bank account. Add one first.</option>
+                    {% endfor %}
+                </select>
             </div>
             <div class="field">
                 <label class="field__label" for="f-format">File format</label>
                 <select class="field__control" id="f-format" name="format"><option>CSV</option><option>OFX</option><option>QIF</option></select>
             </div>
-            <div class="field">
-                <label class="field__label" for="f-file">Statement file</label>
-                <input class="field__control" id="f-file" name="file" type="file" value="">
+            <div class="field field--wide">
+                <span class="field__label">Statement file</span>
+                {% include "filestore/upload_field.html" with name="file" accept=".csv,.ofx,.qif" hint="CSV, OFX or QIF file of the bank statement" %}
             </div>
         </div>
         <div class="sheet__foot">
@@ -50,8 +60,7 @@
             <tr><th>Date</th><th>Account</th><th>File</th><th>Lines</th><th>Status</th></tr>
         </thead>
         <tbody>
-            <tr><td>2026-02-01</td><td>FNB · Main Current</td><td>jan-2026.csv</td><td class="is-count">142</td><td><span class="status status--ok">Imported</span></td></tr>
-            <tr><td>2026-01-02</td><td>FNB · Main Current</td><td>dec-2025.csv</td><td class="is-count">156</td><td><span class="status status--ok">Imported</span></td></tr>
+            <tr><td colspan="5">There are no imported statements.</td></tr>
         </tbody>
     </table>
 </section>

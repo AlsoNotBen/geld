@@ -30,8 +30,15 @@ class DocumentType:
     options_form_class  = DocumentOptionsForm
 
     def get_options_form(self, data=None, request=None):
-        """Return the options form. Bind it to data when data is given."""
-        return self.options_form_class(data=data)
+        """Return the options form. Bind it to data when data is given.
+        The company of the request gives the initial company name and details."""
+        form = self.options_form_class(data=data)
+        company = getattr(request, "company", None)
+        if company:
+            form.fields["company_name"].initial = company.name
+            form.fields["company_details"].initial = "\n".join(
+                filter(None, [company.address, company.tax_number and f"VAT {company.tax_number}"]))
+        return form
 
     def issue(self, request, options):
         """The user saves, downloads or sends the document. Override this in a subclass."""

@@ -1088,6 +1088,20 @@ textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
     border: 0;
 }
 
+/* A list of records with an Edit button at the end of each row, e.g.
+   the Customers, Suppliers and Bank Accounts pages. The amount is then
+   the column before the last, and the button column stays narrow. */
+.table--edit th:nth-last-child(2),
+.table--edit td:nth-last-child(2) { text-align: right; }
+.table--edit td:nth-last-child(2) {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+}
+.table--edit th:last-child,
+.table--edit td:last-child:not([colspan]) { width: 1%; }
+.table--edit tbody td:last-child:not([colspan]) { padding-top: 8px; padding-bottom: 8px; }
+
 /* The Unpaid and Paid tables of the Bills page use the columns of the
    review table: Date · Number · Due · Supplier · Amount. Thus column 4
    (Supplier) takes the free space, not column 3. */

@@ -90,19 +90,21 @@
             {% block topbar_actions %}
             <button class="icon-btn" type="button" aria-label="Notifications">
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 9a6 6 0 0112 0c0 5 2 6 2 7H4c0-1 2-2 2-7z"/><path d="M10 21h4" stroke-linecap="round"/></svg>
-                <span class="dot"></span>
             </button>
             {% endblock %}
 
+            {% comment %} The avatar shows the initials of the user, else the
+                 first two letters of the user name. {% endcomment %}
+            {% with user=request.user %}
             <div class="profile">
                 <button class="profile__btn" type="button" aria-haspopup="true" aria-expanded="false" data-menu-toggle>
-                    <span class="avatar">JD</span>
+                    <span class="avatar">{% if user.first_name or user.last_name %}{{ user.first_name|slice:":1"|upper }}{{ user.last_name|slice:":1"|upper }}{% else %}{{ user.get_username|slice:":2"|upper }}{% endif %}</span>
                     <svg class="icon caret" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </button>
                 <div class="menu" role="menu" data-menu>
                     <div class="menu__head">
-                        <div class="menu__name">{{ request.user.get_full_name|default:"Jane Doe" }}</div>
-                        <div class="menu__mail">{{ request.user.email|default:"jane.doe@example.com" }}</div>
+                        <div class="menu__name">{{ user.get_full_name|default:user.get_username }}</div>
+                        {% if user.email %}<div class="menu__mail">{{ user.email }}</div>{% endif %}
                     </div>
                     <a href="#" role="menuitem">
                         <svg class="icon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0116 0"/></svg>
@@ -122,6 +124,7 @@
                     </form>
                 </div>
             </div>
+            {% endwith %}
         </div>
     </header>
 

@@ -1,7 +1,8 @@
 import datetime
 from django import forms
 from django.utils import timezone
-from accounting.models import BankAccount, Document, Entity, Note, NumberSequence, Payment, Supplier, in_one_month
+from accounting.models import (Account, BankAccount, Document, Entity, Note, NumberSequence, OrganizationProfile,
+                               Payment, Supplier, in_one_month)
 from documents.forms import SelectWithSearch
 
 
@@ -90,8 +91,9 @@ class BillForm(forms.ModelForm):
 
 
 class SupplierForm(forms.ModelForm):
-    """The fields of the New Supplier page. The view makes the entity and its
-    organization profile from the name, the email, the phone and the VAT number."""
+    """The fields of the New Supplier and Edit Supplier pages. save() makes or
+    changes the entity and its organization profile from the name, the email,
+    the phone and the VAT number. An individual has no VAT number field."""
 
     name = forms.CharField(label="Name", max_length=255)
     email = forms.EmailField(label="Email", required=False)
@@ -108,16 +110,102 @@ class SupplierForm(forms.ModelForm):
     def __init__(self, *args, company=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.company = company
-        if not self.is_bound:
+        entity = self.instance.entity if self.instance.entity_id else None
+        if entity:
+            profile = getattr(entity, "organization_profile", None)
+            self.initial.update(name=entity.name, email=entity.email, phone=entity.phone,
+                                vat_number=profile.tax_number if profile else "")
+            if entity.type == Entity.EntityType.INDIVIDUAL:
+                del self.fields["vat_number"]
+        if not self.instance.pk and not self.is_bound:
             self.initial["code"] = NumberSequence.peek(company, "supplier", "SUP-")
         for field in self.fields.values():
             field.widget.attrs["class"] = "field__control"
 
     def clean_code(self):
         code = self.cleaned_data["code"]
-        if Supplier.objects.filter(company=self.company, code=code).exists():
+        if Supplier.objects.filter(company=self.company, code=code).exclude(pk=self.instance.pk).exists():
             raise forms.ValidationError("Another supplier has this code.")
         return code
+
+    def save(self, user):
+        """Save the entity, its profile and the supplier details. A new supplier gets a new entity."""
+        data = self.cleaned_data
+        supplier = super().save(commit=False)
+        entity = supplier.entity if supplier.entity_id else Entity(
+            company=self.company, created_by=user, type=Entity.EntityType.ORGANIZATION)
+        entity.name, entity.email, entity.phone = data["name"], data["email"], data["phone"]
+        entity.save()
+        if entity.type == Entity.EntityType.ORGANIZATION:
+            OrganizationProfile.objects.update_or_create(
+                entity=entity, defaults={"legal_name": data["name"], "tax_number": data["vat_number"]})
+        supplier.entity = entity
+        supplier.company = self.company                     # Add to every function that creates a CompanyOwned record
+        supplier.created_by = supplier.created_by or user
+        supplier.save()
+        return supplier
+
+
+class BankAccountForm(forms.ModelForm):
+    """The fields of the New Bank Account and Edit Bank Account pages. The
+    ledger account is a current asset or a floating account of the chart of
+    accounts that no other bank account uses. The view sets the company."""
+
+    class Meta:
+        model = BankAccount
+        fields = ["bank", "name", "account_number", "sort_code", "iban", "currency", "account", "is_active"]
+        labels = {"name": "Account name", "sort_code": "Branch code", "iban": "IBAN", "account": "Ledger account",
+                  "is_active": "Status"}
+        help_texts = {"is_active": "Active"}
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        used = BankAccount.objects.filter(company=company).exclude(pk=self.instance.pk).values("account_id")
+        accounts = Account.objects.filter(
+            company=company, is_active=True,
+            type__in=[Account.AccountType.CURRENT_ASSETS, Account.AccountType.FLOATING_NOMINAL],
+        ).exclude(pk__in=used)
+        self.fields["account"].queryset = accounts
+        self.fields["account"].empty_label = ("Select an account" if accounts.exists()
+                                              else "No free account. Add one in the Chart of Accounts.")
+        self.fields["currency"].label_from_instance = lambda currency: f"{currency.alpha_code} · {currency.name}"
+        if not self.instance.pk:
+            self.initial.setdefault("currency", company.base_currency_id)
+        for field in self.fields.values():
+            field.widget.attrs["class"] = "field__control"
+
+
+class CustomerForm(forms.ModelForm):
+    """The fields of the Edit Customer page. A customer is an entity (see
+    customer_entities). The VAT number is on the profile of an organization."""
+
+    vat_number = forms.CharField(label="VAT number", max_length=50, required=False)
+
+    field_order = ["name", "email", "phone", "vat_number", "address", "is_active"]
+
+    class Meta:
+        model = Entity
+        fields = ["name", "email", "phone", "address", "is_active"]
+        labels = {"is_active": "Status"}
+        help_texts = {"is_active": "Active"}
+        widgets = {"address": forms.Textarea(attrs={"rows": 3})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.type == Entity.EntityType.ORGANIZATION:
+            profile = getattr(self.instance, "organization_profile", None)
+            self.initial["vat_number"] = profile.tax_number if profile else ""
+        else:
+            del self.fields["vat_number"]
+        for field in self.fields.values():
+            field.widget.attrs["class"] = "field__control"
+
+    def save(self):
+        entity = super().save()
+        if "vat_number" in self.fields:
+            OrganizationProfile.objects.update_or_create(
+                entity=entity, defaults={"legal_name": entity.name, "tax_number": self.cleaned_data["vat_number"]})
+        return entity
 
 
 class NoteForm(forms.ModelForm):

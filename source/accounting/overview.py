@@ -32,8 +32,8 @@ from django.shortcuts import render
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 
-from accounting.models import (Account, AuditLog, BankTransaction, Document, JournalEntry, JournalLine, Note,
-                               Payment, Supplier)
+from accounting.models import (Account, AuditLog, BankAccount, BankTransaction, Document, JournalEntry, JournalLine,
+                               Note, Payment, Supplier)
 from accounting.date_range import previous_range
 from accounting.posting import PAYABLE, RECEIVABLE, SUSPENSE
 from accounting.views import ZERO, cash_account_ids, movements, posted_lines, tax_account_ids
@@ -190,7 +190,7 @@ def document_lines(company, as_of, doc_type):
     is the document, thus a payment pays only the documents that it is
     allocated to (see posting.allocate), as on the Receivables and Bills
     pages. A draft or void document does not count. An entry without a
-    document (e.g. an invoice to a sample customer) is not an open invoice."""
+    document (e.g. a manual journal entry) is not an open invoice."""
     documents = (Document.objects
                  .filter(company=company, doc_type=doc_type, date__lte=as_of)
                  .exclude(status__in=[Document.Status.DRAFT, Document.Status.VOID])
@@ -375,6 +375,8 @@ def subject(obj):
         return f"supplier {obj.code}", obj.entity.name, link("suppliers")
     if isinstance(obj, Account):
         return f"account {obj}", "", link("chartaccounts")
+    if isinstance(obj, BankAccount):
+        return f"bank account {obj.name}", obj.bank, link("bank_accounts")
     return ("a record that no longer exists", "", "") if obj is None else (str(obj), "", "")
 
 

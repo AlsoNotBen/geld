@@ -1,10 +1,15 @@
 {% extends "accounting/module_base.html" %}
+{% load fin %}
 
 {% comment %}
   ============================================================================
   accounting/templates/accounting/reconcile.html
   ----------------------------------------------------------------------------
-  Match each statement line with a transaction in the ledger. A line with no match needs a new transaction. It is a shell: the data below is dummy data in the markup.
+  Match each statement line with a transaction in the ledger. A line with no
+  match needs a new transaction. The view gives the statement lines of the
+  date range (BankTransaction) and the difference: the sum of the lines that
+  have no match and are not reconciled. The match is the payment or the
+  journal entry of the line.
   ============================================================================
 {% endcomment %}
 
@@ -33,22 +38,31 @@
                 Export
             </button>
         </div>
-        <p class="actionbar__hint">FNB · Main Current · statement to 2026-01-31</p>
+        <p class="actionbar__hint">The statement lines of {{ range_label }}.</p>
     </div>
 
-    <table class="table">
+    <table class="table" data-num>
         <thead>
             <tr><th>Date</th><th>Description</th><th>Match</th><th>Status</th><th>Amount</th></tr>
         </thead>
         <tbody>
-            <tr><td>2026-01-30</td><td>PMT KAROO FRESH</td><td>IN-01028</td><td><span class="status status--ok">Matched</span></td><td class="is-credit">12,300.00</td></tr>
-            <tr><td>2026-01-28</td><td>DEBIT ORDER ATLANTIC</td><td>BL-00405</td><td><span class="status status--ok">Matched</span></td><td class="is-debit">1,990.00</td></tr>
-            <tr><td>2026-01-27</td><td>BANK CHARGES</td><td>—</td><td><span class="status status--busy">No match</span></td><td class="is-debit">184.50</td></tr>
-            <tr><td>2026-01-25</td><td>EFT REF 99123</td><td>—</td><td><span class="status status--busy">No match</span></td><td class="is-credit">2,500.00</td></tr>
+            {% for line in lines %}
+            <tr>
+                <td>{{ line.date|date:"Y-m-d" }}</td>
+                <td>{{ line.description }} <span class="review__tag">{% if line.bank_account.bank %}{{ line.bank_account.bank }} · {% endif %}{{ line.bank_account.name }}</span></td>
+                <td>{% if line.payment %}{{ line.payment.number }}{% elif line.journal_entry %}{{ line.journal_entry.reference }}{% else %}—{% endif %}</td>
+                <td>{% if line.reconciled %}<span class="status status--ok">Reconciled</span>{% elif line.payment or line.journal_entry %}<span class="status status--ok">Matched</span>{% else %}<span class="status status--busy">No match</span>{% endif %}</td>
+                <td class="{% if line.amount < 0 %}is-debit{% else %}is-credit{% endif %}">{{ line.amount|money }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5">There are no statement lines for this period.</td></tr>
+            {% endfor %}
         </tbody>
+        {% if lines %}
         <tfoot>
-            <tr><td colspan="4">Difference</td><td class="is-overdue">2,315.50</td></tr>
+            <tr><td colspan="4">Difference</td><td{% if difference %} class="is-overdue"{% endif %}>{{ difference|money }}</td></tr>
         </tfoot>
+        {% endif %}
     </table>
 </section>
 {% endblock %}

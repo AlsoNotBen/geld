@@ -1,9 +1,17 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static lead_tags payment_tags %}
 
 {% block title %}Pothos ERM{% endblock %}
 
+{% comment %}
+  The quick actions open the overlays of the modules on this page: the
+  document overlay (documents.js), the Record Payment overlay
+  (payment_form.js) and the New Lead overlay for the "+" of the customer
+  field (lead_form.js). The overlays use the styles of the Accounting module.
+{% endcomment %}
 {% block module_css %}
+<link rel="stylesheet" href="{% static 'accounting/css/accounting.css' %}">
+<link rel="stylesheet" href="{% static 'filestore/css/filestore.css' %}">
 <link rel="stylesheet" href="{% static 'css/home.css' %}">
 {% endblock %}
 
@@ -12,104 +20,133 @@
     <main id="main" class="home">
         <h1 class="home__title">What would you like to do?</h1>
 
-        <div class="home__grid">
+        <section aria-labelledby="modules-title">
+            <h2 class="home__label" id="modules-title">Modules</h2>
+            <div class="home__grid">
 
-            <a class="tile" href="{% url 'accounting:dashboard' %}">
-                <span class="tile__icon">
-                    <svg class="icon" viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h4" stroke-linecap="round"/></svg>
-                </span>
-                <span class="tile__name">Accounting</span>
-                <span class="tile__desc">Quotes, Invoices, Ledgers and Statements.</span>
-            </a>
+                <a class="tile" href="{% url 'accounting:dashboard' %}">
+                    <span class="tile__icon">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h4" stroke-linecap="round"/></svg>
+                    </span>
+                    <span class="tile__name">Accounting</span>
+                    <span class="tile__desc">Quotes, Invoices, Ledgers and Statements.</span>
+                </a>
 
-            <a class="tile" href="{% url 'inventory:dashboard' %}">
-                <span class="tile__icon">
-                    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8M12 13v8"/></svg>
-                </span>
-                <span class="tile__name">Inventory</span>
-                <span class="tile__desc">Assets, Stock, Assemblies and Warehouses.</span>
-            </a>
+                <a class="tile" href="{% url 'inventory:dashboard' %}">
+                    <span class="tile__icon">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8M12 13v8"/></svg>
+                    </span>
+                    <span class="tile__name">Inventory</span>
+                    <span class="tile__desc">Assets, Stock, Assemblies and Warehouses.</span>
+                </a>
 
-            <div class="tile tile--soon" aria-disabled="true">
-                <span class="tile__badge">In Dev</span>
-                <span class="tile__icon">
-                    <svg class="icon" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="10" rx="1"/><rect x="17" y="4" width="4" height="13" rx="1"/></svg>
-                </span>
-                <span class="tile__name">Management</span>
-                <span class="tile__desc">Projects, To Do lists, Assignments and Goals</span>
+                <div class="tile tile--soon" aria-disabled="true">
+                    <span class="tile__badge">In Dev</span>
+                    <span class="tile__icon">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="10" rx="1"/><rect x="17" y="4" width="4" height="13" rx="1"/></svg>
+                    </span>
+                    <span class="tile__name">Management</span>
+                    <span class="tile__desc">Projects, To Do lists, Assignments and Goals</span>
+                </div>
+
+                <div class="tile tile--soon" aria-disabled="true">
+                    <span class="tile__badge">Planned</span>
+                    <span class="tile__icon">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 12a8 8 0 0116 0v5a2 2 0 01-2 2h-2v-6h4M8 19H6a2 2 0 01-2-2v-5h4v7z"/></svg>
+                    </span>
+                    <span class="tile__name">Helpdesk</span>
+                    <span class="tile__desc">Tickets, Support and Service Level Agreements</span>
+                </div>
+
+                <a class="tile" href="{% url 'sales:dashboard' %}">
+                    <span class="tile__icon">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 19a6.5 6.5 0 0113 0"/><path d="M16 4.8a3.5 3.5 0 010 6.4M17.5 13.6a6.5 6.5 0 014 5.4"/></svg>
+                    </span>
+                    <span class="tile__name">Sales</span>
+                    <span class="tile__desc">Leads, Pipelines and Customer Relations.</span>
+                </a>
+
+                <div class="tile tile--soon" aria-disabled="true">
+                    <span class="tile__badge">Planned</span>
+                    <span class="tile__icon">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="10" r="2.5"/><path d="M8 17a4 4 0 018 0"/></svg>
+                    </span>
+                    <span class="tile__name">Human Resources</span>
+                    <span class="tile__desc">Employees, leave and payroll input.</span>
+                </div>
+
+                <div class="tile tile--soon" aria-disabled="true">
+                    <span class="tile__badge">Planned</span>
+                    <span class="tile__icon">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3a9 9 0 109 9h-9V3z"/><path d="M15 3.5A9 9 0 0120.5 9H15V3.5z"/></svg>
+                    </span>
+                    <span class="tile__name">Fleet Management</span>
+                    <span class="tile__desc">Keep track of Vehicles, Maintenance and Mileage</span>
+                </div>
             </div>
+        </section>
 
-            <div class="tile tile--soon" aria-disabled="true">
-                <span class="tile__badge">Planned</span>
-                <span class="tile__icon">
-                    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 12a8 8 0 0116 0v5a2 2 0 01-2 2h-2v-6h4M8 19H6a2 2 0 01-2-2v-5h4v7z"/></svg>
-                </span>
-                <span class="tile__name">Helpdesk</span>
-                <span class="tile__desc">Tickets, Support and Service Level Agreements</span>
+        <section aria-labelledby="quick-title">
+            <h2 class="home__label" id="quick-title">Quick actions</h2>
+            <div class="quick">
+                <button class="quick__item" type="button"
+                        data-doc-overlay="{% url 'documents:panel' 'accounting' 'invoice' %}">
+                    <span class="quick__icon">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z" stroke-linejoin="round"/><path d="M9 8h6M9 12h6M9 16h3" stroke-linecap="round"/></svg>
+                    </span>
+                    <span class="quick__name">New Invoice</span>
+                </button>
+
+                <button class="quick__item" type="button" data-payment-new>
+                    <span class="quick__icon">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6.5 9.5h.01M17.5 14.5h.01" stroke-linecap="round"/></svg>
+                    </span>
+                    <span class="quick__name">Record Payment</span>
+                </button>
+
+                <button class="quick__item" type="button"
+                        data-doc-overlay="{% url 'documents:panel' 'inventory' 'purchase-order' %}">
+                    <span class="quick__icon">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/><path d="M3 4h2l2.5 11h10L20 8H6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </span>
+                    <span class="quick__name">Purchase Order</span>
+                </button>
+
+                <button class="quick__item" type="button"
+                        data-doc-overlay="{% url 'documents:panel' 'sales' 'quote' %}">
+                    <span class="quick__icon">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 3h9l4 4v14H6V3z" stroke-linejoin="round"/><path d="M15 3v4h4" stroke-linejoin="round"/><path d="M9 12h7M9 16h5" stroke-linecap="round"/></svg>
+                    </span>
+                    <span class="quick__name">New Quote</span>
+                </button>
+
+                {% comment %} The Helpdesk and Management modules do not exist yet. {% endcomment %}
+                <button class="quick__item" type="button" disabled title="The Helpdesk module is planned.">
+                    <span class="quick__icon">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16v4a2 2 0 000 4v4H4v-4a2 2 0 000-4V6z" stroke-linejoin="round"/><path d="M14 6v12" stroke-dasharray="2 2"/></svg>
+                    </span>
+                    <span class="quick__name">Create Ticket</span>
+                    <span class="quick__badge">Planned</span>
+                </button>
+
+                <button class="quick__item" type="button" disabled title="The Management module is in development.">
+                    <span class="quick__icon">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 12l2.5 2.5 4.5-5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </span>
+                    <span class="quick__name">Add Task</span>
+                    <span class="quick__badge">In Dev</span>
+                </button>
             </div>
-
-            <a class="tile" href="{% url 'sales:dashboard' %}">
-                <span class="tile__icon">
-                    <svg class="icon" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 19a6.5 6.5 0 0113 0"/><path d="M16 4.8a3.5 3.5 0 010 6.4M17.5 13.6a6.5 6.5 0 014 5.4"/></svg>
-                </span>
-                <span class="tile__name">Sales</span>
-                <span class="tile__desc">Leads, Pipelines and Customer Relations.</span>
-            </a>
-
-            <div class="tile tile--soon" aria-disabled="true">
-                <span class="tile__badge">Planned</span>
-                <span class="tile__icon">
-                    <svg class="icon" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/><path d="M3 4h2l2.5 11h10L20 8H6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </span>
-                <span class="tile__name">Purchasing</span>
-                <span class="tile__desc">Purchase orders, suppliers and intake.</span>
-            </div>
-
-            <div class="tile tile--soon" aria-disabled="true">
-                <span class="tile__badge">Planned</span>
-                <span class="tile__icon">
-                    <svg class="icon" viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="10" r="2.5"/><path d="M8 17a4 4 0 018 0"/></svg>
-                </span>
-                <span class="tile__name">Human Resources</span>
-                <span class="tile__desc">Employees, leave and payroll input.</span>
-            </div>
-
-            <div class="tile tile--soon" aria-disabled="true">
-                <span class="tile__badge">Planned</span>
-                <span class="tile__icon">
-                    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3a9 9 0 109 9h-9V3z"/><path d="M15 3.5A9 9 0 0120.5 9H15V3.5z"/></svg>
-                </span>
-                <span class="tile__name">Reports</span>
-                <span class="tile__desc">Dashboards and exports across modules.</span>
-            </div>
-
-            <div class="tile tile--soon" aria-disabled="true">
-                <span class="tile__badge">Planned</span>
-                <span class="tile__icon">
-                    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3a9 9 0 109 9h-9V3z"/><path d="M15 3.5A9 9 0 0120.5 9H15V3.5z"/></svg>
-                </span>
-                <span class="tile__name">Logistics</span>
-                <span class="tile__desc">Shipping, Deliveries and Courier Integrations</span>
-            </div>
-
-            <div class="tile tile--soon" aria-disabled="true">
-                <span class="tile__badge">Planned</span>
-                <span class="tile__icon">
-                    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3a9 9 0 109 9h-9V3z"/><path d="M15 3.5A9 9 0 0120.5 9H15V3.5z"/></svg>
-                </span>
-                <span class="tile__name">Fleet Management</span>
-                <span class="tile__desc">Keep track of Vehicles, Maintenance and Mileage</span>
-            </div>
-
-            <div class="tile tile--soon" aria-disabled="true">
-                <span class="tile__badge">Planned</span>
-                <span class="tile__icon">
-                    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3a9 9 0 109 9h-9V3z"/><path d="M15 3.5A9 9 0 0120.5 9H15V3.5z"/></svg>
-                </span>
-                <span class="tile__name">Reports</span>
-                <span class="tile__desc">Dashboards and exports across modules.</span>
-            </div>
-        </div>
+        </section>
     </main>
 </div>
+
+{% lead_form %}
+{% payment_form %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'accounting/js/lead_form.js' %}"></script>
+<script src="{% static 'filestore/js/filestore.js' %}"></script>
+<script src="{% static 'accounting/js/payment_form.js' %}"></script>
 {% endblock %}

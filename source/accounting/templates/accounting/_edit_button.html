@@ -1,0 +1,7 @@
+{% comment %}
+  The Edit button at the end of a table row (see .table--edit).
+  Parameters: url_name and pk give the edit page, label names the record.
+{% endcomment %}
+<a class="tool tool--sm tool--neutral" href="{% url url_name pk %}" title="Edit" aria-label="Edit {{ label }}">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4L18.5 9.5a2.12 2.12 0 00-3-3L5 17v3z" stroke-linejoin="round"/><path d="M13.5 8.5l3 3" stroke-linecap="round"/></svg>
+</a>

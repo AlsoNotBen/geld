@@ -5,7 +5,10 @@ from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_POST
-from accounting.models import Lead, Entity, IndividualProfile, OrganizationProfile
+from accounting.date_range import get_range
+from accounting.models import (Document, Entity, IndividualProfile, Lead, OrganizationProfile, customer_entities,
+                               supplier_entities)
+from accounting.views import ZERO, open_invoices, receivable_balances
 
 
 # ___________________________________LEADS___________________________________________#
@@ -141,14 +144,90 @@ def lead_stage(request, pk):
     lead.save(update_fields=["stage", "updated_at"])
     return JsonResponse({"stage": stage})
 
+# ___________________________________DOCUMENTS_______________________________________#
+# The tone of the status pill of a document (see .status--* in accounting.css).
+DOCUMENT_TONE = {
+    Document.Status.DRAFT:     "idle",
+    Document.Status.SENT:      "busy",
+    Document.Status.APPROVED:  "ok",
+    Document.Status.PART_PAID: "low",
+    Document.Status.PAID:      "ok",
+    Document.Status.VOID:      "out",
+}
+# The tabs of the Quotes page. An approved quote is accepted. A void quote is closed.
+QUOTE_TABS = {
+    "open":     [Document.Status.DRAFT, Document.Status.SENT],
+    "accepted": [Document.Status.APPROVED, Document.Status.PART_PAID, Document.Status.PAID],
+    "closed":   [Document.Status.VOID],
+}
+
+def sales_documents(company, limit=None, **filters):
+    """The sales documents of the company, the newest first. Each gets the tone of its status."""
+    documents = list(Document.objects.filter(company=company, direction=Document.Direction.SALE, **filters)
+                     .select_related("entity", "source_doc").prefetch_related("lines__tax_code")
+                     .order_by("-date", "-id")[:limit])
+    for document in documents:
+        document.tone = DOCUMENT_TONE.get(document.status, "idle")
+    return documents
+
 def dashboard(request):
-    return render(request, "sales/dashboard.html")
+    """The position of the sales today: the open quotes and the open invoices.
+    The credit notes are the credit notes of the date range that are not void.
+    A credit note without an invoice is open credit."""
+    _, start, end = get_range(request)
+    company = request.company
+    today = timezone.localdate()
+    invoices = open_invoices(company)
+    late = sorted((i for i in invoices if i.due and i.due < today), key=lambda i: i.due)
+    credits = [c for c in sales_documents(company, doc_type=Document.DocType.CREDIT_NOTE, date__range=(start, end))
+               if c.status != Document.Status.VOID]
+    open_credits = [c for c in credits if not c.source_doc_id]
+    return render(request, "sales/dashboard.html", {
+        "open_quotes": sum((q.gross for q in sales_documents(company, doc_type=Document.DocType.QUOTE,
+                                                             status__in=QUOTE_TABS["open"])), ZERO),
+        "unpaid": sum((i.balance for i in invoices), ZERO),
+        "late": late,
+        "overdue": sum((i.balance for i in late), ZERO),
+        "oldest_days": (today - late[0].due).days if late else None,
+        "credit_total": sum((c.gross for c in credits), ZERO),
+        "open_credits": open_credits,
+        "open_credit_total": sum((c.gross for c in open_credits), ZERO),
+        "partner_count": customer_entities(company).filter(is_active=True).count(),
+        "recent": sales_documents(company, limit=6),
+    })
 
 def quotes(request):
-    return render(request, "sales/quotes.html")
+    """The quotes of the date range in three tabs by status (see QUOTE_TABS)."""
+    _, start, end = get_range(request)
+    rows = sales_documents(request.company, doc_type=Document.DocType.QUOTE, date__range=(start, end))
+    tabs = {key: [q for q in rows if q.status in statuses] for key, statuses in QUOTE_TABS.items()}
+    return render(request, "sales/quotes.html", {
+        **{f"{key}_quotes": documents for key, documents in tabs.items()},
+        "open_total": sum((q.gross for q in tabs["open"]), ZERO),
+        "accepted_total": sum((q.gross for q in tabs["accepted"]), ZERO),
+    })
 
 def credit_notes(request):
-    return render(request, "sales/credit_notes.html")
+    """The credit notes of the date range. The source document of a credit note is the invoice that receives the credit."""
+    _, start, end = get_range(request)
+    rows = sales_documents(request.company, doc_type=Document.DocType.CREDIT_NOTE, date__range=(start, end))
+    return render(request, "sales/credit_notes.html", {
+        "credit_notes": rows,
+        "total": sum((c.gross for c in rows if c.status != Document.Status.VOID), ZERO),
+    })
 
 def partners(request):
-    return render(request, "sales/partners.html")
+    """The customers of the business (see customer_entities). The balance is
+    the money that the partner owes (see receivable_balances). A partner with
+    supplier details or a bill is also a supplier."""
+    company = request.company
+    balances = receivable_balances(company)
+    suppliers = set(supplier_entities(company).values_list("id", flat=True))
+    return render(request, "sales/partners.html", {"partners": [{
+        "id": entity.id,
+        "name": entity.name,
+        "is_supplier": entity.id in suppliers,
+        "is_active": entity.is_active,
+        "contact": entity.email or entity.phone,
+        "balance": balances.get(entity.id, ZERO),
+    } for entity in customer_entities(company)]})

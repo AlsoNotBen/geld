@@ -1,11 +1,13 @@
 {% extends "sales/module_base.html" %}
+{% load fin %}
 
 {% comment %}
   ============================================================================
   sales/templates/sales/credit_notes.html
   ----------------------------------------------------------------------------
-  The credit notes page of the Sales section. It is a shell: the rows below
-  are dummy data in the markup.
+  The credit notes page of the Sales section. The view gives the credit
+  notes of the global date range and the total of the notes that are not
+  void. Applied to is the invoice of the credit note (its source document).
 
   A credit note gives money back to a customer, thus the amounts use the
   debit tone. The page keeps one table only, because the list is short.
@@ -46,7 +48,7 @@
             </button>
         </div>
 
-        <p class="actionbar__hint">The list shows the credit notes of {{ period|default:"FY 2026" }}.</p>
+        <p class="actionbar__hint">The list shows the credit notes of {{ range_label }}.</p>
     </div>
 
     <table class="table">
@@ -54,51 +56,21 @@
             <tr><th>Date</th><th>Number</th><th>Customer</th><th>Applied to</th><th>Status</th><th>Amount</th></tr>
         </thead>
         <tbody>
+            {% for note in credit_notes %}
             <tr>
-                <td>2026-02-10</td>
-                <td>CN-00231</td>
-                <td>Halcyon Interiors</td>
-                <td>IN-01039</td>
-                <td><span class="status status--ok">Applied</span></td>
-                <td class="is-debit">1,850.00</td>
+                <td>{{ note.date|date:"Y-m-d" }}</td>
+                <td>{{ note.number }}</td>
+                <td>{{ note.entity.name }}</td>
+                <td>{{ note.source_doc.number|default:"—" }}</td>
+                <td><span class="status status--{{ note.tone }}">{{ note.get_status_display }}</span></td>
+                <td class="is-debit">{{ note.gross|money }}</td>
             </tr>
-            <tr>
-                <td>2026-02-03</td>
-                <td>CN-00230</td>
-                <td>Karoo Fresh Produce</td>
-                <td>IN-01035</td>
-                <td><span class="status status--low">Part applied</span></td>
-                <td class="is-debit">640.00</td>
-            </tr>
-            <tr>
-                <td>2026-01-27</td>
-                <td>CN-00229</td>
-                <td>Vaal Metal Press</td>
-                <td>—</td>
-                <td><span class="status status--busy">Open</span></td>
-                <td class="is-debit">2,410.00</td>
-            </tr>
-            <tr>
-                <td>2026-01-14</td>
-                <td>CN-00228</td>
-                <td>Bergrivier Logistics</td>
-                <td>IN-01024</td>
-                <td><span class="status status--ok">Applied</span></td>
-                <td class="is-debit">980.00</td>
-            </tr>
-            <tr>
-                <td>2025-12-22</td>
-                <td>CN-00227</td>
-                <td>Table Bay Marine</td>
-                <td>—</td>
-                <td><span class="status status--idle">Draft</span></td>
-                <td class="is-debit">320.00</td>
-            </tr>
-            {% comment %} Keep this row. It shows the page with no data. {% endcomment %}
-            {# <tr><td colspan="6">There are no credit notes for this period.</td></tr> #}
+            {% empty %}
+            <tr><td colspan="6">There are no credit notes for this period.</td></tr>
+            {% endfor %}
         </tbody>
         <tfoot>
-            <tr><td colspan="5">Total of the credit notes</td><td class="is-debit">6,200.00</td></tr>
+            <tr><td colspan="5">Total of the credit notes</td><td class="is-debit">{{ total|money }}</td></tr>
         </tfoot>
     </table>
 </section>

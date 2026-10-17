@@ -4,7 +4,8 @@
   ============================================================================
   accounting/templates/accounting/provisional_tax.html
   ----------------------------------------------------------------------------
-  Provisional tax is a payment in advance of the income tax for the year. The business makes two payments each year. It is a shell: the data below is dummy data in the markup.
+  Provisional tax is a payment in advance of the income tax for the year. The business makes two payments each year.
+  The module has no model for the returns yet, thus the list is empty.
   ============================================================================
 {% endcomment %}
 
@@ -44,9 +45,7 @@
             <tr><th>Period</th><th>Due</th><th>Estimate</th><th>Status</th><th>Payment</th></tr>
         </thead>
         <tbody>
-            <tr><td>2026 · First</td><td>2025-08-31</td><td class="is-credit">1,300,000.00</td><td><span class="status status--ok">Paid</span></td><td class="is-debit">175,500.00</td></tr>
-            <tr><td>2026 · Second</td><td>2026-02-28</td><td class="is-credit">1,400,000.00</td><td><span class="status status--busy">Due</span></td><td class="is-debit">202,500.00</td></tr>
-            <tr><td>2026 · Top-up</td><td>2026-09-30</td><td>—</td><td><span class="status status--idle">Optional</span></td><td class="is-debit">0.00</td></tr>
+            <tr><td colspan="5">There are no provisional tax payments.</td></tr>
         </tbody>
     </table>
 </section>

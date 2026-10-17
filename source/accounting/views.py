@@ -4,15 +4,15 @@ from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db import transaction
-from django.db.models import Sum, DecimalField, Q
+from django.db.models import Max, Sum, DecimalField, Q
 from django.db.models.functions import Coalesce
 from django.urls import reverse
 from django.utils import timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from accounting.models import *
 from accounting.date_range import get_range, previous_range
-from accounting.documents import AGEING_LABELS, age_bucket
-from accounting.forms import BillForm, NoteForm, PaymentForm, SupplierForm
+from accounting.documents import AGEING_LABELS, age_bucket, standard_rate
+from accounting.forms import BankAccountForm, BillForm, CustomerForm, NoteForm, PaymentForm, SupplierForm
 from accounting.posting import CENT, PAYABLE, RECEIVABLE, VAT, _account, allocate, post_bill, post_payment
 from datetime import datetime, timedelta
 from filestore.services import save_upload, validate
@@ -725,7 +725,8 @@ def equity(request):
     return render(request, "accounting/shareholder_equity.html", ctx)
 
 # ___________________________________UI SHELLS_______________________________________#
-# These pages show dummy data from the template only.
+# These pages have no model yet: Claims, Cards, Payment Runs and the tax
+# returns show an empty list. The Reports page links to the reports.
 
 
 def reports(request):
@@ -864,9 +865,7 @@ def suppliers(request):
     an unpaid bill is after its due date."""
     company = request.company
     S = Document.Status
-    entities = (Entity.objects.filter(company=company)
-                .filter(Q(supplier__isnull=False) | Q(documents__doc_type=Document.DocType.BILL))
-                .distinct().select_related("supplier").order_by("name"))
+    entities = supplier_entities(company).select_related("supplier")
     balances = dict(JournalLine.objects
                     .filter(entry__company=company, entry__status=JournalEntry.Status.POSTED, account__name=PAYABLE)
                     .exclude(entry__basis=JournalEntry.Basis.CASH)
@@ -881,6 +880,7 @@ def suppliers(request):
         details = getattr(entity, "supplier", None)
         balance = balances.get(entity.id, ZERO)
         rows.append({
+            "id": entity.id,
             "code": details and details.code,
             "name": entity.name,
             "contact": details and details.contact,
@@ -910,18 +910,22 @@ def module_settings(request):
         response = redirect("accounting:module_settings")
         response.set_cookie("view_mode", mode, max_age=365 * 24 * 3600, samesite="Lax")
         return response
+    # The records of the company give the read-only fields. The lock date is the end of the last closed period.
+    today = timezone.localdate()
+    last_closed = Period.objects.filter(company=company, is_closed=True).order_by("-end_date").first()
     return render(request, "accounting/module_settings.html", {
         "bases": Company.Basis.choices, "can_set_basis": can_post,
+        "fiscal_year": FiscalYear.objects.filter(company=company, start_date__lte=today, end_date__gte=today).first(),
+        "vat_rate": standard_rate(company),
+        "lock_date": last_closed and last_closed.end_date,
+        "next_invoice": NumberSequence.peek(company, "invoice", "INV-"),
+        "next_quote": NumberSequence.peek(company, "quote", "QUO-"),
     })
 
 # ___________________________________CUSTOMERS_______________________________________#
-# A customer is an entity with a lead or with a sales document. The New
-# Customer button opens the New Lead overlay (see lead_form.js).
-
-def customer_entities(company):
-    return (Entity.objects.filter(company=company)
-            .filter(Q(leads__isnull=False) | Q(documents__direction=Document.Direction.SALE))
-            .distinct().order_by("name"))
+# A customer is an entity with a lead or with a sales document (see
+# customer_entities). The New Customer button opens the New Lead overlay
+# (see lead_form.js).
 
 def open_invoices(company):
     """The issued invoices that are not paid in full, the next due first.
@@ -933,20 +937,24 @@ def open_invoices(company):
                 .select_related("entity").prefetch_related("lines__tax_code", "allocations")
                 .order_by("due", "date"))
 
+def receivable_balances(company):
+    """The money that each customer owes: the posted Accounts Receivable
+    lines of the customer, as on the Account Statement. Returns {entity_id: Decimal}."""
+    return dict(JournalLine.objects
+                .filter(entry__company=company, entry__status=JournalEntry.Status.POSTED, account__name=RECEIVABLE)
+                .exclude(entry__basis=JournalEntry.Basis.CASH)
+                .values_list("entity")
+                .annotate(balance=Sum("base_debit") - Sum("base_credit")))
+
 def customers(request):
-    """Each customer. The balance is the money that the customer owes: the
-    posted Accounts Receivable lines of the customer, as on the Account
-    Statement. The balance is overdue when an open invoice is after its due
-    date. The terms are the payment terms of the last invoice."""
+    """Each customer. The balance is the money that the customer owes (see
+    receivable_balances). The balance is overdue when an open invoice is
+    after its due date. The terms are the payment terms of the last invoice."""
     company = request.company
     S = Document.Status
     sales = Document.objects.filter(company=company, direction=Document.Direction.SALE,
                                     doc_type=Document.DocType.INVOICE)
-    balances = dict(JournalLine.objects
-                    .filter(entry__company=company, entry__status=JournalEntry.Status.POSTED, account__name=RECEIVABLE)
-                    .exclude(entry__basis=JournalEntry.Basis.CASH)
-                    .values_list("entity")
-                    .annotate(balance=Sum("base_debit") - Sum("base_credit")))
+    balances = receivable_balances(company)
     late = set(sales.filter(status__in=[S.SENT, S.APPROVED, S.PART_PAID], due__lt=timezone.localdate())
                .values_list("entity_id", flat=True))
     terms = dict(sales.exclude(terms="").order_by("date", "id").values_list("entity_id", "terms"))    # The last one stays
@@ -954,6 +962,7 @@ def customers(request):
     for entity in customer_entities(company):
         balance = balances.get(entity.id, ZERO)
         rows.append({
+            "id": entity.id,
             "name": entity.name,
             "email": entity.email,
             "phone": entity.phone,
@@ -963,6 +972,17 @@ def customers(request):
             "is_overdue": balance > 0 and entity.id in late,
         })
     return render(request, "accounting/customers.html", {"customers": rows})
+
+def customer_edit(request, pk):
+    """The Edit Customer page. Save changes the entity, then the browser goes to the Customers page."""
+    form = CustomerForm(request.POST or None, instance=get_object_or_404(customer_entities(request.company), pk=pk))
+    if form.is_valid():
+        AuditLog.record(request, AuditLog.Action.UPDATE, form.save())
+        return redirect("accounting:customers")
+    return render(request, "accounting/record_form.html", {
+        "title": "Edit Customer", "note": "Change the details of the customer.", "form": form,
+        "cancel_url": reverse("accounting:customers"), "page_key": "customers",
+    })
 
 def receivables(request):
     """Unpaid: the open invoices and their open amounts. Paid: the paid
@@ -1040,29 +1060,30 @@ def customer_dashboard(request):
     })
 
 # Suppliers
-def supplier_new(request):
-    """The New Supplier page. Save makes the entity (an organization), its
-    profile and the supplier details. The browser then goes to the Suppliers page."""
-    form = SupplierForm(request.POST or None, company=request.company)
+def supplier_form(request, pk=None):
+    """The New Supplier page, and the Edit Supplier page of an entity of the
+    Suppliers page (pk). Save makes or changes the entity, its profile and
+    the supplier details (see SupplierForm.save). An entity with a bill only
+    gets its supplier details here. The browser then goes to the Suppliers page."""
+    company = request.company
+    supplier = None
+    if pk:
+        entity = get_object_or_404(supplier_entities(company), pk=pk)
+        supplier = getattr(entity, "supplier", None) or Supplier(company=company, entity=entity)
+    form = SupplierForm(request.POST or None, instance=supplier, company=company)
     if form.is_valid():
-        data = form.cleaned_data
+        is_new = form.instance.pk is None
         with transaction.atomic():
-            entity = Entity.objects.create(
-                company=request.company,                        # Add to every function that creates a CompanyOwned record
-                created_by=request.user, name=data["name"], type=Entity.EntityType.ORGANIZATION,
-                email=data["email"], phone=data["phone"],
-            )
-            OrganizationProfile.objects.create(entity=entity, legal_name=data["name"], tax_number=data["vat_number"])
-            supplier = form.save(commit=False)
-            supplier.company = request.company                  # Add to every function that creates a CompanyOwned record
-            supplier.entity = entity
-            supplier.created_by = request.user
-            supplier.save()
-            if supplier.code == NumberSequence.peek(request.company, "supplier", "SUP-"):
-                NumberSequence.take(request.company, "supplier")
-            AuditLog.record(request, AuditLog.Action.CREATE, supplier)
+            supplier = form.save(request.user)
+            if is_new and supplier.code == NumberSequence.peek(company, "supplier", "SUP-"):
+                NumberSequence.take(company, "supplier")
+            AuditLog.record(request, AuditLog.Action.CREATE if is_new else AuditLog.Action.UPDATE, supplier)
         return redirect("accounting:suppliers")
-    return render(request, "accounting/supplier_new.html", {"form": form})
+    return render(request, "accounting/record_form.html", {
+        "title": "Edit Supplier" if pk else "New Supplier",
+        "note": "Change the details of the supplier." if pk else "Fill in the fields below to add a supplier.",
+        "form": form, "cancel_url": reverse("accounting:suppliers"), "page_key": "suppliers",
+    })
 
 def payables(request):
     """The unpaid bills and their open amounts. A draft bill is not a
@@ -1079,23 +1100,97 @@ def aging_payables(request):
     return render(request, "accounting/aging_payables.html", aging_report(unpaid_bills(request)))
 
 def supplier_dashboard(request):
-    return render(request, "accounting/supplier_dashboard.html")
+    """The position of the suppliers today, and the bills and the payments of the date range.
+    Creditor days: the open amount divided by the bills of the range, times the days of the range."""
+    _, start, end = get_range(request)
+    company = request.company
+    today = timezone.localdate()
+    bills = unpaid_bills(request)
+    late = [b for b in bills if b.due and b.due < today]
+    payable = sum((b.balance for b in bills), ZERO)
+    purchases = sum((d.gross for d in Document.objects
+                     .filter(company=company, direction=Document.Direction.PURCHASE, doc_type=Document.DocType.BILL,
+                             date__range=(start, end))
+                     .exclude(status__in=[Document.Status.DRAFT, Document.Status.VOID])
+                     .prefetch_related("lines__tax_code")), ZERO)
+    paid = (Payment.objects.filter(company=company, direction=Payment.Direction.OUT, date__range=(start, end))
+            .aggregate(total=Sum("amount"))["total"] or ZERO)
+
+    top = {}
+    for bill in bills:
+        row = top.setdefault(bill.entity_id, {"name": bill.entity.name, "count": 0, "balance": ZERO, "is_overdue": False})
+        row["count"] += 1
+        row["balance"] += bill.balance
+        row["is_overdue"] |= bill in late
+
+    return render(request, "accounting/supplier_dashboard.html", {
+        "supplier_count": supplier_entities(company).count(),
+        "payable": payable,
+        "overdue": sum((b.balance for b in late), ZERO),
+        "paid": paid,
+        "creditor_days": round(payable / purchases * ((end - start).days + 1)) if purchases else None,
+        "top": sorted(top.values(), key=lambda r: r["balance"], reverse=True)[:10],
+        "late": [{"name": b.entity.name, "number": b.number, "days": (today - b.due).days, "balance": b.balance}
+                 for b in late[:5]],
+    })
 
 # Banking
 def bank_accounts(request):
-    return render(request, "accounting/bank_accounts.html")
+    """The bank accounts of the company. The balance is the balance of the
+    ledger account: the posted lines up to today, for the basis of the
+    company. Last reconciled is the date of the last reconciled statement line."""
+    company = request.company
+    balances = movements(company, end=timezone.localdate())
+    reconciled = dict(BankTransaction.objects.filter(company=company, reconciled=True)
+                      .values_list("bank_account").annotate(last=Max("date")))
+    banks = list(BankAccount.objects.filter(company=company).select_related("account").order_by("bank", "name"))
+    for bank in banks:
+        bank.balance = balances.get(bank.account_id, ZERO)
+        bank.last_reconciled = reconciled.get(bank.id)
+    return render(request, "accounting/bank_accounts.html", {
+        "banks": banks, "total": sum((bank.balance for bank in banks), ZERO),
+    })
 
-def bank_account_new(request):
-    return render(request, "accounting/bank_account_new.html")
+def bank_account_form(request, pk=None):
+    """The New Bank Account page, and the Edit Bank Account page (pk). The
+    browser then goes to the Bank Accounts page."""
+    company = request.company
+    instance = get_object_or_404(BankAccount, company=company, pk=pk) if pk else None
+    form = BankAccountForm(request.POST or None, instance=instance, company=company)
+    if form.is_valid():
+        bank = form.save(commit=False)
+        bank.company = company                                  # Add to every function that creates a CompanyOwned record
+        bank.save()
+        AuditLog.record(request, AuditLog.Action.UPDATE if pk else AuditLog.Action.CREATE, bank)
+        return redirect("accounting:bank_accounts")
+    return render(request, "accounting/record_form.html", {
+        "title": "Edit Bank Account" if pk else "New Bank Account",
+        "note": "Change the details of the bank account." if pk else
+                "Fill in the fields below to add a bank account. The balance comes from the ledger account.",
+        "form": form, "cancel_url": reverse("accounting:bank_accounts"), "page_key": "banking",
+    })
 
 def cards(request):
     return render(request, "accounting/cards.html")
 
 def import_statement(request):
-    return render(request, "accounting/import_statement.html")
+    """The Import Statement page. The page does not read the file yet."""
+    return render(request, "accounting/import_statement.html", {
+        "banks": BankAccount.objects.filter(company=request.company, is_active=True).order_by("bank", "name"),
+    })
 
 def reconcile(request):
-    return render(request, "accounting/reconcile.html")
+    """The statement lines of the date range, the newest first. A line has a
+    match when it links to a payment or to a journal entry. The difference
+    is the sum of the lines that have no match and are not reconciled."""
+    _, start, end = get_range(request)
+    lines = list(BankTransaction.objects.filter(company=request.company, date__range=(start, end))
+                 .select_related("bank_account", "payment", "journal_entry").order_by("-date", "-id"))
+    return render(request, "accounting/reconcile.html", {
+        "lines": lines,
+        "difference": sum((line.amount for line in lines
+                           if not (line.reconciled or line.payment_id or line.journal_entry_id)), ZERO),
+    })
 
 def payment_runs(request):
     return render(request, "accounting/payment_runs.html")
@@ -1114,4 +1209,15 @@ def paye(request):
     return render(request, "accounting/paye.html")
 
 def tax_dashboard(request):
-    return render(request, "accounting/tax_dashboard.html")
+    """The tax position from the ledger. VAT payable: the credit balance of
+    the tax accounts today (see tax_account_ids). Income tax: the movement
+    of the income tax accounts in the date range."""
+    _, start, end = get_range(request)
+    company = request.company
+    accounts = Account.objects.filter(company=company)
+    balances = movements(company, end=timezone.localdate())
+    moved = movements(company, start, end)
+    return render(request, "accounting/tax_dashboard.html", {
+        "vat_payable": -sum((balances.get(i, ZERO) for i in tax_account_ids(company)), ZERO),
+        "income_tax": sum((moved.get(a.id, ZERO) for a in accounts if a.type == Account.AccountType.INCOME_TAX), ZERO),
+    })

@@ -1,11 +1,13 @@
 {% extends "sales/module_base.html" %}
+{% load fin %}
 
 {% comment %}
   ============================================================================
   sales/templates/sales/dashboard.html
   ----------------------------------------------------------------------------
-  The first page of the Sales section. It is a shell: the figures and the
-  rows below are dummy data in the markup.
+  The first page of the Sales section. The view gives the figures of the
+  sales documents: the open quotes and the open invoices today, and the
+  credit notes of the global date range.
 
   The page follows the pattern of the overview page:
       .page__head    the title and the note
@@ -47,89 +49,58 @@
             </button>
         </div>
 
-        <p class="actionbar__hint">The figures show the accepted documents of {{ period|default:"FY 2026" }}.</p>
+        <p class="actionbar__hint">Credit Notes show {{ range_label }}. The other figures show the position today.</p>
     </div>
 
     <div class="cards">
         {% comment %} Credit tone: this money can come in. {% endcomment %}
         <div class="card">
             <span class="card__label">Open Quotes</span>
-            <div class="card__value is-credit" data-unit="ZAR">77,330.00</div>
+            <div class="card__value is-credit" data-unit="{{ request.company.base_currency_id }}">{{ open_quotes|money }}</div>
         </div>
 
         {% comment %} Credit tone: this money will come in. {% endcomment %}
         <div class="card">
             <span class="card__label">Unpaid Invoices</span>
-            <div class="card__value is-credit" data-unit="ZAR">131,300.00</div>
+            <div class="card__value is-credit" data-unit="{{ request.company.base_currency_id }}">{{ unpaid|money }}</div>
         </div>
 
         {% comment %} Overdue tone: this money is late. {% endcomment %}
         <div class="card">
             <span class="card__label">Overdue</span>
-            <div class="card__value is-overdue" data-unit="ZAR">7,400.00</div>
+            <div class="card__value is-overdue" data-unit="{{ request.company.base_currency_id }}">{{ overdue|money }}</div>
         </div>
 
         {% comment %} Debit tone: this money goes back to the customer. {% endcomment %}
         <div class="card">
             <span class="card__label">Credit Notes</span>
-            <div class="card__value is-debit" data-unit="ZAR">6,200.00</div>
+            <div class="card__value is-debit" data-unit="{{ request.company.base_currency_id }}">{{ credit_total|money }}</div>
         </div>
 
         {% comment %} Count: a quantity of partners, not a sum of money. {% endcomment %}
         <div class="card">
             <span class="card__label">Active Partners</span>
-            <div class="card__value is-count">48</div>
+            <div class="card__value is-count">{{ partner_count }}</div>
         </div>
     </div>
 
     <h2 class="page__subtitle">Recent sales documents</h2>
-    <table class="table">
+    <table class="table" data-num>
         <thead>
             <tr><th>Date</th><th>Number</th><th>Customer</th><th>Status</th><th>Amount</th></tr>
         </thead>
         <tbody>
+            {% for document in recent %}
             <tr>
-                <td>2026-02-12</td>
-                <td>IN-01044</td>
-                <td>Karoo Fresh Produce</td>
-                <td><span class="status status--idle">Draft</span></td>
-                <td class="is-credit">4,780.00</td>
+                <td>{{ document.date|date:"Y-m-d" }}</td>
+                <td>{{ document.number }}</td>
+                <td>{{ document.entity.name }}</td>
+                <td><span class="status status--{{ document.tone }}">{{ document.get_status_display }}</span></td>
+                <td class="{% if document.doc_type == 'C' %}is-debit{% else %}is-credit{% endif %}">{{ document.gross|money }}</td>
             </tr>
-            <tr>
-                <td>2026-02-11</td>
-                <td>QU-00118</td>
-                <td>Bergrivier Logistics</td>
-                <td><span class="status status--idle">Draft</span></td>
-                <td class="is-credit">18,400.00</td>
-            </tr>
-            <tr>
-                <td>2026-02-10</td>
-                <td>CN-00231</td>
-                <td>Halcyon Interiors</td>
-                <td><span class="status status--ok">Applied</span></td>
-                <td class="is-debit">1,850.00</td>
-            </tr>
-            <tr>
-                <td>2026-02-09</td>
-                <td>QU-00117</td>
-                <td>Karoo Fresh Produce</td>
-                <td><span class="status status--busy">Sent</span></td>
-                <td class="is-credit">6,250.00</td>
-            </tr>
-            <tr>
-                <td>2026-02-06</td>
-                <td>IN-01030</td>
-                <td>Umhlanga Coastal Hotels</td>
-                <td><span class="status status--ok">Paid</span></td>
-                <td class="is-credit">31,450.00</td>
-            </tr>
-            <tr>
-                <td>2026-02-03</td>
-                <td>IN-01042</td>
-                <td>Sandton Data Centre</td>
-                <td><span class="status status--busy">Sent</span></td>
-                <td class="is-credit">88,000.00</td>
-            </tr>
+            {% empty %}
+            <tr><td colspan="5">There are no sales documents.</td></tr>
+            {% endfor %}
         </tbody>
     </table>
 
@@ -137,13 +108,21 @@
     <div class="notes">
         <div class="card">
             <span class="card__label">Late payments</span>
-            <p class="notes__text">Three invoices are more than 14 days late. The total is 7,400.00 ZAR.</p>
-            <p class="notes__text">Garden Route Timber is 55 days late. Stop new sales to this partner.</p>
+            {% if late %}
+            <p class="notes__text">{{ late|length }} invoice{{ late|length|pluralize:" is,s are" }} late. The total is {{ overdue|money }} {{ request.company.base_currency_id }}.</p>
+            <p class="notes__text">{{ late.0.entity.name }} is {{ oldest_days }} day{{ oldest_days|pluralize }} late on {{ late.0.number }}.</p>
+            {% else %}
+            <p class="notes__text">No invoice is late.</p>
+            {% endif %}
         </div>
         <div class="card">
             <span class="card__label">Open credit</span>
-            <p class="notes__text">Two credit notes have no invoice. The total is 2,730.00 ZAR.</p>
+            {% if open_credits %}
+            <p class="notes__text">{{ open_credits|length }} credit note{{ open_credits|length|pluralize:" has,s have" }} no invoice. The total is {{ open_credit_total|money }} {{ request.company.base_currency_id }}.</p>
             <p class="notes__text">Apply them to an invoice, or give the money back to the customer.</p>
+            {% else %}
+            <p class="notes__text">Each credit note has an invoice.</p>
+            {% endif %}
         </div>
     </div>
 </section>

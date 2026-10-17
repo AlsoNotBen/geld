@@ -376,6 +376,7 @@ class DocumentLine(models.Model):
         return self.net_amount + self.tax_amount
 
 class BankAccount(CompanyOwned):
+    bank           = models.CharField(max_length=100, blank=True)     # The name of the bank, e.g. First National Bank
     name           = models.CharField(max_length=255)
     account_number = models.CharField(max_length=50, blank=True)
     sort_code      = models.CharField(max_length=20, blank=True)
@@ -663,3 +664,17 @@ class Note(CompanyOwned, TimeStamped):
         return cls.objects.filter(company=company, page=page).filter(
             models.Q(is_permanent=True) | models.Q(expires_on__gte=timezone.localdate())).filter(
             models.Q(visibility=cls.Visibility.PUBLIC) | models.Q(created_by=user))
+
+
+def customer_entities(company):
+    """The customers of the company: the entities with a lead or with a sales document."""
+    return (Entity.objects.filter(company=company)
+            .filter(models.Q(leads__isnull=False) | models.Q(documents__direction=Document.Direction.SALE))
+            .distinct().order_by("name"))
+
+
+def supplier_entities(company):
+    """The suppliers of the company: the entities with supplier details or with a bill."""
+    return (Entity.objects.filter(company=company)
+            .filter(models.Q(supplier__isnull=False) | models.Q(documents__doc_type=Document.DocType.BILL))
+            .distinct().order_by("name"))

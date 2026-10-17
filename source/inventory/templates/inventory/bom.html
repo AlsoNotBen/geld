@@ -1,5 +1,5 @@
 {% extends "inventory/module_base.html" %}
-{% load static %}
+{% load static stock %}
 
 {% comment %}
   ============================================================================
@@ -28,8 +28,11 @@
       inventory/static/inventory/js/bom-graph.js
   Both come from the static directory. The page loads no CDN.
 
-  All figures below are dummy data. The selected kit is Radio Field Kit.
-  Its charging dock has four units in stock, thus the kit can build four.
+  The view gives the kits (the items that contain other items), the
+  selected kit (?kit=pk, else the first kit), its graph and its direct
+  components. The number that a kit can build is
+  the smallest quotient of the quantity on hand of a direct component and
+  the quantity that one kit needs (see buildable in views.py).
   ============================================================================
 {% endcomment %}
 
@@ -41,7 +44,7 @@
 <section class="page">
 
     <div class="page__head">
-        <h1 class="page__title" data-period="9 kits">Bill of Materials</h1>
+        <h1 class="page__title" data-period="{{ kits|length }} kit{{ kits|length|pluralize }}">Bill of Materials</h1>
         <p class="page__note">
             A bill of materials tells you which components one kit needs,
             and how many of each. A component can hold components of its
@@ -77,7 +80,7 @@
             </button>
         </div>
 
-        <p class="actionbar__hint">Radio Field Kit can build 4. The charging dock sets the limit.</p>
+        <p class="actionbar__hint">{% if kit %}{{ kit.name }} can build {{ kit.can_build }}.{% if limit %} {{ limit.name }} sets the limit.{% endif %}{% else %}There are no kits.{% endif %}</p>
     </div>
 
     <div class="bom">
@@ -87,65 +90,21 @@
             <span class="card__label">Kits &amp; Availability</span>
 
             <nav class="nav bom__list" aria-label="Kits">
-                <a class="nav__item is-active" href="#">
-                    <span class="bom__name status--build">Radio Field Kit
-                        <span class="cell-sub">KIT-004 · 8 components</span>
+                {% for item in kits %}
+                <a class="nav__item{% if item.pk == kit.pk %} is-active{% endif %}" href="?kit={{ item.pk }}"{% if item.pk == kit.pk %} aria-current="true"{% endif %}>
+                    <span class="bom__name status--{% if item.can_build %}build{% else %}idle{% endif %}">{{ item.name }}
+                        <span class="cell-sub">{% if item.sku %}{{ item.sku }} · {% endif %}{{ item.part_count }} component{{ item.part_count|pluralize }}</span>
                     </span>
-                    <span class="status status--build">4</span>
+                    <span class="status status--{% if item.can_build %}build{% else %}idle{% endif %}">{{ item.can_build }}</span>
                 </a>
-                <a class="nav__item" href="#">
-                    <span class="bom__name status--build">Vehicle Tool Kit
-                        <span class="cell-sub">KIT-009 · 9 components</span>
-                    </span>
-                    <span class="status status--build">6</span>
-                </a>
-                <a class="nav__item" href="#">
-                    <span class="bom__name status--build">First Aid Kit, site
-                        <span class="cell-sub">KIT-002 · 11 components</span>
-                    </span>
-                    <span class="status status--build">22</span>
-                </a>
-                <a class="nav__item" href="#">
-                    <span class="bom__name status--build">Site Safety Pack
-                        <span class="cell-sub">KIT-006 · 5 components</span>
-                    </span>
-                    <span class="status status--build">14</span>
-                </a>
-                <a class="nav__item" href="#">
-                    <span class="bom__name status--build">Server Rack Kit
-                        <span class="cell-sub">KIT-021 · 12 components</span>
-                    </span>
-                    <span class="status status--build">7</span>
-                </a>
-                <a class="nav__item" href="#">
-                    <span class="bom__name status--build">Solar Camera Kit
-                        <span class="cell-sub">KIT-017 · 8 components</span>
-                    </span>
-                    <span class="status status--build">3</span>
-                </a>
-                <a class="nav__item" href="#">
-                    <span class="bom__name status--build">Camera Mast Kit
-                        <span class="cell-sub">KIT-030 · 6 components</span>
-                    </span>
-                    <span class="status status--build">1</span>
-                </a>
-                <a class="nav__item" href="#">
-                    <span class="bom__name status--idle">Laptop Onboarding Pack
-                        <span class="cell-sub">KIT-001 · 4 components</span>
-                    </span>
-                    <span class="status status--idle">0</span>
-                </a>
-                <a class="nav__item" href="#">
-                    <span class="bom__name status--idle">Network Install Kit
-                        <span class="cell-sub">KIT-012 · 7 components</span>
-                    </span>
-                    <span class="status status--idle">0</span>
-                </a>
+                {% empty %}
+                <p class="bom__total">There are no kits. A kit is an item that contains other items.</p>
+                {% endfor %}
             </nav>
 
             <div class="bom__foot">
                 <p class="bom__total">The pill gives the number that the stock can build.
-                    <b>2 kits</b> have no parts.</p>
+                    {% if short_count %}<b>{{ short_count }} kit{{ short_count|pluralize }}</b> {{ short_count|pluralize:"has,have" }} no parts.{% endif %}</p>
             </div>
         </div>
 
@@ -158,10 +117,9 @@
              dagre, and puts each node on the canvas. A node stays an
              HTML element, thus it keeps the colors of the stylesheet.
 
-             With real data, give the view a dict and print it here:
-                 {% verbatim %}{{ graph|json_script:"bom-graph-data" }}{% endverbatim %}
-             A component that two parents hold needs two edges only.
-             dagre draws the node one time. {% endcomment %}
+             The view gives the graph of the selected kit (see bom in
+             views.py). A component that two parents hold needs two edges
+             only. dagre draws the node one time. {% endcomment %}
         <div class="card bom__col">
             <span class="card__label">Assembly Map</span>
 
@@ -191,38 +149,7 @@
                 </div>
             </div>
 
-            {% comment %} Dummy data. Replace the tag below with
-                 json_script when the view supplies the graph. {% endcomment %}
-            <script type="application/json" id="bom-graph-data">
-            {
-              "direction": "LR",
-              "nodes": [
-                {"id": "KIT-004", "name": "Radio Field Kit",        "code": "KIT-004", "kind": "kit",  "status": "build", "count": "4 buildable"},
-                {"id": "SUB-021", "name": "Radio Handset Assembly", "code": "SUB-021", "kind": "sub",  "status": "ok",    "count": "11"},
-                {"id": "SUB-024", "name": "Charging Sub-assembly",  "code": "SUB-024", "kind": "sub",  "status": "low",   "count": "4"},
-                {"id": "CMP-450", "name": "Motorola DP4400e body",  "code": "CMP-450", "kind": "part", "status": "ok",    "count": "18"},
-                {"id": "BAT-018", "name": "Radio Battery Pack",     "code": "BAT-018", "kind": "part", "status": "ok",    "count": "22"},
-                {"id": "CMP-204", "name": "Belt Clip, radio",       "code": "CMP-204", "kind": "part", "status": "ok",    "count": "58"},
-                {"id": "CMP-209", "name": "Charging Dock, 6-way",   "code": "CMP-209", "kind": "part", "status": "low",   "count": "4"},
-                {"id": "CMP-215", "name": "Power Lead 1.8m",        "code": "CMP-215", "kind": "part", "status": "ok",    "count": "26"},
-                {"id": "CMP-201", "name": "Radio Antenna, 400 MHz", "code": "CMP-201", "kind": "part", "status": "ok",    "count": "31"},
-                {"id": "CMP-260", "name": "Carry Case, hard",       "code": "CMP-260", "kind": "part", "status": "ok",    "count": "15"},
-                {"id": "STA-044", "name": "Quick Guide, printed",   "code": "STA-044", "kind": "part", "status": "ok",    "count": "90"}
-              ],
-              "edges": [
-                {"from": "KIT-004", "to": "SUB-021", "qty": "× 1"},
-                {"from": "KIT-004", "to": "SUB-024", "qty": "× 1", "limit": true},
-                {"from": "KIT-004", "to": "CMP-201", "qty": "× 1"},
-                {"from": "KIT-004", "to": "CMP-260", "qty": "× 1"},
-                {"from": "KIT-004", "to": "STA-044", "qty": "× 1"},
-                {"from": "SUB-021", "to": "CMP-450", "qty": "× 1"},
-                {"from": "SUB-021", "to": "BAT-018", "qty": "× 2"},
-                {"from": "SUB-021", "to": "CMP-204", "qty": "× 1"},
-                {"from": "SUB-024", "to": "CMP-209", "qty": "× 1", "limit": true},
-                {"from": "SUB-024", "to": "CMP-215", "qty": "× 1"}
-              ]
-            }
-            </script>
+            {{ graph|json_script:"bom-graph-data" }}
 
             {% comment %} The form that adds a node below the selected one.
                  It does not save. Refer to views.py. {% endcomment %}
@@ -231,14 +158,7 @@
                 <label class="visually-hidden" for="bom-part">Component</label>
                 <select class="field field--wide field--select" id="bom-part" name="part">
                     <option value="">Component or sub-assembly</option>
-                    <option>Radio Handset Assembly · SUB-021</option>
-                    <option>Charging Sub-assembly · SUB-024</option>
-                    <option>Radio Battery Pack · BAT-018</option>
-                    <option>Charging Dock, 6-way · CMP-209</option>
-                    <option>Radio Antenna, 400 MHz · CMP-201</option>
-                    <option>Belt Clip, radio · CMP-204</option>
-                    <option>Carry Case, hard · CMP-260</option>
-                    <option>Quick Guide, printed · STA-044</option>
+                    {% for item in choices %}<option value="{{ item.pk }}">{{ item.name }}{% if item.sku %} · {{ item.sku }}{% endif %}</option>{% endfor %}
                 </select>
 
                 <label class="visually-hidden" for="bom-qty">Quantity for each parent</label>
@@ -257,61 +177,21 @@
             <span class="card__label">Components</span>
 
             <nav class="nav bom__list" aria-label="Components of this kit that are in stock">
+                {% for part in parts %}
                 <a class="nav__item" href="{% url 'inventory:stock' %}">
-                    <span class="bom__name">Quick Guide, printed
-                        <span class="cell-sub">STA-044 · 1 for each kit</span>
+                    <span class="bom__name">{{ part.item.name }}
+                        <span class="cell-sub">{% if part.item.sku %}{{ part.item.sku }} · {% endif %}{{ part.quantity|qty }} for each kit</span>
                     </span>
-                    <span class="status status--ok">90</span>
+                    <span class="status status--{{ part.tone }}">{{ part.on_hand|qty }}</span>
                 </a>
-                <a class="nav__item" href="{% url 'inventory:stock' %}">
-                    <span class="bom__name">Belt Clip, radio
-                        <span class="cell-sub">CMP-204 · 1 for each kit</span>
-                    </span>
-                    <span class="status status--ok">58</span>
-                </a>
-                <a class="nav__item" href="{% url 'inventory:stock' %}">
-                    <span class="bom__name">Radio Antenna, 400 MHz
-                        <span class="cell-sub">CMP-201 · 1 for each kit</span>
-                    </span>
-                    <span class="status status--ok">31</span>
-                </a>
-                <a class="nav__item" href="{% url 'inventory:stock' %}">
-                    <span class="bom__name">Power Lead 1.8m
-                        <span class="cell-sub">CMP-215 · 1 for each kit</span>
-                    </span>
-                    <span class="status status--ok">26</span>
-                </a>
-                <a class="nav__item" href="{% url 'inventory:stock' %}">
-                    <span class="bom__name">Radio Battery Pack
-                        <span class="cell-sub">BAT-018 · 2 for each kit</span>
-                    </span>
-                    <span class="status status--ok">22</span>
-                </a>
-                <a class="nav__item" href="{% url 'inventory:stock' %}">
-                    <span class="bom__name">Motorola DP4400e body
-                        <span class="cell-sub">CMP-450 · 1 for each kit</span>
-                    </span>
-                    <span class="status status--ok">18</span>
-                </a>
-                <a class="nav__item" href="{% url 'inventory:stock' %}">
-                    <span class="bom__name">Carry Case, hard
-                        <span class="cell-sub">CMP-260 · 1 for each kit</span>
-                    </span>
-                    <span class="status status--ok">15</span>
-                </a>
-                <a class="nav__item" href="{% url 'inventory:stock' %}">
-                    <span class="bom__name">Charging Dock, 6-way
-                        <span class="cell-sub">CMP-209 · 1 for each kit</span>
-                    </span>
-                    <span class="status status--low">4</span>
-                </a>
+                {% empty %}
+                <p class="bom__total">{% if kit %}The kit has no components.{% else %}Select a kit to see its components.{% endif %}</p>
+                {% endfor %}
             </nav>
 
             <div class="bom__foot">
                 <p class="bom__total">
-                    The charging dock has the smallest quantity, thus the kit
-                    can build <b>4</b>. An order of 20 docks lifts the figure
-                    to <b>11</b>, and the battery pack becomes the limit.
+                    {% if limit %}{{ limit.name }} has the smallest quantity for the kit, thus the kit can build <b>{{ kit.can_build }}</b>.{% else %}The quantity on hand of each component sets the number that the kit can build.{% endif %}
                 </p>
             </div>
         </div>
