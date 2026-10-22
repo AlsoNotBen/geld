@@ -82,7 +82,7 @@ class Company(models.Model):
     tax_number          = models.CharField(max_length=50, blank=True)
     base_currency       = models.ForeignKey(Currency, on_delete=models.PROTECT, related_name="+")
     accounting_basis    = models.CharField(max_length=1, choices=Basis.choices, default=Basis.ACCRUAL)
-    allocate_to_oldest  = models.BooleanField("Allocate unreferenced to oldest invoices", default=False)
+    allocate_to_oldest  = models.BooleanField("Allocate unreferenced to oldest invoices", default=True)
     address             = models.TextField(blank=True, help_text="The Accounting Overview shows this address on a map.") #TODO: remove this. gets complicated when a company has multiple locations
     is_active           = models.BooleanField(default=True)
     created_at          = models.DateTimeField(auto_now_add=True)

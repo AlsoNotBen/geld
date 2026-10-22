@@ -1,12 +1,16 @@
 import json
 from datetime import datetime, timedelta
+from django import forms
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from accounting.date_range import get_range
-from accounting.models import (Document, Entity, IndividualProfile, OrganizationProfile, customer_entities,supplier_entities)
+from accounting.models import (AuditLog, Document, Entity, IndividualProfile, OrganizationProfile, customer_entities,
+                               supplier_entities)
+from accounting.posting import post_opening_document
 from sales.models import Lead
 from accounting.views import ZERO, open_invoices, receivable_balances
 
@@ -152,11 +156,32 @@ def save_lead(lead, post):
             })
         lead.save()
 
+def opening_balance(post):
+    """The opening balance of the New Customer overlay and its date. No date gives today."""
+    try:
+        amount = forms.DecimalField(min_value=0, max_digits=13, decimal_places=2, required=False).clean(
+            post.get("opening_balance"))
+        day = forms.DateField(required=False).clean(post.get("opening_date"))
+    except ValidationError as error:
+        raise ValidationError([f"Opening balance: {message}" for message in error.messages])
+    return amount, day or timezone.localdate()
+
+
 def lead_create(request):
-    """The Save button of the New Lead overlay. It makes the entity and its lead."""
+    """The Save button of the New Lead overlay. It makes the entity and its lead. The New
+    Customer overlay can also send an opening balance: an open invoice (see
+    post_opening_document). A problem, e.g. no open period, saves nothing."""
     if request.method == "POST":
         entity = Entity(company=request.company, created_by=request.user)   # Add to every function that creates a CompanyOwned record
-        save_lead(Lead(company=request.company, entity=entity), request.POST)
+        try:
+            amount, day = opening_balance(request.POST)
+            with transaction.atomic():
+                save_lead(Lead(company=request.company, entity=entity), request.POST)
+                if amount:
+                    AuditLog.record(request, AuditLog.Action.CREATE,
+                                    post_opening_document(request.company, entity, amount, day, sale=True))
+        except ValidationError as error:
+            return JsonResponse({"errors": error.messages}, status=400)
         # The Quote and Invoice overlays send JSON. They select the new customer.
         if "application/json" in request.headers.get("Accept", ""):
             return JsonResponse({"id": entity.pk, "name": entity.name})

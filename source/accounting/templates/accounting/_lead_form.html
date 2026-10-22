@@ -2,6 +2,8 @@
   The New Lead overlay. module_base.html shows it on each page with the
   lead_form tag, so the Leads page and the customer "+" of the Quote and
   Invoice overlays use the same form. lead_form.js gives the behaviour.
+  The New Customer button also shows the opening balance fields
+  (data-for-customer).
 {% endcomment %}
 <dialog class="sheet sheet--wide" id="lead-dialog" aria-labelledby="lead-dialog-title">
     <form method="post" action="{% url 'sales:lead_create' %}">
@@ -10,6 +12,7 @@
             <h2 class="sheet__title" id="lead-dialog-title">Create New Lead</h2>
         </div>
         <div class="sheet__body sheet__body--split">
+            <div class="sheet__errors field--wide" role="alert" data-lead-errors hidden></div>
             <div class="field">
                 <label class="field__label" for="ld-name">Name</label>
                 <input class="field__control" id="ld-name" name="name" type="text" maxlength="255" required>
@@ -125,6 +128,16 @@
             <div class="field">
                 <label class="field__label" for="ld-phone">Phone</label>
                 <input class="field__control" id="ld-phone" name="phone" type="tel" maxlength="50">
+            </div>
+
+            {# The opening balance of a new customer. lead_form.js shows it for New Customer only. #}
+            <div class="field" data-for-customer hidden>
+                <label class="field__label" for="ld-opening">Opening balance</label>
+                <input class="field__control" id="ld-opening" name="opening_balance" type="number" min="0" step="0.01" disabled>
+            </div>
+            <div class="field" data-for-customer hidden>
+                <label class="field__label" for="ld-opening-date">Opening balance date</label>
+                <input class="field__control" id="ld-opening-date" name="opening_date" type="date" value="{% now 'Y-m-d' %}" disabled>
             </div>
             <div class="field field--wide">
                 <label class="field__label" for="ld-address">Address</label>

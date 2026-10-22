@@ -48,7 +48,7 @@ TRUNCATE TABLE
     accounting_payment_files,
     accounting_paymentallocation,
     accounting_period,
-    accounting_recurringinvoice,
+    accounting_recurringdocument,
     accounting_service,
     accounting_taxcode,
     auth_user,
@@ -258,7 +258,7 @@ INSERT INTO auth_user (password, last_login, is_superuser, username, first_name,
 
 -- Change the name, the tax number and the address before you use the company.
 INSERT INTO shared_company (name, slug, tax_number, base_currency_id, accounting_basis, allocate_to_oldest, address, is_active, created_at) VALUES
-    ('My Company', 'my-company', '', 'ZAR', 'A', FALSE, '', TRUE, now());
+    ('My Company', 'my-company', '', 'ZAR', 'A', TRUE, '', TRUE, now());
 
 INSERT INTO shared_membership (user_id, company_id, role, is_default, created_at)
 SELECT u.id, c.id, 'OWN', TRUE, now()
@@ -283,9 +283,10 @@ FROM accounting_fiscalyear AS fy, generate_series(fy.start_date, fy.end_date, in
 ORDER BY month;
 
 -- ____________________________________________________________________________
--- 5. Chart of accounts. The posting finds these accounts by name:
--- "Accounts Receivable", "Accounts Payable" and "Suspense". Do not change these names.
--- Add a bank account in the app. Its ledger account is "Bank".
+-- 5. Chart of accounts. The posting finds these accounts by name: "Accounts Receivable",
+-- "Accounts Payable", "Suspense", "VAT Control", "Sales" and "Opening Balance Equity".
+-- Do not change these names.
+-- Add a bank account in the app. Its ledger account is "Bank". Give its opening balance there.
 
 INSERT INTO accounting_account (company_id, code, name, type, normal_side, currency_id, is_active, description)
 SELECT c.id, a.code, a.name, a.type, a.side, a.currency, TRUE, a.description
@@ -307,6 +308,7 @@ FROM shared_company AS c, (VALUES
     ('2500', 'Income Tax Payable',                            'CL',     'C', NULL,  NULL),
     ('3000', 'Share Capital',                                 'EQ',     'C', NULL,  NULL),
     ('3100', 'Retained Earnings',                             'EQ',     'C', NULL,  NULL),
+    ('3200', 'Opening Balance Equity',                        'EQ',     'C', NULL,  'The other side of each opening balance. The posting finds it by name.'),
     ('4000', 'Sales',                                         'SALES',  'C', NULL,  'The invoices post here.'),
     ('4500', 'Interest Received',                             'OTHINC', 'C', NULL,  NULL),
     ('5000', 'Cost of Sales',                                 'COS',    'D', NULL,  'The cost of the stock that was sold.'),

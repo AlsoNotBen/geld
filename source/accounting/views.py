@@ -13,7 +13,8 @@ from accounting.models import *
 from accounting.date_range import get_range, previous_range
 from accounting.documents import AGEING_LABELS, age_bucket, standard_rate
 from accounting.forms import BankAccountForm, BillForm, CustomerForm, NoteForm, PaymentForm, SupplierForm
-from accounting.posting import CENT, PAYABLE, RECEIVABLE, VAT, _account, allocate, post_bill, post_payment
+from accounting.posting import (CENT, PAYABLE, RECEIVABLE, VAT, _account, allocate, post_bill, post_opening_document,
+                                post_payment, set_bank_opening)
 from datetime import datetime, timedelta
 from filestore.services import save_upload, validate
 
@@ -94,8 +95,13 @@ def make_lines(entry, post):
     other line holds the amount plus the tax. A rate of zero, or a debit or
     credit account that is a tax account, makes no tax line."""
     company = entry.company
-    amount = Decimal(post["amount"])
-    debit = get_object_or_404(Account, company=company, pk=post["debit_account"])
+    try:
+        amount = Decimal(post["amount"]).quantize(CENT, ROUND_HALF_UP)
+    except InvalidOperation:
+        raise ValidationError("The amount must be a number.")
+    if not amount > 0:
+        raise ValidationError("The amount must be more than zero.")
+    debit =get_object_or_404(Account, company=company, pk=post["debit_account"])
     credit = get_object_or_404(Account, company=company, pk=post["credit_account"])
     tax_code = TaxCode.objects.filter(company=company, pk=post.get("tax_code") or None).first()
     common = {
@@ -163,11 +169,19 @@ def journalentry_create(request):
     account) saves nothing, and the journals page shows the error."""
     if request.method == "POST":
         try:
+            try:
+                day = datetime.fromisoformat(request.POST["date"]).date()
+            except ValueError:
+                raise ValidationError("Give a valid date.")
+            period = Period.objects.filter(company=request.company, pk=request.POST["period"], is_closed=False,
+                                           start_date__lte=day, end_date__gte=day).first()
+            if period is None:
+                raise ValidationError("The period must be open and include the date of the entry.")
             with transaction.atomic():
                 entry = JournalEntry.objects.create(
                     company=request.company,                    # Add to every function that creates a CompanyOwned record
-                    date=request.POST["date"],
-                    period_id=request.POST["period"],
+                    date=day,
+                    period=period,
                     entry_type=request.POST["entry_type"],
                     status=JournalEntry.Status.DRAFT,
                     reference=request.POST["reference"],
@@ -191,7 +205,8 @@ def journalentry_update(request, pk):
 def journalentry_post(request, pk):
     """The Accept button. It moves one draft entry to the Posted status."""
     if request.method == "POST":
-        if JournalEntry.objects.filter(pk=pk, company=request.company, status=JournalEntry.Status.DRAFT).update(
+        if JournalEntry.objects.filter(pk=pk, company=request.company, status=JournalEntry.Status.DRAFT,
+                                       period__is_closed=False).update(
             status=JournalEntry.Status.POSTED, posted_at=timezone.now(),
         ):
             AuditLog.record(request, AuditLog.Action.POST, JournalEntry(pk=pk))
@@ -200,8 +215,8 @@ def journalentry_post(request, pk):
 def journalentry_post_all(request):
     """The Accept All button. It moves each draft entry to the Posted status."""
     if request.method == "POST":
-        ids = list(JournalEntry.objects.filter(company=request.company, status=JournalEntry.Status.DRAFT)
-                   .values_list("pk", flat=True))
+        ids = list(JournalEntry.objects.filter(company=request.company, status=JournalEntry.Status.DRAFT,
+                                               period__is_closed=False).values_list("pk", flat=True))
         JournalEntry.objects.filter(pk__in=ids, status=JournalEntry.Status.DRAFT).update(
             status=JournalEntry.Status.POSTED, posted_at=timezone.now(),
         )
@@ -820,6 +835,8 @@ def bill_create(request):
                 DocumentLine.objects.bulk_create(lines)
                 bill.files.add(*(save_upload(u, request.user) for u in uploads))
                 AuditLog.record(request, AuditLog.Action.CREATE, bill)
+                if form.cleaned_data["recurring"]:
+                    RecurringDocument.start(bill, form.cleaned_data["frequency"], request.user)
                 if bill.number == NumberSequence.peek(request.company, "bill", "BILL-"):
                     NumberSequence.take(request.company, "bill")
             return JsonResponse({"redirect": reverse("accounting:bills")})
@@ -851,10 +868,11 @@ def bill_approve_all(request):
     return redirect("accounting:bills")
 
 def bill_deny(request, pk):
-    """The Deny button of the View overlay. It voids a draft bill."""
+    """The Deny button of the View overlay. It voids a draft bill. A void bill does not recur."""
     if request.method == "POST":
         if Document.objects.filter(pk=pk, company=request.company, doc_type=Document.DocType.BILL,
                                    status=Document.Status.DRAFT).update(status=Document.Status.VOID):
+            RecurringDocument.objects.filter(template_id=pk).update(is_active=False)
             AuditLog.record(request, AuditLog.Action.VOID, Document(pk=pk))
     return redirect("accounting:bills")
 
@@ -1064,7 +1082,9 @@ def supplier_form(request, pk=None):
     """The New Supplier page, and the Edit Supplier page of an entity of the
     Suppliers page (pk). Save makes or changes the entity, its profile and
     the supplier details (see SupplierForm.save). An entity with a bill only
-    gets its supplier details here. The browser then goes to the Suppliers page."""
+    gets its supplier details here. A new supplier can have an opening
+    balance: an open bill (see post_opening_document). A problem, e.g. no open
+    period, saves nothing. The browser then goes to the Suppliers page."""
     company = request.company
     supplier = None
     if pk:
@@ -1073,12 +1093,20 @@ def supplier_form(request, pk=None):
     form = SupplierForm(request.POST or None, instance=supplier, company=company)
     if form.is_valid():
         is_new = form.instance.pk is None
-        with transaction.atomic():
-            supplier = form.save(request.user)
-            if is_new and supplier.code == NumberSequence.peek(company, "supplier", "SUP-"):
-                NumberSequence.take(company, "supplier")
-            AuditLog.record(request, AuditLog.Action.CREATE if is_new else AuditLog.Action.UPDATE, supplier)
-        return redirect("accounting:suppliers")
+        opening = form.cleaned_data.get("opening_balance")
+        try:
+            with transaction.atomic():
+                supplier = form.save(request.user)
+                if is_new and supplier.code == NumberSequence.peek(company, "supplier", "SUP-"):
+                    NumberSequence.take(company, "supplier")
+                AuditLog.record(request, AuditLog.Action.CREATE if is_new else AuditLog.Action.UPDATE, supplier)
+                if opening:
+                    bill = post_opening_document(company, supplier.entity, opening,
+                                                 form.cleaned_data["opening_date"] or timezone.localdate(), sale=False)
+                    AuditLog.record(request, AuditLog.Action.CREATE, bill)
+            return redirect("accounting:suppliers")
+        except ValidationError as error:
+            form.add_error(None, error)
     return render(request, "accounting/record_form.html", {
         "title": "Edit Supplier" if pk else "New Supplier",
         "note": "Change the details of the supplier." if pk else "Fill in the fields below to add a supplier.",
@@ -1152,21 +1180,31 @@ def bank_accounts(request):
     })
 
 def bank_account_form(request, pk=None):
-    """The New Bank Account page, and the Edit Bank Account page (pk). The
-    browser then goes to the Bank Accounts page."""
+    """The New Bank Account page, and the Edit Bank Account page (pk). A change
+    of the opening balance, its date or the ledger account posts the opening
+    balance again (see set_bank_opening). A problem, e.g. no open period,
+    saves nothing. The browser then goes to the Bank Accounts page."""
     company = request.company
     instance = get_object_or_404(BankAccount, company=company, pk=pk) if pk else None
     form = BankAccountForm(request.POST or None, instance=instance, company=company)
     if form.is_valid():
-        bank = form.save(commit=False)
-        bank.company = company                                  # Add to every function that creates a CompanyOwned record
-        bank.save()
-        AuditLog.record(request, AuditLog.Action.UPDATE if pk else AuditLog.Action.CREATE, bank)
-        return redirect("accounting:bank_accounts")
+        try:
+            with transaction.atomic():
+                bank = form.save(commit=False)
+                bank.company = company                          # Add to every function that creates a CompanyOwned record
+                bank.save()
+                if {"opening_balance", "opening_date", "account"} & set(form.changed_data):
+                    set_bank_opening(bank, form.cleaned_data["opening_balance"],
+                                     form.cleaned_data["opening_date"] or timezone.localdate())
+                AuditLog.record(request, AuditLog.Action.UPDATE if pk else AuditLog.Action.CREATE, bank)
+            return redirect("accounting:bank_accounts")
+        except ValidationError as error:
+            form.add_error(None, error)
     return render(request, "accounting/record_form.html", {
         "title": "Edit Bank Account" if pk else "New Bank Account",
         "note": "Change the details of the bank account." if pk else
-                "Fill in the fields below to add a bank account. The balance comes from the ledger account.",
+                "Fill in the fields below to add a bank account. The balance comes from the ledger account. "
+                "The opening balance posts to the ledger account on its date.",
         "form": form, "cancel_url": reverse("accounting:bank_accounts"), "page_key": "banking",
     })
 

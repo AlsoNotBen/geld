@@ -195,6 +195,20 @@
 }
 .doc-search__none { margin: 0; padding: 6px 8px; font-size: 12px; color: var(--ink-soft); }
 
+/* The full text of the selected option of a SelectWithDetails, e.g. the
+   bank details. pre-line keeps the line breaks. */
+.doc-details {
+    margin-top: 6px;
+    padding: 7px 10px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--ink);
+    white-space: pre-line;
+    border: 1px dashed var(--line-strong);
+    border-radius: var(--radius-sm);
+}
+.doc-details:empty { display: none; }
+
 /* A field that looks disabled, but stays editable. It becomes clear
    again when it gets the focus. */
 .doc-field--muted { opacity: 0.45; }

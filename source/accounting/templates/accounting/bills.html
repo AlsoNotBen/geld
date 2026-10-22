@@ -222,10 +222,20 @@
             </div>
             <div class="sheet__body sheet__body--split">
                 <div class="sheet__errors field--wide" role="alert" data-bill-errors hidden></div>
+                {% comment %} A checkbox shows as a switch, as on record_form.html.
+                     bills.js shows the frequency for a recurring bill only. {% endcomment %}
                 {% for field in bill_form %}
                 <div class="field{% if field.name == 'notes' %} field--wide{% endif %}">
                     <label class="field__label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {% if field.widget_type == "checkbox" %}
+                    <label class="switch">
+                        {{ field }}
+                        <span class="switch__track" aria-hidden="true"></span>
+                        <span class="switch__text">{{ field.help_text }}</span>
+                    </label>
+                    {% else %}
                     {{ field }}
+                    {% endif %}
                 </div>
                 {% endfor %}
 

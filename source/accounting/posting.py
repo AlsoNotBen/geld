@@ -1,9 +1,10 @@
-"""accounting/posting.py: the entries of an invoice and of a payment."""
+"""accounting/posting.py: the entries of an invoice, a payment and an opening balance."""
 from decimal import Decimal, ROUND_HALF_UP
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
-from accounting.models import Account, Document, JournalEntry, JournalLine, Payment, PaymentAllocation, Period
+from accounting.models import (Account, Document, DocumentLine, JournalEntry, JournalLine, Payment, PaymentAllocation,
+                               Period, customer_entities, supplier_entities)
 
 CENT = Decimal("0.01")
 
@@ -12,16 +13,17 @@ RECEIVABLE = "Accounts Receivable"
 PAYABLE    = "Accounts Payable"
 SUSPENSE   = "Suspense"
 VAT        = "VAT Control"
+OPENING    = "Opening Balance Equity"
 
 
-def _add(entry, account, amount, entity=None):
+def _add(entry, account, amount, entity=None, description=""):
     """Add one line. A positive amount is a debit. A negative amount is a credit."""
     amount = Decimal(amount).quantize(CENT, ROUND_HALF_UP)
     if amount == 0:
         return amount
     side = "debit" if amount > 0 else "credit"
     JournalLine.objects.create(entry=entry, account=account, currency=entry.company.base_currency, entity=entity,
-                               **{side: abs(amount), f"base_{side}": abs(amount)})
+                               description=description, **{side: abs(amount), f"base_{side}": abs(amount)})
     return amount
 
 
@@ -58,14 +60,18 @@ def post_cash_entry(payment, period, suspense):
         total = _add(entry, payment.bank_account.account, sign * payment.amount)
 
         for allocation in payment.allocations.select_related("document"):
-            share = allocation.amount / allocation.document.gross
-            for line in allocation.document.lines.select_related("tax_code"):
-                total += _add(entry, line.account, -sign * line.net_amount * share)
-                if line.tax_code:
-                    tax = line.tax_code.output_account if sign > 0 else line.tax_code.input_account
-                    total += _add(entry, tax, -sign * line.tax_amount * share)
+            document = allocation.document
+            share = allocation.amount / document.gross
+            parts = [(line.account, line.net_amount) for line in document.lines.select_related("account")]
+            parts += [((code.output_account if sign > 0 else code.input_account) or _account(payment.company, VAT), tax)
+                      for code, tax in document.tax_lines()]
+            parts = [(account, (amount * share).quantize(CENT, ROUND_HALF_UP)) for account, amount in parts]
+            account, last = parts[-1]       # The last part takes the rounding. Thus the parts make the allocation.
+            parts[-1] = (account, last + allocation.amount - sum(amount for _, amount in parts))
+            for account, amount in parts:
+                total += _add(entry, account, -sign * amount)
 
-        _add(entry, suspense, -total)  # Unallocated part and rounding.
+        _add(entry, suspense, -total)  # The unallocated part.
         payment.cash_entry = entry
         payment.save(update_fields=["cash_entry"])
     return entry
@@ -120,19 +126,33 @@ def allocate(payment):
     return paid
 
 
+def control_account(payment):
+    """The control account of a payment: Accounts Receivable for a customer,
+    Accounts Payable for a supplier, in both directions. Thus money in from a
+    supplier (e.g. a refund) changes the supplier balance. For an entity that
+    is a customer and a supplier, or neither, the direction decides: money
+    in is from a customer, money out is to a supplier."""
+    company = payment.company
+    customer = customer_entities(company).filter(pk=payment.entity_id).exists()
+    supplier = supplier_entities(company).filter(pk=payment.entity_id).exists()
+    receivable = customer if customer != supplier else payment.direction == Payment.Direction.IN
+    return _account(company, RECEIVABLE if receivable else PAYABLE)
+
+
 def post_payment(payment):
     """Write the two draft entries of a new payment.
 
-    ACCRUAL: money in is Dr Bank / Cr Accounts Receivable. Money out is
-    Dr Accounts Payable / Cr Bank. The control line keeps the entity,
-    thus the statement of the customer finds it.
+    ACCRUAL: money in is Dr Bank / Cr the control account. Money out is
+    Dr the control account / Cr Bank (see control_account). The control
+    line keeps the entity, thus the balance of the customer or supplier
+    and the statement of the customer find it.
     CASH: see post_cash_entry. Without allocations, the amount goes to
     the Suspense account.
     """
     company = payment.company
     period = _open_period(company, payment.date)
     received = payment.direction == Payment.Direction.IN
-    control = _account(company, RECEIVABLE if received else PAYABLE)
+    control = control_account(payment)
     suspense = _account(company, SUSPENSE)
     sign = 1 if received else -1
 
@@ -150,25 +170,33 @@ def post_payment(payment):
         post_cash_entry(payment, period, suspense)
 
 
-def post_invoice_entry(company, number, date, total, tax, narration="", entity=None):
-    """Write the draft ACCRUAL entry of a sales invoice. Do nothing when the invoice has an entry.
+def invoice_posted(company, number):
+    """True when the sales invoice with the number has an entry that is not void."""
+    return (JournalEntry.objects.filter(company=company, entry_type=JournalEntry.EntryType.SALES, reference=number)
+            .exclude(status=JournalEntry.Status.VOID).exists())
 
+
+def post_invoice_entry(invoice):
+    """Write the draft ACCRUAL entry of a sales invoice from its lines, as post_bill does.
+
+    Dr Accounts Receivable (gross), Cr the account of each line (net) and the output
+    tax account of each tax code (tax). Thus the entry agrees with Document.gross.
     The receivable line keeps the entity, thus the statement of the customer finds it.
     A missing account or open period raises a ValidationError that tells the user.
     """
-    entries = JournalEntry.objects.filter(company=company, entry_type=JournalEntry.EntryType.SALES, reference=number)
-    if entries.exclude(status=JournalEntry.Status.VOID).exists():
-        return None
-
+    company = invoice.company
     with transaction.atomic():
         entry = JournalEntry.objects.create(
-            company=company, date=date, period=_open_period(company, date),
+            company=company, date=invoice.date, period=_open_period(company, invoice.date),
             entry_type=JournalEntry.EntryType.SALES, basis=JournalEntry.Basis.ACCRUAL,
-            status=JournalEntry.Status.DRAFT, reference=number, narration=narration,
+            status=JournalEntry.Status.DRAFT, reference=invoice.number, narration=invoice.entity.name,
         )
-        _add(entry, _account(company, RECEIVABLE), total, entity=entity)
-        _add(entry, _account(company, "Sales"), -(total - tax))
-        _add(entry, _account(company, VAT), -tax)
+        total = Decimal(0)
+        for line in invoice.lines.select_related("account"):
+            total += _add(entry, line.account, -line.net_amount)
+        for code, tax in invoice.tax_lines():
+            total += _add(entry, code.output_account or _account(company, VAT), -tax)
+        _add(entry, _account(company, RECEIVABLE), -total, entity=invoice.entity)
     return entry
 
 
@@ -192,12 +220,65 @@ def post_bill(bill):
             reference=bill.number, narration=bill.entity.name,
         )
         total = Decimal(0)
-        for line in bill.lines.select_related("account", "tax_code__input_account"):
+        for line in bill.lines.select_related("account"):
             total += _add(entry, line.account, line.net_amount)
-            if line.tax_amount:
-                total += _add(entry, line.tax_code.input_account or _account(company, VAT), line.tax_amount)
+        for code, tax in bill.tax_lines():
+            total += _add(entry, code.input_account or _account(company, VAT), tax)
         _add(entry, payable, -total, entity=bill.entity)
         bill.journal_entry = entry
         bill.status = Document.Status.APPROVED
         bill.save(update_fields=["journal_entry", "status"])
     return entry
+
+
+def post_opening_balance(company, account, amount, date, reference, narration, entity=None,
+                         basis=JournalEntry.Basis.BOTH):
+    """Write the posted entry of an opening balance. A positive amount is a debit on the
+    account. The other side goes to Opening Balance Equity. Returns the entry."""
+    opening = _account(company, OPENING)
+    period = _open_period(company, date)
+    with transaction.atomic():
+        entry = JournalEntry.objects.create(
+            company=company, date=date, period=period, entry_type=JournalEntry.EntryType.GENERAL, basis=basis,
+            status=JournalEntry.Status.POSTED, posted_at=timezone.now(), reference=reference, narration=narration,
+        )
+        _add(entry, account, amount, entity=entity, description="Opening balance")
+        _add(entry, opening, -amount)
+    return entry
+
+
+def post_opening_document(company, entity, amount, date, sale):
+    """Keep the opening balance of a customer (sale) or a supplier as an open invoice or
+    bill. Thus a payment can pay it (see allocate), and the open documents agree with
+    the journal. The entry is Dr Accounts Receivable / Cr Opening Balance Equity, or
+    Dr Opening Balance Equity / Cr Accounts Payable. Returns the document."""
+    number = f"OB-{entity.pk}"
+    control = _account(company, RECEIVABLE if sale else PAYABLE)
+    with transaction.atomic():
+        entry = post_opening_balance(company, control, amount if sale else -amount, date, number, entity.name,
+                                     entity=entity, basis=JournalEntry.Basis.ACCRUAL)
+        document = Document.objects.create(
+            company=company, direction=Document.Direction.SALE if sale else Document.Direction.PURCHASE,
+            doc_type=Document.DocType.INVOICE if sale else Document.DocType.BILL, number=number,
+            date=date, due=date, entity=entity, currency=company.base_currency, notes="Opening balance",
+            status=Document.Status.SENT if sale else Document.Status.APPROVED, journal_entry=entry,
+        )
+        DocumentLine.objects.create(document=document, account=_account(company, OPENING),
+                                    description="Opening balance", quantity=1, unit_price=amount)
+    return document
+
+
+def set_bank_opening(bank, amount, date):
+    """Replace the opening balance of a bank account: void the old entry, then post the
+    amount on the ledger account of the bank. A negative amount is an overdraft. No
+    amount posts no entry."""
+    old = bank.opening_entry
+    if old and old.period.is_closed:
+        raise ValidationError("The period of the opening balance is closed. You cannot change it.")
+    with transaction.atomic():
+        if old:
+            old.status = JournalEntry.Status.VOID
+            old.save(update_fields=["status", "updated_at"])
+        bank.opening_entry = post_opening_balance(bank.company, bank.account, amount, date, f"OB-{bank.account.code}",
+                                                  bank.name) if amount else None
+        bank.save(update_fields=["opening_entry"])

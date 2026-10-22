@@ -2,9 +2,17 @@ import datetime
 from django import forms
 from django.utils import timezone
 from accounting.models import (Account, BankAccount, Document, Entity, Note, NumberSequence, OrganizationProfile,
-                               Payment, in_one_month)
+                               Payment, RecurringDocument, in_one_month)
 from shared.models import Supplier
 from documents.forms import SelectWithSearch
+
+
+def _opening_fields(min_value=None):
+    """The amount and the date of an opening balance. The view uses today when the date is empty."""
+    return (forms.DecimalField(label="Opening balance", required=False, min_value=min_value, max_digits=13,
+                               decimal_places=2),
+            forms.DateField(label="Opening balance date", required=False, initial=datetime.date.today,
+                            widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d")))
 
 
 class PaymentForm(forms.ModelForm):
@@ -53,7 +61,12 @@ class PaymentForm(forms.ModelForm):
 
 class BillForm(forms.ModelForm):
     """The head fields of the New Bill overlay. The view reads the lines,
-    and it sets the company, the type, the status and the currency."""
+    and it sets the company, the type, the status and the currency. A
+    recurring bill gets a RecurringDocument with the frequency."""
+
+    recurring = forms.BooleanField(label="Recurring", required=False, help_text="Recurring bill")
+    frequency = forms.ChoiceField(label="Frequency", choices=RecurringDocument.Frequency.choices,
+                                  initial=RecurringDocument.Frequency.MONTHLY)
 
     class Meta:
         model = Document
@@ -100,8 +113,10 @@ class SupplierForm(forms.ModelForm):
     email = forms.EmailField(label="Email", required=False)
     phone = forms.CharField(label="Phone", max_length=50, required=False)
     vat_number = forms.CharField(label="VAT number", max_length=50, required=False)
+    opening_balance, opening_date = _opening_fields(min_value=0)    # A new supplier only (see post_opening_document)
 
-    field_order = ["name", "code", "contact", "email", "phone", "vat_number", "terms", "bank_account"]
+    field_order = ["name", "code", "contact", "email", "phone", "vat_number", "terms", "bank_account",
+                   "opening_balance", "opening_date"]
 
     class Meta:
         model = Supplier
@@ -118,6 +133,7 @@ class SupplierForm(forms.ModelForm):
                                 vat_number=profile.tax_number if profile else "")
             if entity.type == Entity.EntityType.INDIVIDUAL:
                 del self.fields["vat_number"]
+            del self.fields["opening_balance"], self.fields["opening_date"]
         if not self.instance.pk and not self.is_bound:
             self.initial["code"] = NumberSequence.peek(company, "supplier", "SUP-")
         for field in self.fields.values():
@@ -150,7 +166,11 @@ class SupplierForm(forms.ModelForm):
 class BankAccountForm(forms.ModelForm):
     """The fields of the New Bank Account and Edit Bank Account pages. The
     ledger account is a current asset or a floating account of the chart of
-    accounts that no other bank account uses. The view sets the company."""
+    accounts that no other bank account uses. The view sets the company. The
+    opening balance comes from the opening entry (see set_bank_opening). A
+    negative opening balance is an overdraft."""
+
+    opening_balance, opening_date = _opening_fields()
 
     class Meta:
         model = BankAccount
@@ -172,6 +192,10 @@ class BankAccountForm(forms.ModelForm):
         self.fields["currency"].label_from_instance = lambda currency: f"{currency.alpha_code} · {currency.name}"
         if not self.instance.pk:
             self.initial.setdefault("currency", company.base_currency_id)
+        entry = self.instance.opening_entry
+        if entry:
+            line = entry.lines.filter(account_id=self.instance.account_id).first()
+            self.initial.update(opening_balance=line and line.debit - line.credit, opening_date=entry.date)
         for field in self.fields.values():
             field.widget.attrs["class"] = "field__control"
 

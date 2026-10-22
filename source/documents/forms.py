@@ -11,7 +11,7 @@ A module extends DocumentOptionsForm for each of its document types.
 """
 
 import json
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from django import forms
 from django.core.exceptions import ValidationError
@@ -78,6 +78,25 @@ class SelectWithAddButton(forms.Select):
             '<button type="button" class="doc-inline__add" data-doc-action="{}"'
             ' title="{}" aria-label="{}">+</button></span>',
             select, search, self.action, self.button_label, self.button_label,
+        )
+
+
+class SelectWithDetails(forms.Select):
+    """A select that shows the full text of the selected option below it,
+    e.g. the bank details of a bank account. details maps each option value
+    to its text. documents.js changes the text when the selection changes."""
+
+    details = {}
+
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        option = super().create_option(name, value, label, selected, index, subindex, attrs)
+        option["attrs"]["data-details"] = self.details.get(str(value), "")
+        return option
+
+    def render(self, name, value, attrs=None, renderer=None):
+        return format_html(
+            '{}<div class="doc-details" data-doc-details>{}</div>',
+            super().render(name, value, attrs, renderer), self.details.get(str(value), ""),
         )
 
 
@@ -204,11 +223,11 @@ class LineItemsField(forms.JSONField):
                 raise ValidationError("A quantity or a unit price is not a number.")
             if quantity < 0 or unit_price < 0:
                 raise ValidationError("A quantity or a unit price is below zero.")
-            lines.append({
+            lines.append({      # Two decimals, as DocumentLine keeps them. Thus the PDF and the ledger agree.
                 "description": description[:200],
                 "unit": str(row.get("unit", ""))[:24],
-                "quantity": quantity,
-                "unit_price": unit_price,
+                "quantity": quantity.quantize(Decimal("0.01"), ROUND_HALF_UP),
+                "unit_price": unit_price.quantize(Decimal("0.01"), ROUND_HALF_UP),
             })
         return lines
 

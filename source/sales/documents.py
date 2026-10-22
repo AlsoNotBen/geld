@@ -10,9 +10,12 @@ accounting/documents.py.
 
 from decimal import Decimal
 from django import forms
+from django.core.exceptions import ValidationError
+from django.db import transaction
 from documents.registry import register
 from accounting.documents import (SalesDocument, SalesDocumentOptionsForm,
-                                  _build_lines, _customer, _date_field, _terms_label)
+                                  _build_lines, _customer, _date_field, _sales_record, _terms_label)
+from accounting.models import AuditLog, Document
 
 
 class QuoteOptionsForm(SalesDocumentOptionsForm):
@@ -48,3 +51,17 @@ class QuoteDocument(SalesDocument):
             options["line_items"], options["tax_rate"], options["discount_rate"],
         )
         return {"options": options, "customer": _customer(options, request.company), "terms": _terms_label(options), **money}
+
+    def issue(self, request, options):
+        """Keep the quote as a Document. The due date is the Valid until date. Save keeps
+        a new quote as a draft. Download and Send (a GET, see documents/views.py) make it
+        sent. The same number again changes the quote."""
+        entity = _customer(options, request.company).get("entity")
+        if not entity:
+            raise ValidationError("Select a customer.")
+        with transaction.atomic():
+            super().issue(request, options)
+            status = Document.Status.SENT if request.method == "GET" else None
+            document, created = _sales_record(request.company, options, entity, Document.DocType.QUOTE,
+                                              options["valid_until"], status, discount=options["discount_rate"])
+            AuditLog.record(request, AuditLog.Action.CREATE if created else AuditLog.Action.UPDATE, document)

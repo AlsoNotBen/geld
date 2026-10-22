@@ -5,9 +5,10 @@ the module bar does not apply to it. The default range is the last 30 days.
 
 The page shows two kinds of figures:
   - the position at the end of the range (today at the latest): the cash,
-    the open invoices and bills, and the short-term debt
+    the open invoices and bills, the short-term debt, and the recurring
+    invoices and bills (see RecurringDocument)
   - the activity in the range: the invoices and bills that were paid in
-    full, the margin, and the audit trail
+    full, and the audit trail
 
 The open invoices and bills come from the documents and the payments that
 are allocated to them, as on the Receivables and Bills pages (see
@@ -33,7 +34,7 @@ from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 
 from accounting.models import (Account, AuditLog, BankAccount, BankTransaction, Document, JournalEntry, JournalLine,
-                               Note, Payment)
+                               Note, Payment, RecurringDocument)
 from shared.models import Supplier
 from accounting.date_range import previous_range
 from accounting.posting import PAYABLE, RECEIVABLE, SUSPENSE
@@ -520,17 +521,20 @@ def dashboard(request):
         cash = sum((max(balance.get(i, ZERO), ZERO) for i in cash_ids), ZERO)
         return cash, {part: max(value, ZERO) for part, value in parts.items()}
 
-    positions = [position(balance, totals[0]) for balance, totals in zip(balances, payable)]
-    cash, parts = positions[-1]
+    cash, parts = position(balances[-1], payable[-1][0])
     owed = sum(parts.values(), ZERO)
     committed = min(cash, owed)
 
-    # The margin from the start of the range to each day: income less expenses.
-    def moved(balance, types):
-        return sum((balance.get(a.id, ZERO) - opening.get(a.id, ZERO) for a in accounts if a.type in types), ZERO)
+    # The active recurring documents (see RecurringDocument) as (type, first day, end date, gross).
+    # A schedule counts from the date of its document until its end date.
+    schedules = [(s.template.doc_type, s.template.date, s.end_date, s.template.gross)
+                 for s in RecurringDocument.objects.filter(company=company, is_active=True)
+                 .select_related("template").prefetch_related("template__lines__tax_code")]
 
-    incomes = [-moved(balance, (T.SALES, T.OTHER_INCOME)) for balance in balances]
-    margins = [income - moved(balance, (T.COST_OF_SALES, T.EXPENSES)) for income, balance in zip(incomes, balances)]
+    def recurring(doc_type):
+        """The gross amount of the recurring documents of the type on each day."""
+        return [sum((gross for kind, first, last, gross in schedules
+                     if kind == doc_type and first <= day and not (last and last < day)), ZERO) for day in days]
 
     unit = company.base_currency_id
     bills_page = link("bills")
@@ -635,7 +639,6 @@ def dashboard(request):
         return {"label": label, "value": series[-1], "series": series, "tone": tone, "href": href, "hint": hint,
                 "points": json.dumps([[day.isoformat(), float(value)] for day, value in zip(days, series)])}
 
-    margin, income = margins[-1], incomes[-1]
     cards = [
         card("Open Invoices", [t[0] for t in receivable], "is-credit", link("receivables")),
         card("Invoices Overdue", [t[1] for t in receivable], "is-overdue", link("aging_receivables")),
@@ -645,10 +648,8 @@ def dashboard(request):
                             for day in days], "is-debit", bills_page + "?bills=paid"),
         # TODO: Claims have no model yet. Use the unpaid claims of each day when the model exists.
         card("Unpaid Claims", [ZERO] * len(days), "is-debit", link("claims")),
-        card("Immediate/Short Term Debt", [sum(p.values(), ZERO) for _, p in positions], "is-debit",
-             link("balancesheet")),
-        card("Expenses/Income Margin", margins, "is-credit" if margin >= 0 else "is-debit", link("incomestatement"),
-             f"{margin / income:.1%} of income" if income else "No income in the range"),
+        card("Recurring Invoices", recurring(Document.DocType.INVOICE), "is-credit", link("receivables")),
+        card("Recurring Bills", recurring(Document.DocType.BILL), "is-debit", bills_page),
     ]
 
     (prev_start, prev_end), moves = movement(company, accounts, invoices, bills, start, as_of)

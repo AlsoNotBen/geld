@@ -10,8 +10,9 @@ The data of the company fills the options of each document:
       customer field. _customer() reads the address and the numbers.
     - the services and the active stock items give the "Add from the
       catalog" select of the line item editor (see catalog).
-    - the base currency, the standard tax code and the first active bank
-      account give the currency, the tax rate and the payment details.
+    - the base currency and the standard tax code give the currency and
+      the tax rate. The active bank accounts give the choices of the bank
+      account field. The first one is the default (see get_options_form).
     - the posted lines of the receivable account of the customer give the
       account in the statement (see _ledger).
 """
@@ -23,10 +24,10 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Q
-from documents.forms import (DocumentOptionsForm, LineItemsField, SelectWithAddButton)
+from documents.forms import (DocumentOptionsForm, LineItemsField, SelectWithAddButton, SelectWithDetails)
 from documents.registry import DocumentType, register
 from accounting.models import *
-from accounting.posting import RECEIVABLE, post_invoice_entry
+from accounting.posting import RECEIVABLE, _account, invoice_posted, post_invoice_entry
 
 
 CENT = Decimal("0.01")
@@ -92,11 +93,13 @@ def standard_rate(company):
     return code.rate if code else ZERO
 
 
-def _bank_details(company, reference):
-    """The details of the first active bank account of the company, for a payment."""
-    bank = BankAccount.objects.filter(company=company, is_active=True).order_by("id").first()
-    if not bank:
-        return ""
+def _bank_field():
+    """The bank account of a payment. The field shows all the details of the selected account."""
+    return forms.ChoiceField(label="Bank account", required=False, widget=SelectWithDetails)
+
+
+def _bank_details(bank, reference):
+    """The details of a bank account, for a payment."""
     return "\n".join(filter(None, [
         bank.bank or bank.name,
         bank.account_number and f"Account {bank.account_number}",
@@ -173,7 +176,7 @@ class SalesDocumentOptionsForm(DocumentOptionsForm):
 
     muted_field_names = (
         "number", "issue_date", "valid_until",
-        "currency", "tax_rate", "payment_details",
+        "currency", "tax_rate", "bank_account",
     )
 
     # SalesDocument.get_options_form gives the customers, the catalog, the
@@ -232,19 +235,18 @@ class SalesDocumentOptionsForm(DocumentOptionsForm):
 
 class InvoiceOptionsForm(SalesDocumentOptionsForm):
     field_order = [
-        "pro_forma", "recurring", "number", "issue_date", "terms", "due_date", "customer", "line_items",
-        "currency", "tax_rate", "payment_details", "notes",
+        "pro_forma", "recurring", "frequency", "number", "issue_date", "terms", "due_date", "customer", "line_items",
+        "currency", "tax_rate", "bank_account", "notes",
     ]
 
     pro_forma = forms.BooleanField(label="Pro-Forma", required=False, initial=False)
     recurring = forms.BooleanField(label="Recurring Invoice", required=False, initial=False)
+    frequency = forms.ChoiceField(label="Frequency", choices=RecurringDocument.Frequency.choices,
+                                  initial=RecurringDocument.Frequency.MONTHLY,
+                                  help_text="Used only for a recurring invoice.")
     number = forms.CharField(label="Invoice number")
     issue_date = _date_field("Issue Date")     # The payment terms give the due date (see _due).
-    payment_details = forms.CharField(
-        label="Payment Details",
-        required=False,
-        widget=forms.Textarea(attrs={"rows": 4}),
-    )
+    bank_account = _bank_field()
 
 
 class StatementOptionsForm(SalesDocumentOptionsForm):
@@ -252,10 +254,10 @@ class StatementOptionsForm(SalesDocumentOptionsForm):
 
     line_items = None   # A None value removes the field of the parent form.
     tax_rate = None
-    muted_field_names = ("number", "currency", "bank_details")
+    muted_field_names = ("number", "currency", "bank_account")
     field_order = [
         "number", "start_date", "end_date", "customer", "brought_forward",
-        "terms", "due_date", "interest_rate", "currency", "bank_details", "notes",
+        "terms", "due_date", "interest_rate", "currency", "bank_account", "notes",
     ]
 
     number = forms.CharField(label="Statement number")
@@ -286,11 +288,7 @@ class StatementOptionsForm(SalesDocumentOptionsForm):
         decimal_places=2,
         help_text="Simple interest per day on each overdue amount. 0 gives no interest.",
     )
-    bank_details = forms.CharField(
-        label="Bank details",
-        required=False,
-        widget=forms.Textarea(attrs={"rows": 4}),
-    )
+    bank_account = _bank_field()
 
     def clean(self):
         data = super().clean()
@@ -315,11 +313,19 @@ class SalesDocument(DocumentType):
                 fields["line_items"].widget.catalog = catalog(company, [Item.ItemType.STOCK])
             if "tax_rate" in fields:
                 fields["tax_rate"].initial = standard_rate(company)
-            if "payment_details" in fields:
-                fields["payment_details"].initial = _bank_details(company, "the invoice number")
-            if "bank_details" in fields:
-                fields["bank_details"].initial = _bank_details(company, "the statement number")
+            if "bank_account" in fields:
+                banks = list(BankAccount.objects.filter(company=company, is_active=True).order_by("id"))
+                fields["bank_account"].choices = [("", "No bank details")] + [
+                    (str(bank.pk), " · ".join(filter(None, [bank.bank, bank.name]))) for bank in banks]
+                fields["bank_account"].initial = str(banks[0].pk) if banks else ""
+                fields["bank_account"].widget.details = {
+                    str(bank.pk): _bank_details(bank, f"the {self.key} number") for bank in banks}
         return form
+
+    def bank_details(self, request, options):
+        """The details of the selected bank account, for the PDF."""
+        bank = BankAccount.objects.filter(company=request.company, pk=options["bank_account"] or None).first()
+        return _bank_details(bank, f"the {self.key} number") if bank else ""
 
     def issue(self, request, options):
         # Take the number only when the document uses the next number. Thus a second download takes no number.
@@ -342,41 +348,55 @@ class InvoiceDocument(SalesDocument):
     def get_context(self, request, options):
         money = _build_lines(options["line_items"], options["tax_rate"])
         return {"options": options, "customer": _customer(options, request.company), "due": _due(options),
-                "terms": _terms_label(options), **money}
+                "terms": _terms_label(options), "bank_details": self.bank_details(request, options), **money}
 
     def issue(self, request, options):
+        """Keep the invoice as a Document, then post its entry from the Document (see
+        post_invoice_entry). An invoice that has an entry does not change."""
         if options["pro_forma"]:
             return
-        money = _build_lines(options["line_items"], options["tax_rate"])
-        customer = _customer(options, request.company)
-        entity = customer.get("entity")
+        entity = _customer(options, request.company).get("entity")
         if not entity:
             raise ValidationError("Select a customer.")
         with transaction.atomic():
             super().issue(request, options)
-            entry = post_invoice_entry(request.company, options["number"], options["issue_date"],
-                                       money["total"], money["tax"], narration=customer["name"], entity=entity)
-            if entry:
-                AuditLog.record(request, AuditLog.Action.CREATE, _invoice_record(request.company, options, entity, entry))
+            if invoice_posted(request.company, options["number"]):
+                return
+            document, _ = _sales_record(request.company, options, entity, Document.DocType.INVOICE, _due(options),
+                                        Document.Status.SENT)
+            document.journal_entry = post_invoice_entry(document)
+            document.save(update_fields=["journal_entry"])
+            AuditLog.record(request, AuditLog.Action.CREATE, document)
+            if options["recurring"]:
+                RecurringDocument.start(document, options["frequency"], request.user)
 
 
-def _invoice_record(company, options, entity, entry):
-    """Keep an issued invoice as a Document, linked to its entry. The statement reads its due date.
-    Returns the document."""
-    sales = Account.objects.get(company=company, name="Sales")
-    tax_code = (TaxCode.objects.filter(company=company, rate=options["tax_rate"], valid_from__lte=options["issue_date"])
-                .order_by("-valid_from").first())
-    document = Document.objects.create(
-        company=company, direction=Document.Direction.SALE, doc_type=Document.DocType.INVOICE,
-        number=options["number"], date=options["issue_date"], due=_due(options), terms=options["terms"], entity=entity,
-        status=Document.Status.SENT, currency=company.base_currency, notes=options["notes"], journal_entry=entry,
+def _sales_record(company, options, entity, doc_type, due, status=None, discount=ZERO):
+    """Keep an issued sales document (an invoice or a quote) as a Document with its lines.
+    The same number again changes the document and replaces its lines. A status of None
+    keeps the status (a new document is a draft). The statement reads the due date.
+    A tax rate must have a tax code that is valid on the issue date. Returns (document, created)."""
+    sales = _account(company, "Sales")
+    day, rate = options["issue_date"], options["tax_rate"]
+    tax_code = (TaxCode.objects.filter(company=company, rate=rate, valid_from__lte=day)
+                .filter(Q(valid_to__isnull=True) | Q(valid_to__gte=day)).order_by("-valid_from").first())
+    if rate and not tax_code:
+        raise ValidationError(f"No tax code has the rate {rate}% on {day:%d %b %Y}. Add it first.")
+    fields = {"date": day, "due": due, "terms": options["terms"], "entity": entity,
+              "currency": company.base_currency, "notes": options["notes"]}
+    if status:
+        fields["status"] = status
+    document, created = Document.objects.update_or_create(
+        company=company, direction=Document.Direction.SALE, doc_type=doc_type, number=options["number"],
+        defaults=fields,
     )
+    document.lines.all().delete()
     DocumentLine.objects.bulk_create(
         DocumentLine(document=document, account=sales, tax_code=tax_code, description=line["description"],
-                     quantity=line["quantity"], unit_price=line["unit_price"], sort_order=index)
+                     quantity=line["quantity"], unit_price=line["unit_price"], discount=discount, sort_order=index)
         for index, line in enumerate(options["line_items"])
     )
-    return document
+    return document, created
 
 
 def _ledger(company, entity):
@@ -401,12 +421,12 @@ def _ledger(company, entity):
         row = {"date": entry.date, "due": entry.date, "reference": entry.reference,
                "description": line.description or entry.get_entry_type_display(),
                "debit": line.base_debit, "credit": line.base_credit}
-        if document:
-            row.update(reference=document.number, description=document.get_doc_type_display(),
+        if document:    # The line description of an opening balance stays (see post_opening_document).
+            row.update(reference=document.number, description=line.description or document.get_doc_type_display(),
                        due=document.due or entry.date)
-        elif payment:
-            row.update(reference=payment.number,
-                       description=" — ".join(filter(None, ["Payment received", payment.reference])))
+        elif payment:   # Money out to a customer is e.g. a refund.
+            kind = "Payment received" if payment.direction == Payment.Direction.IN else "Payment made"
+            row.update(reference=payment.number, description=" — ".join(filter(None, [kind, payment.reference])))
         elif entry.entry_type == JournalEntry.EntryType.SALES:
             row["description"] = "Invoice"
         rows.append(row)
@@ -484,4 +504,5 @@ class StatementDocument(SalesDocument):
     def get_context(self, request, options):
         customer = _customer(options, request.company)
         ledger = _ledger(request.company, customer["entity"]) if customer.get("entity") else []
-        return {"options": options, "customer": customer, "terms": _terms_label(options), **_statement(ledger, options)}
+        return {"options": options, "customer": customer, "terms": _terms_label(options),
+                "bank_details": self.bank_details(request, options), **_statement(ledger, options)}

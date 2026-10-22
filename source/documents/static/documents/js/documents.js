@@ -92,6 +92,22 @@
                 terms.addEventListener("change", showDue);
                 showDue();
             }
+            // The frequency applies only to a recurring document.
+            var recurring = form.querySelector('[name="recurring"]');
+            var frequency = form.querySelector('[name="frequency"]');
+            if (recurring && frequency) {
+                var showFrequency = function () { frequency.closest(".doc-field").hidden = !recurring.checked; };
+                recurring.addEventListener("change", showFrequency);
+                showFrequency();
+            }
+            // A select with details (SelectWithDetails, see documents/forms.py)
+            // shows all the text of the selected option, e.g. the bank details.
+            form.querySelectorAll("[data-doc-details]").forEach(function (box) {
+                var select = box.previousElementSibling;
+                select.addEventListener("change", function () {
+                    box.textContent = select.options[select.selectedIndex].getAttribute("data-details");
+                });
+            });
             // Align the download link with the initial form state.
             setDownload(serialize(form));
         }

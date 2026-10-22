@@ -2,9 +2,10 @@
    bills.js  —  the New Bill overlay (#bill-dialog) of the Bills page
 
    The New Bill button opens the overlay. Add line copies the first line
-   with empty fields. The form goes to the server with fetch(), thus the
-   overlay stays open and shows the errors. After a save, the page loads
-   again and the new draft bill shows in the Review part.
+   with empty fields. The Recurring switch shows the frequency. The form
+   goes to the server with fetch(), thus the overlay stays open and shows
+   the errors. After a save, the page loads again and the new draft bill
+   shows in the Review part.
    ========================================================================== */
 (function () {
     "use strict";
@@ -17,6 +18,12 @@
     const submit = form.querySelector("[type=submit]");
     const lines = dialog.querySelector("[data-bill-lines]");
     const template = lines.querySelector("[data-bill-line]").cloneNode(true);
+
+    // The frequency applies only to a recurring bill.
+    const recurring = form.elements.recurring;
+    const frequency = form.elements.frequency.closest(".field");
+    recurring.onchange = () => { frequency.hidden = !recurring.checked; };
+    recurring.onchange();
 
     function showErrors(list) {
         errors.textContent = "";

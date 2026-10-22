@@ -264,15 +264,25 @@ class Document(CompanyOwned, TimeStamped):
 
     @property
     def net(self):
-        return sum(line.net_amount for line in self.lines.all())
+        return sum((line.net_amount for line in self.lines.all()), Decimal(0))
+
+    def tax_lines(self):
+        """The tax of each tax code as (tax_code, amount): the rate on the sum of
+        the nets of its lines, rounded one time. The invoice PDF and the journal
+        entries use the same calculation, thus the totals agree."""
+        nets = {}
+        for line in self.lines.all():
+            if line.tax_code:
+                nets[line.tax_code] = nets.get(line.tax_code, Decimal(0)) + line.net_amount
+        return [(code, (net * code.rate / 100).quantize(Decimal("0.01"), ROUND_HALF_UP)) for code, net in nets.items()]
 
     @property
     def tax(self):
-        return sum(line.tax_amount for line in self.lines.all())
+        return sum((amount for _, amount in self.tax_lines()), Decimal(0))
 
     @property
     def gross(self):
-        return Decimal(self.net + self.tax).quantize(Decimal("0.01"), ROUND_HALF_UP)
+        return self.net + self.tax
 
     @property
     def paid(self):
@@ -323,19 +333,8 @@ class DocumentLine(models.Model):
 
     @property
     def net_amount(self):
-        return self.line_total_before_discount - self.discount_amount
-
-    @property
-    def tax_amount(self):
-        if self.tax_code:
-            # Obtain the effective tax rate for the document date (simplified: use latest rate)
-            # In practice, service layer would determine exact rate.
-            return self.net_amount * (self.tax_code.rate / 100)
-        return 0
-
-    @property
-    def total_price(self):
-        return self.net_amount + self.tax_amount
+        """The net of the line, rounded to cents. The tax is on the document (see Document.tax_lines)."""
+        return (self.line_total_before_discount - self.discount_amount).quantize(Decimal("0.01"), ROUND_HALF_UP)
 
 # TODO: treat as hypersensitive and perform field level encryption for the account number or card details
 class BankAccount(CompanyOwned):
@@ -347,6 +346,7 @@ class BankAccount(CompanyOwned):
     currency       = models.ForeignKey(Currency, on_delete=models.PROTECT, related_name="+")
     account        = models.OneToOneField(Account, on_delete=models.PROTECT, related_name="bank_account")
     is_active      = models.BooleanField(default=True)
+    opening_entry  = models.OneToOneField(JournalEntry, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
 
 class Payment(CompanyOwned, TimeStamped):
     class Direction(models.TextChoices):
@@ -429,20 +429,41 @@ class DepreciationSchedule(models.Model):
     class Meta:
         unique_together = [("asset", "period")]
 
-class RecurringInvoice(CompanyOwned, TimeStamped):
+class RecurringDocument(CompanyOwned, TimeStamped):
     class Frequency(models.TextChoices):
         WEEKLY    = "W", "Weekly"
         MONTHLY   = "M", "Monthly"
         QUARTERLY = "Q", "Quarterly"
         YEARLY    = "Y", "Yearly"
 
+        def after(self, day):
+            if self == self.WEEKLY:
+                return day + datetime.timedelta(days=7)
+            
+            months      = {self.MONTHLY: 1, self.QUARTERLY: 3, self.YEARLY: 12}[self]
+            year, month = divmod(day.year * 12 + day.month - 1 + months, 12)
+            month       += 1
+
+            return datetime.date(year, month, min(day.day, calendar.monthrange(year, month)[1]))
+
     name        = models.CharField(max_length=255)
-    customer    = models.ForeignKey(Entity, on_delete=models.PROTECT, related_name="recurring_invoices")
-    template    = models.ForeignKey(Document, on_delete=models.PROTECT, related_name="+")  # must be an invoice
+    template    = models.ForeignKey(Document, on_delete=models.PROTECT, related_name="+")
     frequency   = models.CharField(max_length=1, choices=Frequency.choices)
     next_run    = models.DateField()
     end_date    = models.DateField(null=True, blank=True)
     is_active   = models.BooleanField(default=True)
+
+    @classmethod
+    def start(cls, document, frequency, user=None):
+        frequency = cls.Frequency(frequency)
+        return cls.objects.create(
+            company     = document.company, 
+            created_by  = user, 
+            template    = document, 
+            frequency   = frequency,
+            next_run    = frequency.after(document.date),
+            name        = f"{document.get_doc_type_display()} {document.number}"
+            )
 
 
 class AuditLog(CompanyOwned):

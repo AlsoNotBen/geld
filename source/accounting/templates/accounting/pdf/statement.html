@@ -159,9 +159,9 @@ Reg. no. {{ customer.registration_number }}{% endif %}</div>
 {% endif %}
 
 <div class="closing">
-    {% if options.bank_details %}
+    {% if bank_details %}
     <div class="note">
-        <div class="note__label">Bank details</div>{{ options.bank_details }}
+        <div class="note__label">Bank details</div>{{ bank_details }}
     </div>
     {% endif %}
     <table class="totals">
