@@ -6,6 +6,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import models, transaction
 from django.utils import timezone
 from shared.models import *
+from filestore.models import StoredFile
 from inventory.models import Item
 from django.conf import settings
 
@@ -57,26 +58,6 @@ class NumberSequence(CompanyOwned):
 
     def format_number(self, number):
         return f"{self.prefix}{str(number).zfill(self.padding)}"
-
-class Attachment(CompanyOwned):
-    content_type    = models.ForeignKey(ContentType, on_delete=models.CASCADE)
-    object_id       = models.PositiveIntegerField()
-    content_object  = GenericForeignKey("content_type", "object_id")
-    source          = models.CharField(max_length=255)  # e.g Receipts, Bank Statements, Emails, Handwritten note etc
-    file            = models.FileField(upload_to="attachments/%Y/%m/")
-    filename        = models.CharField(max_length=255)
-    uploaded_at     = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        indexes = [models.Index(fields=["content_type", "object_id"])]
-
-class CostCentre(CompanyOwned):
-    code      = models.CharField(max_length=20,null=False)
-    name      = models.CharField(max_length=255)
-    is_active = models.BooleanField(default=True)
-
-    class Meta:
-        unique_together = [("company", "code")]
 
 class TaxCode(CompanyOwned):
 
@@ -161,7 +142,6 @@ class JournalEntry(CompanyOwned, TimeStamped):
     basis      = models.CharField(max_length=1, choices=Basis.choices, default=Basis.BOTH)
     reference  = models.CharField(max_length=255)
     narration  = models.TextField(blank=True)
-    source     = models.ForeignKey(Attachment, on_delete=models.PROTECT, null=True, blank=True, related_name="entries")
     reverses   = models.ForeignKey("self", on_delete=models.PROTECT, null=True, blank=True, related_name="reversed_by")
     posted_at  = models.DateTimeField(null=True, blank=True)
 
@@ -183,21 +163,18 @@ class JournalEntry(CompanyOwned, TimeStamped):
         return (totals["d"] or 0) == (totals["c"] or 0)
 
 class JournalLine(models.Model):
-    entry       = models.ForeignKey(JournalEntry, on_delete=models.CASCADE, related_name="lines")
-    account     = models.ForeignKey(Account, on_delete=models.PROTECT, related_name="lines")
-    description = models.CharField(max_length=255, blank=True)
-
-    currency      = models.ForeignKey(Currency, on_delete=models.PROTECT, related_name="+")
-    exchange_rate = models.DecimalField(max_digits=18, decimal_places=8, default=1)
-    debit         = models.DecimalField(max_digits=13, decimal_places=2, default=0)
-    credit        = models.DecimalField(max_digits=13, decimal_places=2, default=0)
-    base_debit    = models.DecimalField(max_digits=13, decimal_places=2, default=0)
-    base_credit   = models.DecimalField(max_digits=13, decimal_places=2, default=0)
-
-    tax_code    = models.ForeignKey(TaxCode, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
-    entity      = models.ForeignKey(Entity, on_delete=models.PROTECT, null=True, blank=True, related_name="journal_lines")
-    cost_centre = models.ForeignKey(CostCentre, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
-    project     = models.ForeignKey(Project, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+    entry           = models.ForeignKey(JournalEntry, on_delete=models.CASCADE, related_name="lines")
+    account         = models.ForeignKey(Account, on_delete=models.PROTECT, related_name="lines")
+    description     = models.CharField(max_length=255, blank=True)
+    currency        = models.ForeignKey(Currency, on_delete=models.PROTECT, related_name="+")
+    exchange_rate   = models.DecimalField(max_digits=18, decimal_places=8, default=1)
+    debit           = models.DecimalField(max_digits=13, decimal_places=2, default=0)
+    credit          = models.DecimalField(max_digits=13, decimal_places=2, default=0)
+    base_debit      = models.DecimalField(max_digits=13, decimal_places=2, default=0)
+    base_credit     = models.DecimalField(max_digits=13, decimal_places=2, default=0)
+    tax_code        = models.ForeignKey(TaxCode, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+    entity          = models.ForeignKey(Entity, on_delete=models.PROTECT, null=True, blank=True, related_name="journal_lines")
+    project         = models.ForeignKey(Project, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
 
     class Meta:
         indexes = [models.Index(fields=["account", "entry"])]
@@ -221,12 +198,9 @@ class Service(CompanyOwned):
         unique_together = [("company", "code")]
 
 class PaymentTerms(models.TextChoices):
-    """The payment terms of a quote, an invoice or a statement. due() gives
-    the due date of a document from its date. Custom terms use the due
-    date that the user types."""
     ON_RECEIPT = "0",   "On receipt"
     DAYS_7     = "7",   "7 days"
-    DAYS_14    = "14",  "14 days"
+    DAYS_15    = "15",  "15 days"
     DAYS_30    = "30",  "30 days"
     DAYS_60    = "60",  "60 days"
     DAYS_90    = "90",  "90 days"
@@ -237,22 +211,20 @@ class PaymentTerms(models.TextChoices):
     def due(self, day, custom=None):
         if self == self.CUSTOM:
             return custom
+        
         if self not in (self.EOM, self.EOM_NEXT):
             return day + datetime.timedelta(days=int(self.value))
+        
         year, month = divmod(day.year * 12 + day.month - (1 if self == self.EOM else 0), 12)
         month += 1
         return datetime.date(year, month, calendar.monthrange(year, month)[1])
 
+# Unified model for quotes, invoices, bills, and credit notes.
 class Document(CompanyOwned, TimeStamped):
-    """
-    Unified model for quotes, invoices, bills, and credit notes.
-    Direction indicates sale or purchase.
-    DocType differentiates the exact document type.
-    """
-
+    
     class Direction(models.TextChoices):
-        SALE     = "S", "Sale"
-        PURCHASE = "P", "Purchase"
+        SALE        = "S", "Sale"
+        PURCHASE    = "P", "Purchase"
 
     class DocType(models.TextChoices):
         QUOTE       = "Q", "Quote"
@@ -261,12 +233,12 @@ class Document(CompanyOwned, TimeStamped):
         CREDIT_NOTE = "C", "Credit note"
 
     class Status(models.TextChoices):
-        DRAFT     = "D", "Draft"
-        SENT      = "S", "Sent"
-        APPROVED  = "A", "Approved"  
-        PART_PAID = "PP", "Partially paid"
-        PAID      = "P", "Paid"
-        VOID      = "V", "Void"
+        DRAFT       = "D", "Draft"
+        SENT        = "S", "Sent"
+        APPROVED    = "A", "Approved"  
+        PART_PAID   = "PP", "Partially paid"
+        PAID        = "P", "Paid"
+        VOID        = "V", "Void"
 
     direction       = models.CharField(max_length=1, choices=Direction.choices)
     doc_type        = models.CharField(max_length=1, choices=DocType.choices)
@@ -290,7 +262,6 @@ class Document(CompanyOwned, TimeStamped):
             models.Index(fields=["company", "entity", "status"]),
         ]
 
-    # Derived properties – no stored totals.
     @property
     def net(self):
         return sum(line.net_amount for line in self.lines.all())
@@ -305,12 +276,10 @@ class Document(CompanyOwned, TimeStamped):
 
     @property
     def paid(self):
-        """The sum of the payment allocations. Prefetch "allocations" for a list."""
         return sum((a.amount for a in self.allocations.all()), Decimal(0))
 
     @property
     def balance(self):
-        """The open amount: the gross less the payments."""
         return self.gross - self.paid
 
     @property
@@ -322,19 +291,13 @@ class Document(CompanyOwned, TimeStamped):
         return self.direction == self.Direction.PURCHASE
 
 class DocumentLine(models.Model):
-    """
-    A line on any document. Points at an inventory item, a service, or neither.
-    Company is inherited from the parent Document.
-    """
 
-    document   = models.ForeignKey(Document, on_delete=models.CASCADE, related_name="lines")
-    item       = models.ForeignKey(Item, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
-    service    = models.ForeignKey(Service, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
-    account    = models.ForeignKey(Account, on_delete=models.PROTECT, related_name="+")
-    tax_code   = models.ForeignKey(TaxCode, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
-    cost_centre = models.ForeignKey(CostCentre, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
-    project    = models.ForeignKey(Project, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
-
+    document    = models.ForeignKey(Document, on_delete=models.CASCADE, related_name="lines")
+    item        = models.ForeignKey(Item, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+    service     = models.ForeignKey(Service, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+    account     = models.ForeignKey(Account, on_delete=models.PROTECT, related_name="+")
+    tax_code    = models.ForeignKey(TaxCode, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+    project     = models.ForeignKey(Project, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
     description = models.CharField(max_length=255)
     quantity    = models.DecimalField(max_digits=12, decimal_places=2)
     unit_price  = models.DecimalField(max_digits=13, decimal_places=2)
@@ -350,7 +313,6 @@ class DocumentLine(models.Model):
             ),
         ]
 
-    # Derived fields – no stored totals.
     @property
     def line_total_before_discount(self):
         return self.quantity * self.unit_price
@@ -375,8 +337,9 @@ class DocumentLine(models.Model):
     def total_price(self):
         return self.net_amount + self.tax_amount
 
+# TODO: treat as hypersensitive and perform field level encryption for the account number or card details
 class BankAccount(CompanyOwned):
-    bank           = models.CharField(max_length=100, blank=True)     # The name of the bank, e.g. First National Bank
+    bank           = models.CharField(max_length=100, blank=True)
     name           = models.CharField(max_length=255)
     account_number = models.CharField(max_length=50, blank=True)
     sort_code      = models.CharField(max_length=20, blank=True)
@@ -401,7 +364,7 @@ class Payment(CompanyOwned, TimeStamped):
     reference     = models.CharField(max_length=255, blank=True)
     journal_entry = models.OneToOneField(JournalEntry, on_delete=models.PROTECT, null=True, blank=True, related_name="payment")      # ACCRUAL: Dr Bank / Cr AR
     cash_entry    = models.OneToOneField(JournalEntry, on_delete=models.PROTECT, null=True, blank=True, related_name="cash_payment") # CASH: see accounting/posting.py
-    files         = models.ManyToManyField("filestore.StoredFile", blank=True, related_name="+")                                    # Proof of payment
+    files         = models.ManyToManyField("filestore.StoredFile", blank=True, related_name="+")                                     # Proof of payment
 
     class Meta:
         unique_together = [("company", "number")]
@@ -429,7 +392,6 @@ class BankTransaction(CompanyOwned):
     reconciled    = models.BooleanField(default=False)
     payment       = models.ForeignKey(Payment, on_delete=models.SET_NULL, null=True, blank=True, related_name="bank_lines")
     journal_entry = models.ForeignKey(JournalEntry, on_delete=models.SET_NULL, null=True, blank=True, related_name="bank_lines")
-    source        = models.ForeignKey(Attachment, on_delete=models.PROTECT, null=True, blank=True, related_name="bank_lines")
 
     class Meta:
         unique_together = [("bank_account", "external_id")]
@@ -437,8 +399,8 @@ class BankTransaction(CompanyOwned):
 
 class FixedAsset(CompanyOwned, TimeStamped):
     class Method(models.TextChoices):
-        STRAIGHT_LINE = "SL", "Straight line"
-        REDUCING      = "RB", "Reducing balance"
+        STRAIGHT_LINE   = "SL", "Straight line"
+        REDUCING        = "RB", "Reducing balance"
 
     code                = models.CharField(max_length=50)
     name                = models.CharField(max_length=255)
@@ -467,111 +429,6 @@ class DepreciationSchedule(models.Model):
     class Meta:
         unique_together = [("asset", "period")]
 
-# TODO: this doesn't have anything to do with accounting, move to Inventory
-class StockMovement(CompanyOwned):
-    class Method(models.TextChoices):
-        FIFO    = "FIFO", "First in, first out"
-        AVERAGE = "AVG", "Weighted average"
-
-    class Direction(models.TextChoices):
-        IN         = "IN", "In"
-        OUT        = "OUT", "Out"
-        ADJUSTMENT = "ADJ", "Adjustment"
-
-    item          = models.ForeignKey(Item, on_delete=models.PROTECT, related_name="movements")
-    date          = models.DateField()
-    direction     = models.CharField(max_length=3, choices=Direction.choices)
-    quantity      = models.DecimalField(max_digits=12, decimal_places=4)
-    unit_cost     = models.DecimalField(max_digits=13, decimal_places=4)
-    total_cost    = models.DecimalField(max_digits=13, decimal_places=2)
-    method        = models.CharField(max_length=4, choices=Method.choices, default=Method.AVERAGE)
-    journal_entry = models.ForeignKey(JournalEntry, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
-
-    class Meta:
-        indexes = [models.Index(fields=["company", "item", "date"])]
-
-
-class Budget(CompanyOwned):
-    name        = models.CharField(max_length=255)
-    fiscal_year = models.ForeignKey(FiscalYear, on_delete=models.CASCADE, related_name="budgets")
-    is_active   = models.BooleanField(default=True)
-
-    class Meta:
-        unique_together = [("company", "name", "fiscal_year")]
-
-
-class BudgetLine(models.Model):
-    budget      = models.ForeignKey(Budget, on_delete=models.CASCADE, related_name="lines")
-    account     = models.ForeignKey(Account, on_delete=models.PROTECT, related_name="+")
-    period      = models.ForeignKey(Period, on_delete=models.PROTECT, related_name="+")
-    cost_centre = models.ForeignKey(CostCentre, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
-    amount      = models.DecimalField(max_digits=13, decimal_places=2)
-
-    class Meta:
-        unique_together = [("budget", "account", "period", "cost_centre")]
-
-class Supplier(CompanyOwned, TimeStamped):
-    """The details of an entity that sells to the business. The Suppliers
-    page also shows each entity with a bill, without these details."""
-
-    class Terms(models.TextChoices):
-        DAYS_30    = "30", "30 days"
-        DAYS_15    = "15", "15 days"
-        MONTHLY    = "M", "Monthly"
-        ON_RECEIPT = "R", "On receipt"
-
-    entity       = models.OneToOneField(Entity, on_delete=models.PROTECT, related_name="supplier")
-    code         = models.CharField(max_length=20)
-    contact      = models.CharField(max_length=255, blank=True)     # The contact person
-    terms        = models.CharField(max_length=2, choices=Terms.choices, default=Terms.DAYS_30)
-    bank_account = models.CharField(max_length=255, blank=True)     # The bank details for a payment
-
-    class Meta:
-        unique_together = [("company", "code")]
-
-    def __str__(self):
-        return self.code
-
-# TODO: move this model to the Sales app
-class Lead(CompanyOwned,TimeStamped):
-    # Temperature scale to measure (subjectively qualify) a lead's enthusiasm about the product
-    class Temperature(models.TextChoices):
-        ICE         = "I"   ,"Ice"
-        COLD        = "CD"  ,"Cold"
-        COOL        = "CL"  ,"Cool"
-        NEUTRAL     = "N"   ,"Neutral"
-        LUKEWARM    = "LW"  ,"Lukewarm"
-        WARM        = "W"   ,"Warm" 
-        HOT         = "H"   ,"Hot"
-
-    class LeadStatus(models.TextChoices):
-        NEW         = "NL", "New Lead"
-        OPEN        = "OL", "Open Lead"
-        QUOTED      = "QO", "Quoted Lead"
-        IN_PROGRESS = "IP", "In Progress"
-        LOST        = "LL", "Lost Lead"
-        WON         = "WL", "Won Lead"
-
-    class SaleStage(models.TextChoices):
-        NEW         = "N", "New"
-        PROSPECTED  = "P", "Prospected"
-        QUALIFIED   = "Q", "Qualified"
-        ENGAGED     = "E", "Engaged"
-        AWAITING    = "A", "Awaiting"
-        CLOSED      = "C", "Closed"
-
-    entity              = models.ForeignKey(Entity,on_delete=models.PROTECT,related_name="leads")
-    source              = models.ForeignKey(Source,on_delete=models.SET_NULL,null=True,blank=True)
-    description         = models.TextField(max_length=1000, null=True, blank=True)
-    status              = models.CharField(choices=LeadStatus.choices, default=LeadStatus.NEW)
-    stage               = models.CharField(choices=SaleStage.choices, default=SaleStage.NEW)
-    size                = models.IntegerField(null=True,blank=True,default=1)
-    qualifying_score    = models.SmallIntegerField(null=True,blank=True)
-    temperature         = models.CharField(choices=Temperature.choices, default=Temperature.NEUTRAL)
-    responsiveness      = models.DateTimeField(null=True,blank=True)
-    turn                = models.BooleanField(default=False)
-    
-
 class RecurringInvoice(CompanyOwned, TimeStamped):
     class Frequency(models.TextChoices):
         WEEKLY    = "W", "Weekly"
@@ -579,13 +436,13 @@ class RecurringInvoice(CompanyOwned, TimeStamped):
         QUARTERLY = "Q", "Quarterly"
         YEARLY    = "Y", "Yearly"
 
-    name      = models.CharField(max_length=255)
-    customer  = models.ForeignKey(Entity, on_delete=models.PROTECT, related_name="recurring_invoices")
-    template  = models.ForeignKey(Document, on_delete=models.PROTECT, related_name="+")  # must be an invoice
-    frequency = models.CharField(max_length=1, choices=Frequency.choices)
-    next_run  = models.DateField()
-    end_date  = models.DateField(null=True, blank=True)
-    is_active = models.BooleanField(default=True)
+    name        = models.CharField(max_length=255)
+    customer    = models.ForeignKey(Entity, on_delete=models.PROTECT, related_name="recurring_invoices")
+    template    = models.ForeignKey(Document, on_delete=models.PROTECT, related_name="+")  # must be an invoice
+    frequency   = models.CharField(max_length=1, choices=Frequency.choices)
+    next_run    = models.DateField()
+    end_date    = models.DateField(null=True, blank=True)
+    is_active   = models.BooleanField(default=True)
 
 
 class AuditLog(CompanyOwned):
@@ -611,10 +468,7 @@ class AuditLog(CompanyOwned):
 
     @classmethod
     def record(cls, request, action, *objects):
-        """Write one row for each object: the user of the request did the
-        action to it. The activity stream of the Overview shows the rows."""
-        cls.objects.bulk_create(cls(company=request.company, content_object=obj, action=action, user=request.user)
-                                for obj in objects)
+        cls.objects.bulk_create(cls(company=request.company, content_object=obj, action=action, user=request.user) for obj in objects)
 
 
 def in_one_month():
@@ -625,12 +479,6 @@ def in_one_month():
     return today.replace(year=year, month=month, day=min(today.day, calendar.monthrange(year, month)[1]))
 
 class Note(CompanyOwned, TimeStamped):
-    """A note on one page, e.g. the balance sheet. A comment shows on the
-    page only. A footnote also goes into the annual financial statements.
-    The note keeps the page and its date range at the time of capture.
-    It shows on that page until its expiry date, or always if it is permanent.
-    An internal note shows only to the user who wrote it. A public note
-    shows to all users of the company."""
 
     class Kind(models.TextChoices):
         COMMENT  = "C", "Comment"
@@ -642,14 +490,14 @@ class Note(CompanyOwned, TimeStamped):
 
     kind         = models.CharField(max_length=1, choices=Kind.choices, default=Kind.COMMENT)
     visibility   = models.CharField(max_length=1, choices=Visibility.choices, default=Visibility.PUBLIC)
-    page         = models.CharField(max_length=100)                    # The view name, e.g. "accounting:balancesheet"
-    range_start  = models.DateField()                                  # The date range of the page at capture
+    page         = models.CharField(max_length=100)                    
+    range_start  = models.DateField()                                  
     range_end    = models.DateField()
     title        = models.CharField(max_length=255)
-    body         = models.TextField(blank=True)                        # Rich text (HTML). The rich_text filter cleans it.
+    body         = models.TextField(blank=True)                        
     expires_on   = models.DateField(default=in_one_month)
-    is_permanent = models.BooleanField(default=False)                  # A permanent note does not expire
-    files        = models.ManyToManyField("filestore.StoredFile", blank=True, related_name="+")  # Supporting files
+    is_permanent = models.BooleanField(default=False)                  
+    files        = models.ManyToManyField("filestore.StoredFile", blank=True, related_name="+") 
 
     class Meta:
         ordering = ["created_at"]
@@ -660,21 +508,18 @@ class Note(CompanyOwned, TimeStamped):
 
     @classmethod
     def active(cls, company, page, user):
-        """The notes of one page that did not expire and that the user can see."""
         return cls.objects.filter(company=company, page=page).filter(
             models.Q(is_permanent=True) | models.Q(expires_on__gte=timezone.localdate())).filter(
             models.Q(visibility=cls.Visibility.PUBLIC) | models.Q(created_by=user))
 
 
 def customer_entities(company):
-    """The customers of the company: the entities with a lead or with a sales document."""
     return (Entity.objects.filter(company=company)
             .filter(models.Q(leads__isnull=False) | models.Q(documents__direction=Document.Direction.SALE))
             .distinct().order_by("name"))
 
 
 def supplier_entities(company):
-    """The suppliers of the company: the entities with supplier details or with a bill."""
     return (Entity.objects.filter(company=company)
             .filter(models.Q(supplier__isnull=False) | models.Q(documents__doc_type=Document.DocType.BILL))
             .distinct().order_by("name"))

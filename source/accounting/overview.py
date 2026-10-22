@@ -33,7 +33,8 @@ from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 
 from accounting.models import (Account, AuditLog, BankAccount, BankTransaction, Document, JournalEntry, JournalLine,
-                               Note, Payment, Supplier)
+                               Note, Payment)
+from shared.models import Supplier
 from accounting.date_range import previous_range
 from accounting.posting import PAYABLE, RECEIVABLE, SUSPENSE
 from accounting.views import ZERO, cash_account_ids, movements, posted_lines, tax_account_ids

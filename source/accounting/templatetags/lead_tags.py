@@ -2,7 +2,8 @@
 
 from django import template
 from django.contrib.auth import get_user_model
-from accounting.models import Lead, BusinessRole, Title, Industry
+from accounting.models import BusinessRole, Title, Industry
+from sales.models import Lead
 
 register = template.Library()
 

@@ -1,4 +1,5 @@
 from django.db import models
+from shared.models import *
 import uuid
 
 # Generic class for Inventory. Specific types are determined by their relation
@@ -68,3 +69,24 @@ class StockTakeSchedule(models.Model):
     start_date      = models.DateField()
     next_due        = models.DateField()
     active          = models.BooleanField(default=True)
+
+class StockMovement(CompanyOwned):
+    class Method(models.TextChoices):
+        FIFO    = "FIFO", "First in, first out"
+        AVERAGE = "AVG", "Weighted average"
+
+    class Direction(models.TextChoices):
+        IN         = "IN", "In"
+        OUT        = "OUT", "Out"
+        ADJUSTMENT = "ADJ", "Adjustment"
+
+    item          = models.ForeignKey(Item, on_delete=models.PROTECT, related_name="movements")
+    date          = models.DateField()
+    direction     = models.CharField(max_length=3, choices=Direction.choices)
+    quantity      = models.DecimalField(max_digits=12, decimal_places=4)
+    unit_cost     = models.DecimalField(max_digits=13, decimal_places=4)
+    total_cost    = models.DecimalField(max_digits=13, decimal_places=2)
+    method        = models.CharField(max_length=4, choices=Method.choices, default=Method.AVERAGE)
+
+    class Meta:
+        indexes = [models.Index(fields=["company", "item", "date"])]

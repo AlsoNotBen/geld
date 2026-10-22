@@ -6,14 +6,20 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from accounting.date_range import get_range
-from accounting.models import (Document, Entity, IndividualProfile, Lead, OrganizationProfile, customer_entities,
-                               supplier_entities)
+from accounting.models import (Document, Entity, IndividualProfile, OrganizationProfile, customer_entities,supplier_entities)
+from sales.models import Lead
 from accounting.views import ZERO, open_invoices, receivable_balances
 
 
-# ___________________________________LEADS___________________________________________#
-RESPONSE_WINDOW = timedelta(days=7)     # The Responsiveness gauge is empty after this time.
-TEMPERATURES = Lead.Temperature.values  # From Ice to Hot, thus the index gives the level.
+RESPONSE_WINDOW = timedelta(days=7)     
+TEMPERATURES    = Lead.Temperature.values 
+
+QUOTE_TABS = {
+    "open":     [Document.Status.DRAFT, Document.Status.SENT],
+    "accepted": [Document.Status.APPROVED, Document.Status.PART_PAID, Document.Status.PAID],
+    "closed":   [Document.Status.VOID],
+}
+
 STATUS_TONE = {
     Lead.LeadStatus.NEW:         "busy",
     Lead.LeadStatus.OPEN:        "ok",
@@ -23,42 +29,72 @@ STATUS_TONE = {
     Lead.LeadStatus.WON:         "ok",
 }
 
+DOCUMENT_TONE = {
+    Document.Status.DRAFT:     "idle",
+    Document.Status.SENT:      "busy",
+    Document.Status.APPROVED:  "ok",
+    Document.Status.PART_PAID: "low",
+    Document.Status.PAID:      "ok",
+    Document.Status.VOID:      "out",
+}
+
+
+
+def total(items, attr):
+    return sum((getattr(item, attr) for item in items), ZERO)
+
+
 def card_data(lead, now):
-    """Put the data of the card on the lead: the names, the status tone,
-    the values of the edit form, and the level (0 to 100) and the text
-    of each gauge."""
-    entity, owner = lead.entity, lead.entity.owner
-    ind = getattr(entity, "individual_profile", None)
-    org = getattr(entity, "organization_profile", None)
-    lead.name = entity.display_name or entity.name
+    entity          = lead.entity
+    owner           = lead.entity.owner
+    ind             = getattr(entity, "individual_profile", None)
+    org             = getattr(entity, "organization_profile", None)
+    lead.name       = entity.display_name or entity.name
     lead.owner_name = (owner.get_full_name() or owner.username) if owner else ""
-    lead.form_json = json.dumps({
-        "name": entity.name, "type": entity.type, "owner": entity.owner_id,
-        "email": entity.email, "phone": entity.phone, "address": entity.address,
-        "description": lead.description, "stage": lead.stage, "status": lead.status,
-        "size": lead.size, "qualifying_score": lead.qualifying_score,
-        "temperature": lead.temperature, "turn": "yours" if lead.turn else "theirs",
-        "responsiveness": timezone.localtime(lead.responsiveness).strftime("%Y-%m-%dT%H:%M")
-                          if lead.responsiveness else None,
-        # The values of the profile fields. The form shows them by type.
-        "lastname": ind and ind.last_name, "birthdate": ind and ind.date_of_birth,
-        "role": ind and ind.role_id, "title": ind and ind.title_id,
-        "taxnumber": org and org.tax_number, "registration": org and org.registration_number,
-        "url": org and org.url, "industry": org and org.industry_id,
-    }, default=str)
-    lead.tone = STATUS_TONE.get(lead.status, "idle")
-    if lead.size is not None:
-        lead.size_level = min(100, round(lead.size / 10))       # 1 to 1000
+    lead.tone       = STATUS_TONE.get(lead.status, "idle")
     lead.temp_level = TEMPERATURES.index(lead.temperature) * 100 // (len(TEMPERATURES) - 1)
+
+    if lead.size is not None:
+        lead.size_level = min(100, round(lead.size / 10))
+    
     if lead.responsiveness:
         left = lead.responsiveness + RESPONSE_WINDOW - now
         lead.resp_level = min(100, max(0, round(left / RESPONSE_WINDOW * 100)))
         lead.resp_left = f"{left.days}d {left.seconds // 3600}h" if left > timedelta(0) else "Expired"
 
+    lead.form_json  = json.dumps({
+        "name": entity.name, 
+        "type": entity.type, 
+        "owner": entity.owner_id,
+        "email": entity.email, 
+        "phone": entity.phone, 
+        "address": entity.address,
+        "description": lead.description, 
+        "stage": lead.stage, 
+        "status": lead.status,
+        "size": lead.size, 
+        "qualifying_score": lead.qualifying_score,
+        "temperature": lead.temperature, 
+        "turn": "yours" if lead.turn else "theirs",
+        "responsiveness": timezone.localtime(lead.responsiveness).strftime("%Y-%m-%dT%H:%M")
+                          if lead.responsiveness else None,
+        "lastname": ind and ind.last_name, 
+        "birthdate": ind and ind.date_of_birth,
+        "role": ind and ind.role_id, 
+        "title": ind and ind.title_id,
+        "taxnumber": org and org.tax_number, 
+        "registration": org and org.registration_number,
+        "url": org and org.url, 
+        "industry": org and org.industry_id,
+    }, default=str)
+
+    
+
+
 def leads(request):
-    now = timezone.now()
-    rows = list(Lead.objects.filter(company=request.company).select_related(
-        "entity__owner", "entity__individual_profile", "entity__organization_profile").order_by("-id"))
+    now     = timezone.now()
+    rows    = list(Lead.objects.filter(company=request.company).select_related("entity__owner", "entity__individual_profile", "entity__organization_profile").order_by("-id"))
+    
     for lead in rows:
         card_data(lead, now)
 
@@ -146,20 +182,6 @@ def lead_stage(request, pk):
 
 # ___________________________________DOCUMENTS_______________________________________#
 # The tone of the status pill of a document (see .status--* in accounting.css).
-DOCUMENT_TONE = {
-    Document.Status.DRAFT:     "idle",
-    Document.Status.SENT:      "busy",
-    Document.Status.APPROVED:  "ok",
-    Document.Status.PART_PAID: "low",
-    Document.Status.PAID:      "ok",
-    Document.Status.VOID:      "out",
-}
-# The tabs of the Quotes page. An approved quote is accepted. A void quote is closed.
-QUOTE_TABS = {
-    "open":     [Document.Status.DRAFT, Document.Status.SENT],
-    "accepted": [Document.Status.APPROVED, Document.Status.PART_PAID, Document.Status.PAID],
-    "closed":   [Document.Status.VOID],
-}
 
 def sales_documents(company, limit=None, **filters):
     """The sales documents of the company, the newest first. Each gets the tone of its status."""
@@ -171,27 +193,40 @@ def sales_documents(company, limit=None, **filters):
     return documents
 
 def dashboard(request):
-    """The position of the sales today: the open quotes and the open invoices.
-    The credit notes are the credit notes of the date range that are not void.
-    A credit note without an invoice is open credit."""
-    _, start, end = get_range(request)
-    company = request.company
-    today = timezone.localdate()
-    invoices = open_invoices(company)
-    late = sorted((i for i in invoices if i.due and i.due < today), key=lambda i: i.due)
-    credits = [c for c in sales_documents(company, doc_type=Document.DocType.CREDIT_NOTE, date__range=(start, end))
-               if c.status != Document.Status.VOID]
+
+    _, start, end   = get_range(request)
+    company         = request.company
+    today           = timezone.localdate()
+    invoices        = open_invoices(company)
+
+    late = sorted(
+        (i for i in invoices if i.due and i.due < today),
+        key=lambda i: i.due,
+    )
+
+    credits = [
+        c for c in sales_documents(
+            company,
+            doc_type=Document.DocType.CREDIT_NOTE,
+            date__range=(start, end),
+        )
+        if c.status != Document.Status.VOID
+    ]
     open_credits = [c for c in credits if not c.source_doc_id]
+
     return render(request, "sales/dashboard.html", {
-        "open_quotes": sum((q.gross for q in sales_documents(company, doc_type=Document.DocType.QUOTE,
-                                                             status__in=QUOTE_TABS["open"])), ZERO),
-        "unpaid": sum((i.balance for i in invoices), ZERO),
+        "open_quotes": total(
+            sales_documents(company, doc_type=Document.DocType.QUOTE,
+                            status__in=QUOTE_TABS["open"]),
+            "gross",
+        ),
+        "unpaid": total(invoices, "balance"),
         "late": late,
-        "overdue": sum((i.balance for i in late), ZERO),
+        "overdue": total(late, "balance"),
         "oldest_days": (today - late[0].due).days if late else None,
-        "credit_total": sum((c.gross for c in credits), ZERO),
+        "credit_total": total(credits, "gross"),
         "open_credits": open_credits,
-        "open_credit_total": sum((c.gross for c in open_credits), ZERO),
+        "open_credit_total": total(open_credits, "gross"),
         "partner_count": customer_entities(company).filter(is_active=True).count(),
         "recent": sales_documents(company, limit=6),
     })
@@ -203,8 +238,8 @@ def quotes(request):
     tabs = {key: [q for q in rows if q.status in statuses] for key, statuses in QUOTE_TABS.items()}
     return render(request, "sales/quotes.html", {
         **{f"{key}_quotes": documents for key, documents in tabs.items()},
-        "open_total": sum((q.gross for q in tabs["open"]), ZERO),
-        "accepted_total": sum((q.gross for q in tabs["accepted"]), ZERO),
+        "open_total": total(tabs["open"], "gross"),
+        "accepted_total": total(tabs["accepted"], "gross"),
     })
 
 def credit_notes(request):

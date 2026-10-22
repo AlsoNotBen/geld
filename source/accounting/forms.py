@@ -2,7 +2,8 @@ import datetime
 from django import forms
 from django.utils import timezone
 from accounting.models import (Account, BankAccount, Document, Entity, Note, NumberSequence, OrganizationProfile,
-                               Payment, Supplier, in_one_month)
+                               Payment, in_one_month)
+from shared.models import Supplier
 from documents.forms import SelectWithSearch
 
 

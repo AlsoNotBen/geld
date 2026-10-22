@@ -7,8 +7,7 @@ The pages of the Inventory module. The data comes from three models:
                       company sees all the items.
     ItemRelationship  a parent, a child, a type and a quantity. A kit is
                       an item that contains other items (see contents).
-    StockMovement     a movement of the stock of the company (in the
-                      Accounting module). The quantity on hand and the
+    StockMovement     a movement of the stock of the company. The quantity on hand and the
                       value of an item come from its movements (see
                       stock_levels).
 
@@ -17,18 +16,15 @@ code format yet. Thus the pages show no figures for them.
 """
 import datetime
 from decimal import Decimal
-
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Case, Count, DecimalField, F, Q, Sum, When
 from django.shortcuts import redirect, render
 from django.utils import timezone
-
-from accounting.models import StockMovement
 from filestore.services import save_upload, validate
 from .forms import ItemForm
-from .models import Item, ItemRelationship, StockTakeSchedule
+from .models import Item, ItemRelationship, StockTakeSchedule, StockMovement
 
 ZERO = Decimal("0")
 T = Item.ItemType
@@ -78,11 +74,11 @@ def with_status(items):
 
 
 def movement_rows(company, limit=None, **filters):
-    """The last stock movements, the newest first: the date, the reference of
-    the journal entry, the text and the change with its sign."""
+    """The last stock movements, the newest first: the date, the text and
+    the change with its sign. A movement has no reference."""
     movements = (StockMovement.objects.filter(company=company, **filters)
-                 .select_related("item", "journal_entry").order_by("-date", "-id")[:limit])
-    return [{"date": m.date, "reference": m.journal_entry.reference if m.journal_entry else "",
+                 .select_related("item").order_by("-date", "-id")[:limit])
+    return [{"date": m.date, "reference": "",
              "text": f"{MOVED[m.direction]} · {m.item.name}",
              "change": -m.quantity if m.direction == D.OUT else m.quantity} for m in movements]
 

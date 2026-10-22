@@ -73,21 +73,19 @@ class BusinessRole(models.Model):
     
 # Table used for multi-tenancy support (i.e owned/managed companies), not be be confused with Entity -> Organizations (Customers/Suppliers)
 class Company(models.Model):
-    # The reports show the journal entries of this basis (see JournalEntry.Basis)
     class Basis(models.TextChoices):
         ACCRUAL = "A", "Accrual"
         CASH    = "C", "Cash"
 
-    name            = models.CharField(max_length=255)
-    slug            = models.SlugField(unique=True)
-    tax_number      = models.CharField(max_length=50, blank=True)
-    base_currency   = models.ForeignKey(Currency, on_delete=models.PROTECT, related_name="+")
-    accounting_basis = models.CharField(max_length=1, choices=Basis.choices, default=Basis.ACCRUAL)
-    # Money in without an invoice reference pays the oldest open invoices of the customer (see accounting/posting.py allocate)
-    allocate_to_oldest = models.BooleanField("Allocate unreferenced to oldest invoices", default=False)
-    address         = models.TextField(blank=True, help_text="The Accounting Overview shows this address on a map.")
-    is_active       = models.BooleanField(default=True)
-    created_at      = models.DateTimeField(auto_now_add=True)
+    name                = models.CharField(max_length=255)
+    slug                = models.SlugField(unique=True)
+    tax_number          = models.CharField(max_length=50, blank=True)
+    base_currency       = models.ForeignKey(Currency, on_delete=models.PROTECT, related_name="+")
+    accounting_basis    = models.CharField(max_length=1, choices=Basis.choices, default=Basis.ACCRUAL)
+    allocate_to_oldest  = models.BooleanField("Allocate unreferenced to oldest invoices", default=False)
+    address             = models.TextField(blank=True, help_text="The Accounting Overview shows this address on a map.") #TODO: remove this. gets complicated when a company has multiple locations
+    is_active           = models.BooleanField(default=True)
+    created_at          = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering            = ["name"]
@@ -170,6 +168,26 @@ class OrganizationProfile(models.Model):
     registration_number = models.CharField(max_length=50,null=True,blank=True)
     url                 = models.CharField(max_length=250,null=True,blank=True)
     industry            = models.ForeignKey(Industry,on_delete=models.SET_NULL,null=True,blank=True)
+
+class Supplier(CompanyOwned, TimeStamped):
+
+    class Terms(models.TextChoices):
+        DAYS_30    = "30", "30 days"
+        DAYS_15    = "15", "15 days"
+        MONTHLY    = "M", "Monthly"
+        ON_RECEIPT = "R", "On receipt"
+
+    entity       = models.OneToOneField(Entity, on_delete=models.PROTECT, related_name="supplier")
+    code         = models.CharField(max_length=20)
+    contact      = models.CharField(max_length=255, blank=True)     # The contact person
+    terms        = models.CharField(max_length=2, choices=Terms.choices, default=Terms.DAYS_30)
+    bank_account = models.CharField(max_length=255, blank=True)     # The bank details for a payment
+
+    class Meta:
+        unique_together = [("company", "code")]
+
+    def __str__(self):
+        return self.code
 
 class Project(CompanyOwned):
     code       = models.CharField(max_length=20)

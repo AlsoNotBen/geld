@@ -73,3 +73,5 @@ class ProjectAdmin(admin.ModelAdmin):
     search_fields = ("code", "name", "customer__display_name")
     autocomplete_fields = ("company", "customer")
     ordering = ("company", "code")
+
+admin.site.register(Supplier)
