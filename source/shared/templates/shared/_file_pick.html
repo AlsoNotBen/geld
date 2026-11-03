@@ -1,0 +1,23 @@
+{% comment %}
+  A file input with the look of a .tool button. The native input is hidden
+  but stays in the tab order. base.js shows the name of the selected file,
+  and in an .avatar-field it shows the image in the .avatar.
+  Parameters: field (a Django form field), or input_id and name;
+  has_avatar shows the Remove button. Remove sets avatar_clear to 1: the
+  view then removes the avatar (filestore.services.update_avatar).
+  Example:
+    <div class="avatar-field">{% verbatim %}{% avatar entity "lg" %}{% include "shared/_file_pick.html" with field=form.avatar %}{% endverbatim %}</div>
+{% endcomment %}
+<span class="file-pick">
+    {% if field %}{{ field }}{% else %}<input class="file-input" id="{{ input_id }}" name="{{ name }}" type="file" accept=".png,.jpg,.jpeg,.webp,.gif">{% endif %}
+    <label class="tool" for="{% if field %}{{ field.id_for_label }}{% else %}{{ input_id }}{% endif %}">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15V3" stroke-linecap="round"/><path d="m7 8 5-5 5 5" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 15v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4" stroke-linecap="round"/></svg>
+        Choose image
+    </label>
+    <button class="tool tool--ghost file-pick__remove" type="button" data-file-remove{% if not has_avatar %} hidden{% endif %}>
+        <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V4h6v3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Remove
+    </button>
+    <input type="hidden" name="avatar_clear" value="" data-file-clear>
+    <span class="file-pick__name" data-file-name data-empty="No image selected">No image selected</span>
+</span>

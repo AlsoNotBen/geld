@@ -1,5 +1,5 @@
 {% extends "sales/module_base.html" %}
-{% load static %}
+{% load static avatar_tags %}
 
 {% block page_key %}leads{% endblock %}
 
@@ -52,11 +52,16 @@
   The view gives one column for each open stage of Lead.SaleStage. The
   Closed stage is a table below the board. Each card holds its data in
   the data-* attributes of _lead_attrs.html. leads.js copies them into
-  the overlay. A gauge appears only if the lead has a value for it:
+  the overlay. A measure appears only if the lead has a value for it:
       Size            1 to 1000
       Qualifying      0 to 100
       Temperature     one step for each choice, Ice to Hot
       Response        full at the last response, empty after 7 days
+
+  The card shows the measures as one stacked bar (.stack). Each measure
+  has a maximum of one quarter of the bar, and fills it to its level. The
+  keys below the bar give the values. The overlay shows each measure as
+  a separate gauge.
 
   A column shows five cards. A card after the fifth carries the hidden
   attribute, and the button at the foot of the column shows the rest.
@@ -88,6 +93,7 @@
                     {% include "sales/_lead_attrs.html" %}
                     {% if forloop.counter > 5 %}hidden{% endif %}>
                 <span class="lead__top">
+                    {% avatar lead.entity "sm" %}
                     <span class="lead__name">{{ lead.name }}</span>
                     <span class="status status--{{ lead.tone }}">{{ lead.get_status_display }}</span>
                     <span class="turn turn--{{ lead.turn|yesno:'yours,theirs' }}"><span class="visually-hidden">{{ lead.turn|yesno:"Your turn,Their turn" }}</span></span>
@@ -97,33 +103,19 @@
                     <span>{{ lead.owner_name|default:"No owner" }}</span>
                     <span class="lead__when">{{ lead.responsiveness|date:"m-d" }}</span>
                 </span>
-                <span class="lead__gauges">
-                    {% if lead.size is not None %}
-                    <span class="gauge gauge--size" style="--v: {{ lead.size_level }}%">
-                        <span class="gauge__label">Size</span>
-                        <span class="gauge__value">{{ lead.size }}</span>
-                        <span class="gauge__track"><span class="gauge__fill"></span></span>
+                <span class="stack" title="{% if lead.size is not None %}Size {{ lead.size }} · {% endif %}{% if lead.qualifying_score is not None %}Qualifying {{ lead.qualifying_score }} · {% endif %}Temperature {{ lead.get_temperature_display }}{% if lead.responsiveness %} · Response {{ lead.resp_left }}{% endif %}">
+                    <span class="stack__bar" aria-hidden="true">
+                        {% if lead.size is not None %}<span class="stack__seg stack__seg--size" style="--v: {{ lead.size_level }}"></span>{% endif %}
+                        {% if lead.qualifying_score is not None %}<span class="stack__seg stack__seg--score" style="--v: {{ lead.qualifying_score }}"></span>{% endif %}
+                        <span class="stack__seg stack__seg--temp" style="--v: {{ lead.temp_level }}"></span>
+                        {% if lead.responsiveness %}<span class="stack__seg stack__seg--resp" style="--v: {{ lead.resp_level }}"></span>{% endif %}
                     </span>
-                    {% endif %}
-                    {% if lead.qualifying_score is not None %}
-                    <span class="gauge gauge--score" style="--v: {{ lead.qualifying_score }}%">
-                        <span class="gauge__label">Qualifying</span>
-                        <span class="gauge__value">{{ lead.qualifying_score }}</span>
-                        <span class="gauge__track"><span class="gauge__fill"></span></span>
+                    <span class="stack__keys">
+                        {% if lead.size is not None %}<span class="stack__key stack__key--size"><span class="visually-hidden">Size </span>{{ lead.size }}</span>{% endif %}
+                        {% if lead.qualifying_score is not None %}<span class="stack__key stack__key--score"><span class="visually-hidden">Qualifying </span>{{ lead.qualifying_score }}</span>{% endif %}
+                        <span class="stack__key stack__key--temp"><span class="visually-hidden">Temperature </span>{{ lead.get_temperature_display }}</span>
+                        {% if lead.responsiveness %}<span class="stack__key stack__key--resp"><span class="visually-hidden">Response </span>{{ lead.resp_left }}</span>{% endif %}
                     </span>
-                    {% endif %}
-                    <span class="gauge gauge--temp" style="--v: {{ lead.temp_level }}%">
-                        <span class="gauge__label">Temperature</span>
-                        <span class="gauge__value">{{ lead.get_temperature_display }}</span>
-                        <span class="gauge__track"><span class="gauge__fill"></span></span>
-                    </span>
-                    {% if lead.responsiveness %}
-                    <span class="gauge gauge--resp" style="--v: {{ lead.resp_level }}%">
-                        <span class="gauge__label">Response</span>
-                        <span class="gauge__value">{{ lead.resp_left }}</span>
-                        <span class="gauge__track"><span class="gauge__fill"></span></span>
-                    </span>
-                    {% endif %}
                 </span>
             </button>
         {% endfor %}
@@ -172,7 +164,8 @@
 {# ------------------------- LEAD OVERLAY ----------------------------- #}
 
 <dialog class="sheet sheet--wide" id="lead-view" aria-labelledby="lead-view-title">
-    <div class="sheet__head">
+    <div class="sheet__head lead__head">
+        <span class="avatar avatar--lg" data-lead-avatar></span>
         <h2 class="sheet__title" id="lead-view-title" data-field="name">Lead</h2>
     </div>
 

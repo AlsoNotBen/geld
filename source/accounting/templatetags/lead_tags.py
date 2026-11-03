@@ -16,7 +16,7 @@ def lead_form(context):
         "stages":       Lead.SaleStage.choices,
         "statuses":     Lead.LeadStatus.choices,
         "temperatures": Lead.Temperature.choices,
-        "owners":       get_user_model().objects.filter(is_active=True),
+        "owners":       get_user_model().objects.filter(is_active=True, memberships__company=context["request"].company),
         "roles":        BusinessRole.objects.all(),
         "titles":       Title.objects.all(),
         "industries":   Industry.objects.all(),

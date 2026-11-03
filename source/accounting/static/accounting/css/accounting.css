@@ -1840,8 +1840,48 @@ textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
 .sheet__body--split .field--wide { grid-column: 1 / -1; }
 
 /* A heading above a group of fields, e.g. on the Module Settings page. */
-.sheet__group { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink); }
+.sheet__group { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink); }
 .sheet__group:not(:first-child) { margin-top: 10px; padding-top: 18px; border-top: 1px solid var(--line); }
+/* The first group heading of a form, below the hidden errors, needs no line. */
+.sheet__errors[hidden] + .sheet__group { margin-top: 0; padding-top: 0; border-top: 0; }
+.sheet__group[hidden] { display: none; }
+
+/* An avatar field: the current image (or the initials), then the file pick. */
+.avatar-field { display: flex; align-items: center; gap: 14px; }
+
+/* ---- File pick (shared/_file_pick.html) ---------------------------- */
+/* The native input stays in the tab order, but it is not visible. The
+   label is a .tool button. The name of the file goes next to it. */
+.file-pick { display: inline-flex; align-items: center; gap: 12px; min-width: 0; }
+.file-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+}
+.file-pick .tool { cursor: pointer; border-color: var(--gold-line); color: var(--gold); }
+.file-pick .tool:hover { background: var(--gold-soft); }
+.file-input:focus-visible + .tool { outline: 2px solid var(--gold); outline-offset: 2px; }
+.file-pick__name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+}
+
+/* ---- Lead form tabs (_lead_form.html) ------------------------------ */
+/* The tabs use the .tabset blocks. Each panel has the same minimum
+   height, thus the overlay does not change size between the tabs. */
+.lead-form__tabs { margin: 0; }
+.lead-form__tabs .tabset__tab .icon { width: 16px; height: 16px; stroke: currentColor; }
+.lead-form__tabs .tabset__tab[aria-selected="true"] .icon { stroke: var(--gold); }
+.lead-form__panel { display: grid; row-gap: 14px; align-content: start; min-height: 392px; }
+.lead-form__panel[hidden] { display: none; }
+.tabset__tab[hidden] { display: none; }
 
 @media (max-width: 900px) {
     .sheet--wide { width: calc(100vw - 32px); }
@@ -2360,6 +2400,65 @@ textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
     background-image: linear-gradient(rgba(232, 230, 222, 0.10), rgba(232, 230, 222, 0.10));
 }
 
+/* ---- Stacked bar (lead card) -------------------------------------- */
+/* The card shows the four measures as one bar. Each segment has a
+   maximum of one quarter of the bar: set its level inline as a number
+   from 0 to 100, style="--v: 72". The segments follow each other, thus
+   the full length of the bar shows the total progress of the lead. The
+   keys below the bar give the values, with the color of the segment. */
+.stack { display: grid; gap: 6px; margin-top: 2px; }
+
+.stack__bar {
+    display: flex;
+    gap: 2px;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(232, 230, 222, 0.10);
+    overflow: hidden;
+}
+
+.stack__seg {
+    flex: none;
+    width: calc(var(--v, 0) * 0.25%);
+    background: var(--gold);
+    transition: width 0.2s ease;
+}
+.stack__seg--size  { background: var(--pink); }
+.stack__seg--score { background: var(--credit); }
+.stack__seg--resp  { background: var(--gold); }
+/* Temperature: the gradient of the gauge, stretched to a full quarter,
+   thus the color at the end of the segment gives the temperature. */
+.stack__seg--temp {
+    background: linear-gradient(90deg, var(--cold), var(--gold), var(--debit)) left / calc(10000% / max(var(--v, 1), 1)) 100% no-repeat;
+}
+
+.stack__keys {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 10px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-soft);
+}
+.stack__key { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.stack__key::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--key, var(--gold));
+}
+.stack__key--size  { --key: var(--pink); }
+.stack__key--score { --key: var(--credit); }
+.stack__key--temp  { --key: linear-gradient(90deg, var(--cold), var(--debit)); }
+.stack__key--resp  { --key: var(--gold); }
+
+/* The avatar next to the name, on the card and in the overlay head. */
+.lead__head { display: flex; align-items: center; gap: 14px; }
+
+/* A name with its avatar in a table cell (Customers, Suppliers, Partners). */
+.name-cell { display: inline-flex; align-items: center; gap: 8px; }
+
 /* ---- Closed leads  (Name · Status) --------------------------------- */
 /* The name is a button that opens the lead overlay. It takes the free
    space of the row. The table uses the colors of .board__col, and the
@@ -2454,7 +2553,7 @@ textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
 
 /* ================================================================== */
 /*  OVERVIEW  (overview.html, see overview.py)                        */
-/*  Three charts · attention and activity · eight cards               */
+/*  Three charts · attention and activity · twelve cards              */
 /* ================================================================== */
 /* The fills of the charts. Each fill keeps one meaning on the page:
    aqua is paid or free cash, blue is open and not yet due, yellow is
@@ -2717,6 +2816,10 @@ a.stream__item:hover { background: var(--gold-soft); }
     font-size: 10.5px;
     font-weight: 600;
 }
+/* The image of the user. The background of the panel stays below it,
+   thus the line of the stream does not show through a transparent image. */
+.stream__avatar:has(img) { border: 0; }
+.stream__avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 .stream__text b { color: var(--ink); font-weight: 600; }
 .stream__time {
     padding-top: 2px;
@@ -2727,7 +2830,7 @@ a.stream__item:hover { background: var(--gold-soft); }
 .stream__empty { padding: 34px 16px; text-align: center; color: var(--ink-soft); }
 
 /* ---- Cards --------------------------------------------------------- */
-/* Eight cards in two rows of four, in one band. Each card is a link. */
+/* Twelve cards in three rows of four, in one band. Each card is a link. */
 .cards--four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .dash-band .card { border: 0; border-radius: 0; box-shadow: none; }
 .card--link { transition: background 0.12s ease; }

@@ -20,6 +20,7 @@
        #lead-view              the overlay
        [data-field=KEY]        the element that shows one value
        [data-gauge=KEY]        the gauge of one measure
+       [data-lead-avatar]      the avatar of the overlay (image or initials)
        [data-board-more]       the button at the foot of a long column
        [data-board-filter]     the filter button of a column
        [data-board-search]     the filter field of a column
@@ -58,6 +59,20 @@
         el.querySelector(".gauge__value").textContent = text || level;
     }
 
+    /* The image of the lead, else the initials of the name. */
+    const avatar = view.querySelector("[data-lead-avatar]");
+    function setAvatar(url, name) {
+        avatar.textContent = "";
+        if (!url) {
+            avatar.textContent = (name || "").split(/\s+/).slice(0, 2).map((w) => w.charAt(0)).join("").toUpperCase();
+            return;
+        }
+        const img = document.createElement("img");
+        img.src = url;
+        img.alt = "";
+        avatar.appendChild(img);
+    }
+
     function show(key, text) {
         if (field[key]) field[key].textContent = text || "—";
     }
@@ -70,6 +85,7 @@
             const data = card.dataset;
 
             show("name", data.name);
+            setAvatar(data.avatar, data.name);
             show("stage", data.stage);
             show("status", data.status);
             show("desc", data.desc);

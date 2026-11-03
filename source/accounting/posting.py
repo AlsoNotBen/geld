@@ -251,8 +251,10 @@ def post_opening_document(company, entity, amount, date, sale):
     """Keep the opening balance of a customer (sale) or a supplier as an open invoice or
     bill. Thus a payment can pay it (see allocate), and the open documents agree with
     the journal. The entry is Dr Accounts Receivable / Cr Opening Balance Equity, or
-    Dr Opening Balance Equity / Cr Accounts Payable. Returns the document."""
-    number = f"OB-{entity.pk}"
+    Dr Opening Balance Equity / Cr Accounts Payable. A negative amount is a credit: the
+    business owes the customer, or the supplier owes the business. Its entry has the
+    opposite sides, and no payment pays it (see _pay). Returns the document."""
+    number = f"OB-{entity.pk}"      # Document.is_opening finds the document with this number.
     control = _account(company, RECEIVABLE if sale else PAYABLE)
     with transaction.atomic():
         entry = post_opening_balance(company, control, amount if sale else -amount, date, number, entity.name,

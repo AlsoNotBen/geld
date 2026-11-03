@@ -204,9 +204,12 @@ button {
 }
 
 /* Global search */
+/* The basis 0 lets the search shrink before the module switch, thus the
+   company switch at its right does not push the modules out of view. */
 .search {
     position: relative;
-    flex: 1 1 auto;
+    flex: 1 1 0;
+    min-width: 160px;
     max-width: 520px;
     margin-left: auto;
 }
@@ -230,6 +233,7 @@ button {
 .search__field:focus-within .icon { stroke: var(--ink-soft); }
 .search input {
     flex: 1;
+    min-width: 0;
     border: none;
     background: transparent;
     color: var(--ink);
@@ -249,6 +253,70 @@ button {
     white-space: nowrap;
 }
 .search__field:focus-within .kbd { display: none; }
+
+/* Company switch — at the right of the search. The button has the look
+   of the search field. The menu has the colours of the ribbon, and each
+   item has the look of the button. Thus the menu and the button match. */
+.company-switch { position: relative; flex: none; }
+.company-switch__btn,
+.company-switch__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    height: 38px;
+    padding: 0 10px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--ink);
+    font-size: 14px;
+    font-weight: 500;
+    text-align: left;
+    transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.company-switch__btn { width: auto; max-width: 220px; }
+.company-switch__btn:hover,
+.company-switch__btn[aria-expanded="true"],
+.company-switch__item:hover { border-color: var(--gold-line); }
+.company-switch__item:hover { color: var(--gold); }
+.company-switch__btn:focus-visible,
+.company-switch__item:focus-visible { outline: none; border-color: var(--gold); }
+.company-switch .icon { width: 18px; height: 18px; stroke: var(--on-navy); }
+.company-switch__item:hover .icon { stroke: var(--gold); }
+.company-switch .caret { width: 16px; height: 16px; margin-left: auto; transition: transform 0.15s ease; }
+.company-switch__btn[aria-expanded="true"] .caret { transform: rotate(180deg); }
+.company-switch__name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.company-switch__menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: max(100%, 240px);
+    display: grid;
+    gap: 6px;
+    padding: 6px;
+    background: var(--navy);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-6px);
+    transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+}
+.company-switch__menu[data-open="true"] { opacity: 1; visibility: visible; transform: translateY(0); }
+.company-switch__menu form { display: grid; gap: 6px; margin: 0; }
+.company-switch__item .check { visibility: hidden; stroke: var(--gold); }
+.company-switch__item.is-current { border-color: var(--gold-line); background: var(--gold-soft); }
+.company-switch__item.is-current .check { visibility: visible; }
+.company-switch__sep { height: 1px; background: var(--on-navy-dim); margin: 0 4px; }
 
 /* Ribbon actions and profile */
 .ribbon__actions { display: flex; align-items: center; gap: 6px; flex: none; }
@@ -303,6 +371,15 @@ button {
     font-size: 13px;
     box-shadow: 0 0 0 2px rgba(240, 190, 114, 0.35);
 }
+/* An avatar shows an image when there is one, else the initials.
+   See the avatar tag (shared/templatetags/avatar_tags.py). */
+.avatar { flex: none; overflow: hidden; line-height: 1; }
+.avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* With an image, only the image shows: no gold circle and no ring. */
+.avatar:has(img) { background: transparent; box-shadow: none; }
+.avatar--sm { width: 24px; height: 24px; font-size: 10px; box-shadow: none; }
+.avatar--lg { width: 56px; height: 56px; font-size: 18px; }
+.avatar--xl { width: 96px; height: 96px; font-size: 30px; }
 .profile__btn .caret { stroke: var(--on-navy); width: 16px; height: 16px; }
 
 .menu {
@@ -433,6 +510,7 @@ button {
 @media (max-width: 900px) {
     .ribbon { gap: 12px; padding: 0 14px; }
     .context { padding: 0 16px; gap: 10px; }
+    .company-switch__btn { max-width: 180px; }
 
     /* The module switch shows only the icons. The text stays for a
        screen reader. base.js scrolls the active module into view. */
@@ -454,11 +532,18 @@ button {
     .context__actions { flex: none; }
 }
 
+/* The company switch needs the space of the search more. */
+@media (max-width: 760px) {
+    .search { display: none; }
+    .company-switch { margin-left: auto; }
+}
+
 @media (max-width: 560px) {
     .ribbon { gap: 8px; padding: 0 10px; }
     .profile__btn .caret { display: none; }
 
     .search { display: none; }         /* replace with an icon trigger as needed */
+    .company-switch__btn { max-width: 150px; }
     .crumbs a, .crumbs .sep { display: none; } /* keep the current page only */
     .footer { flex-wrap: wrap; gap: 8px; }
     .footer__links { gap: 12px; }

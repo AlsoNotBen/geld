@@ -1,12 +1,19 @@
 <section class="msg-panel">
-    <header class="msg-panel__head">
-        <h2 class="msg-panel__title">Message Sent Successfully</h2>
-    </header>
+    <div class="msg-result msg-result--ok" role="status">
+        <span class="msg-result__icon" aria-hidden="true">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M5 12.5l4.5 4.5L19 7.5" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </span>
+        <h2 class="msg-result__title">Message sent</h2>
+        <p class="msg-result__text">The email was sent successfully.</p>
 
-    <div class="msg-panel__body">
-        <p class="msg-panel__text">
-            The message went to {{ message.to|join:", " }}{% if message.cc %}, with a copy to {{ message.cc|join:", " }}{% endif %}.
-        </p>
+        <dl class="msg-result__facts">
+            <dt>To</dt><dd>{{ message.to|join:", " }}</dd>
+            {% if message.cc %}<dt>Cc</dt><dd>{{ message.cc|join:", " }}</dd>{% endif %}
+            <dt>Subject</dt><dd>{{ message.subject }}</dd>
+            {% if message.attachments %}<dt>Files</dt><dd>{% for a in message.attachments %}{{ a.0 }}{% if not forloop.last %}, {% endif %}{% endfor %}</dd>{% endif %}
+        </dl>
     </div>
 
     <footer class="msg-panel__foot">

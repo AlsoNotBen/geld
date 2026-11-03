@@ -1,5 +1,5 @@
 {% extends "accounting/module_base.html" %}
-{% load fin note_tags %}
+{% load fin note_tags avatar_tags %}
 
 {% comment %}
   ============================================================================
@@ -58,7 +58,7 @@
             {% for supplier in suppliers %}
             <tr>
                 <td>{{ supplier.code|default:"—" }}</td>
-                <td>{{ supplier.name }}</td>
+                <td><span class="name-cell">{% avatar supplier.entity "sm" %}{{ supplier.name }}</span></td>
                 <td>{{ supplier.contact|default:"—" }}</td>
                 <td>{{ supplier.terms|default:"—" }}</td>
                 <td>{% if supplier.is_active %}<span class="status status--ok">Active</span>{% else %}<span class="status status--idle">Inactive</span>{% endif %}</td>

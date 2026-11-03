@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load static avatar_tags %}
+
+{% comment %}
+  ============================================================================
+  shared/templates/shared/profile.html
+  ----------------------------------------------------------------------------
+  The Profile page of the user menu. The user uploads an avatar. The ribbon
+  and the lead cards show it. The page uses the styles of the Accounting
+  module (card, field, sheet).
+  ============================================================================
+{% endcomment %}
+
+{% block title %}Profile · Console{% endblock %}
+
+{% block module_css %}
+<link rel="stylesheet" href="{% static 'accounting/css/accounting.css' %}">
+<link rel="stylesheet" href="{% static 'css/home.css' %}">
+{% endblock %}
+
+{% block layout %}
+<div class="fill">
+    <main id="main" class="home">
+        <div class="page__head">
+            <h1 class="page__title">Profile</h1>
+            <p class="page__note">Upload an image to use as your avatar, or remove it. Use a PNG, JPG, WEBP or GIF image.</p>
+        </div>
+
+        {% for message in messages %}
+        <div class="sheet__errors{% if message.level_tag == 'success' %} sheet__errors--ok{% endif %}" role="alert">
+            <p>{{ message }}</p>
+        </div>
+        {% endfor %}
+
+        <form class="card" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="sheet__body">
+                {% if form.errors %}
+                <div class="sheet__errors" role="alert">
+                    {% for error in form.avatar.errors %}<p>{{ error }}</p>{% endfor %}
+                </div>
+                {% endif %}
+                <div class="field">
+                    <span class="field__label">{{ request.user.get_full_name|default:request.user.get_username }}</span>
+                    <div class="avatar-field">
+                        {% avatar request.user "xl" %}
+                        {% include "shared/_file_pick.html" with field=form.avatar has_avatar=request.user.profile.avatar_id %}
+                    </div>
+                </div>
+            </div>
+            <div class="sheet__foot">
+                <button class="tool tool--primary" type="submit">Save</button>
+                <a class="tool tool--ghost" href="{% url 'index' %}">Cancel</a>
+            </div>
+        </form>
+    </main>
+</div>
+{% endblock %}

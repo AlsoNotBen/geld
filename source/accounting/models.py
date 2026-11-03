@@ -300,6 +300,12 @@ class Document(CompanyOwned, TimeStamped):
     def is_purchase(self):
         return self.direction == self.Direction.PURCHASE
 
+    @property
+    def is_opening(self):
+        """True for the opening balance of a customer or a supplier (see post_opening_document).
+        It is not a real invoice or bill."""
+        return self.number == f"OB-{self.entity_id}"
+
 class DocumentLine(models.Model):
 
     document    = models.ForeignKey(Document, on_delete=models.CASCADE, related_name="lines")
@@ -544,3 +550,67 @@ def supplier_entities(company):
     return (Entity.objects.filter(company=company)
             .filter(models.Q(supplier__isnull=False) | models.Q(documents__doc_type=Document.DocType.BILL))
             .distinct().order_by("name"))
+
+class Snapshot(CompanyOwned):
+    date        = models.DateField()
+    basis       = models.CharField(max_length=1)
+    assets      = models.DecimalField(max_digits=15, decimal_places=2)
+    liabilities = models.DecimalField(max_digits=15, decimal_places=2)
+    equity      = models.DecimalField(max_digits=15, decimal_places=2)
+    income      = models.DecimalField(max_digits=15, decimal_places=2)
+    expenses    = models.DecimalField(max_digits=15, decimal_places=2)
+    cash        = models.DecimalField(max_digits=15, decimal_places=2)
+    taken_at    = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [("company", "date")]
+        ordering = ["date"]
+
+    @classmethod
+    def snap(cls, company, day):
+        rows = list(JournalLine.objects
+                    .filter(entry__company=company, entry__status=JournalEntry.Status.POSTED,
+                            entry__basis__in=JournalEntry.bases_of(company), entry__date__lte=day)
+                    .values("account", "account__type", "account__bank_account")
+                    .annotate(balance=models.Sum("base_debit") - models.Sum("base_credit")))
+
+        def total(*types):
+            return sum((r["balance"] for r in rows if r["account__type"] in types), Decimal(0))
+
+        T = Account.AccountType
+        with transaction.atomic():
+            snapshot, _ = cls.objects.update_or_create(company=company, date=day, defaults={
+                "basis":       company.accounting_basis,
+                "assets":      total(T.NON_CURRENT_ASSETS, T.CURRENT_ASSETS),
+                "liabilities": -total(T.NON_CURRENT_LIABILITIES, T.CURRENT_LIABILITIES),
+                "equity":      -total(T.SHAREHOLDER_EQUITY),
+                "income":      -total(T.SALES, T.OTHER_INCOME),
+                "expenses":    total(T.COST_OF_SALES, T.EXPENSES, T.INCOME_TAX),
+                "cash":        sum((r["balance"] for r in rows if r["account__bank_account"]), Decimal(0)),
+            })
+            snapshot.balances.all().delete()
+            SnapshotBalance.objects.bulk_create(
+                SnapshotBalance(snapshot=snapshot, account_id=r["account"], balance=r["balance"]) for r in rows)
+        return snapshot
+
+    @classmethod
+    def on(cls, company, day):
+        """The snapshot at the end of day, or the last one before it."""
+        return cls.objects.filter(company=company, date__lte=day).order_by("-date").first()
+
+    @classmethod
+    def rebuild(cls, company, start):
+        """Take the snapshots again from start to today."""
+        day = start
+        while day <= timezone.localdate():
+            cls.take(company, day)
+            day += datetime.timedelta(days=1)
+
+
+class SnapshotBalance(models.Model):
+    snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE, related_name="balances")
+    account  = models.ForeignKey(Account, on_delete=models.PROTECT, related_name="+")
+    balance  = models.DecimalField(max_digits=15, decimal_places=2)   # base_debit - base_credit
+
+    class Meta:
+        unique_together = [("snapshot", "account")]

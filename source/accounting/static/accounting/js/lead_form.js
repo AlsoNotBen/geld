@@ -15,6 +15,12 @@
        [data-lead-errors]            the errors of a save with fetch
        [data-for-type=I|O]           a form field for one entity type only
        [data-for-customer]           a form field for New Customer only
+       [data-for-lead]               a tab for New Lead and Edit Lead only. Its
+                                     fields stay enabled, thus a new customer
+                                     gets the default values of its lead.
+       [data-avatar-preview]         the current avatar (base.js shows the selected image)
+       [role=tab][data-tab=KEY]      a tab button; aria-controls gives its panel
+       [data-file-name]              the name of the selected file (base.js)
        [data-action="new-customer"]  the "+" of the customer field
                                      (SelectWithAddButton, documents app)
        [data-customer-new]           a New Customer button or link
@@ -54,6 +60,56 @@
     }
     form.elements.type.onchange = showType;
 
+    /* The avatar preview: the image of the lead, else the initials of the
+       name. form.reset() clears the file input, thus the file name goes back
+       to its first text. Remove (base.js) shows only when there is an image. */
+    const preview = dialog.querySelector("[data-avatar-preview]");
+    const fileName = dialog.querySelector("[data-file-name]");
+    const clear = dialog.querySelector("[data-file-clear]");
+    const remove = dialog.querySelector("[data-file-remove]");
+    function showAvatar(url, name) {
+        preview.dataset.initials = (name || "").split(/\s+/).slice(0, 2).map((w) => w.charAt(0)).join("").toUpperCase();
+        preview.textContent = preview.dataset.initials;
+        fileName.textContent = fileName.dataset.empty;
+        clear.value = "";       // reset() does not reset a hidden input
+        remove.hidden = !url;
+        if (!url) return;
+        preview.textContent = "";
+        const img = document.createElement("img");
+        img.src = url;
+        img.alt = "";
+        preview.appendChild(img);
+    }
+
+    /* ---- Tabs ----
+       One panel shows at a time. The arrow keys move along the row. */
+    const tabs = Array.from(dialog.querySelectorAll("[role=tab]"));
+    function selectTab(tab, focus) {
+        tabs.forEach(function (item) {
+            const on = item === tab;
+            item.setAttribute("aria-selected", String(on));
+            item.tabIndex = on ? 0 : -1;
+            document.getElementById(item.getAttribute("aria-controls")).hidden = !on;
+        });
+        if (focus) tab.focus();
+    }
+    tabs.forEach((tab) => tab.addEventListener("click", () => selectTab(tab)));
+    dialog.querySelector("[role=tablist]").addEventListener("keydown", function (e) {
+        const shown = tabs.filter((tab) => !tab.hidden);
+        const i = shown.indexOf(document.activeElement);
+        const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+        if (i === -1 || !step) return;
+        e.preventDefault();
+        selectTab(shown[(i + step + shown.length) % shown.length], true);
+    });
+
+    /* A field that is not valid can be in a hidden panel. The browser can
+       then not show the message. Thus open the tab of the first such field. */
+    form.addEventListener("invalid", function (e) {
+        const panel = e.target.closest("[role=tabpanel]");
+        if (panel && panel.hidden) selectTab(document.getElementById(panel.getAttribute("aria-labelledby")));
+    }, true);
+
     window.openLeadForm = function (title, action, values, saved, customer) {
         form.reset();
         form.action = action || createUrl;
@@ -62,13 +118,17 @@
             if (form.elements[key]) form.elements[key].value = value ?? "";
         });
         onSaved = saved || null;
+        showAvatar(values && values.avatar_url, values && values.name);
         showType();
         showErrors([]);
         dialog.querySelectorAll("[data-for-customer]").forEach(function (el) {
             el.hidden = !customer;
             el.querySelectorAll("input").forEach(function (c) { c.disabled = !customer; });
         });
+        dialog.querySelectorAll("[data-for-lead]").forEach((el) => { el.hidden = !!customer; });
+        selectTab(tabs[0]);
         dialog.showModal();
+        form.elements.name.focus();     // else the browser focuses the tab row (a scroll box)
     };
 
     /* With onSaved, send the form as fetch and stay on the page. An error

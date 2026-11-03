@@ -11,7 +11,7 @@
       2. The statement.    The three activity groups, with their lines and
                            their subtotals. The last column shows the
                            period before.
-      3. The notes.        One card for each group, in plain words.
+      3. The notes.        The notes of the users (notes_section).
 
   The results (cash at the start, the three groups and cash at the end)
   are in the Cash Flow part of the Overview page.
@@ -105,60 +105,6 @@
             </tr>
         </tfoot>
     </table>
-
-    {# =============================== NOTES ============================== #}
-    <h2 class="page__subtitle" id="notes-title">Notes to the statement</h2>
-
-    <ol class="notes" aria-labelledby="notes-title">
-        <li class="card" id="note-1">
-            <span class="card__label">1. Operating activities</span>
-            <p class="notes__text">
-                This group holds the cash from the daily work of the business.
-                The first line is the profit before tax. The statement then adds
-                the costs that took no cash, for example the depreciation.
-            </p>
-            <p class="notes__text">
-                The movement lines correct the profit. A customer who did
-                not pay yet increases the profit, but not the cash. A supplier
-                who is not paid yet has the opposite effect.
-            </p>
-        </li>
-
-        <li class="card" id="note-2">
-            <span class="card__label">2. Investing activities</span>
-            <p class="notes__text">
-                This group holds the cash for the items that the business keeps
-                and uses for many years, for example equipment and vehicles.
-            </p>
-            <p class="notes__text">
-                A purchase takes cash out. A sale brings cash in. A large
-                negative total is normal for a business that grows.
-            </p>
-        </li>
-
-        <li class="card" id="note-3">
-            <span class="card__label">3. Financing activities</span>
-            <p class="notes__text">
-                This group holds the cash between the business, its lenders and
-                its owners. A new loan brings cash in. A repayment, a lease
-                payment and a dividend take cash out.
-            </p>
-        </li>
-
-        <li class="card" id="note-4">
-            <span class="card__label">4. Change of cash</span>
-            <p class="notes__text">
-                The three group totals give the change of cash:
-                {{ operating_this|money }} plus {{ investing_this|money }} plus
-                {{ financing_this|money }} is {{ change_this|money }}.
-            </p>
-            <p class="notes__text">
-                The change plus the cash at the start gives the cash at the end.
-                This figure must agree with the cash and the bank accounts in the
-                balance sheet on {{ end|date:"j F Y" }}.
-            </p>
-        </li>
-    </ol>
 
     {% notes_section %}
 </section>

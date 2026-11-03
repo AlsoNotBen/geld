@@ -98,9 +98,9 @@
                     <td>{{ entry.date }}</td>
                     <td>{{ entry.reference }}</td>
                     <td>{{ entry.journal }}</td>
-                    <td>{{ entry.debit_account.code }}{% for tax in entry.debit_taxes %}<span class="review__tax">{{ tax.account.code }}</span>{% endfor %}</td>
+                    <td><span data-code>{{ entry.debit_account.code }}</span>{% for tax in entry.debit_taxes %}<span class="review__tax" data-code>{{ tax.account.code }}</span>{% endfor %}</td>
                     <td>{{ entry.debit_account.name }}{% for tax in entry.debit_taxes %}<span class="review__tax">{{ tax.account.name }}<span class="review__tag">Tax</span></span>{% endfor %}</td>
-                    <td>{{ entry.credit_account.code }}{% for tax in entry.credit_taxes %}<span class="review__tax">{{ tax.account.code }}</span>{% endfor %}</td>
+                    <td><span data-code>{{ entry.credit_account.code }}</span>{% for tax in entry.credit_taxes %}<span class="review__tax" data-code>{{ tax.account.code }}</span>{% endfor %}</td>
                     <td>{{ entry.credit_account.name }}{% for tax in entry.credit_taxes %}<span class="review__tax">{{ tax.account.name }}<span class="review__tag">Tax</span></span>{% endfor %}</td>
                     {% comment %} The two sides hold the same amount, unless a tax line is on one side. {% endcomment %}
                     <td class="is-debit">{{ entry.debit_amount|money }}{% for tax in entry.debit_taxes %}<span class="review__tax">{{ tax.debit|money }}</span>{% endfor %}</td>
@@ -184,7 +184,7 @@
                     <tr>
                         <td>{{ entry.date }}</td>
                         <td>{{ entry.reference }}</td>
-                        <td>{{ entry.account }}</td>
+                        <td data-code>{{ entry.account }}</td>
                         {% comment %} The view sets entry.is_debit for money that goes out. {% endcomment %}
                         <td class="{% if entry.is_debit %}is-debit{% else %}is-credit{% endif %}">{{ entry.amount|money }}</td>
                     </tr>
@@ -208,7 +208,7 @@
                     <tr>
                         <td>{{ entry.date }}</td>
                         <td>{{ entry.reference }}</td>
-                        <td>{{ entry.account }}</td>
+                        <td data-code>{{ entry.account }}</td>
                         <td class="{% if entry.is_debit %}is-debit{% else %}is-credit{% endif %}">{{ entry.amount|money }}</td>
                     </tr>
                     {% empty %}
@@ -231,7 +231,7 @@
                     <tr>
                         <td>{{ entry.date }}</td>
                         <td>{{ entry.reference }}</td>
-                        <td>{{ entry.account }}</td>
+                        <td data-code>{{ entry.account }}</td>
                         <td class="{% if entry.is_debit %}is-debit{% else %}is-credit{% endif %}">{{ entry.amount|money }}</td>
                     </tr>
                     {% empty %}
@@ -254,7 +254,7 @@
                     <tr>
                         <td>{{ entry.date }}</td>
                         <td>{{ entry.reference }}</td>
-                        <td>{{ entry.account }}</td>
+                        <td data-code>{{ entry.account }}</td>
                         <td class="{% if entry.is_debit %}is-debit{% else %}is-credit{% endif %}">{{ entry.amount|money }}</td>
                     </tr>
                     {% empty %}

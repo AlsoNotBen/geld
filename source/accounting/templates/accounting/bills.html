@@ -318,7 +318,7 @@
                             {% for line in bill.lines.all %}
                             <tr>
                                 <td>{{ line.description }}</td>
-                                <td>{{ line.account }}</td>
+                                <td data-code>{{ line.account }}</td>
                                 <td class="is-count">{{ line.quantity }}</td>
                                 <td class="is-count">{{ line.unit_price|money }}</td>
                                 <td>{{ line.tax_code.code|default:"—" }}</td>

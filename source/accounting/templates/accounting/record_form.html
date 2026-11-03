@@ -1,4 +1,5 @@
 {% extends "accounting/module_base.html" %}
+{% load avatar_tags %}
 
 {% comment %}
   ============================================================================
@@ -8,7 +9,9 @@
   Customer, New Bank Account and Edit Bank Account. The view gives:
       title · note · form · cancel_url · page_key
   The form gives the fields. A checkbox shows as a switch, with the help
-  text of the field as its text. A text area takes both columns.
+  text of the field as its text. A text area takes both columns. An
+  avatar field takes both columns and shows the current image of
+  avatar_owner (an entity, or None for a new record).
   ============================================================================
 {% endcomment %}
 
@@ -26,7 +29,7 @@
         <p class="page__note">{{ note }}</p>
     </div>
 
-    <form class="card" method="post">
+    <form class="card" method="post" enctype="multipart/form-data">
         {% csrf_token %}
         <div class="sheet__body sheet__body--split">
             {% if form.errors %}
@@ -36,9 +39,14 @@
             </div>
             {% endif %}
             {% for field in form %}
-            <div class="field{% if field.widget_type == 'textarea' %} field--wide{% endif %}">
+            <div class="field{% if field.widget_type == 'textarea' or field.name == 'avatar' %} field--wide{% endif %}">
                 <label class="field__label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                {% if field.widget_type == "checkbox" %}
+                {% if field.name == "avatar" %}
+                <div class="avatar-field">
+                    {% if avatar_owner %}{% avatar avatar_owner "lg" %}{% else %}<span class="avatar avatar--lg" aria-hidden="true"></span>{% endif %}
+                    {% include "shared/_file_pick.html" with has_avatar=avatar_owner.avatar_id %}
+                </div>
+                {% elif field.widget_type == "checkbox" %}
                 <label class="switch">
                     {{ field }}
                     <span class="switch__track" aria-hidden="true"></span>

@@ -1,0 +1,52 @@
+{% comment %}
+============================================================================
+shared/templates/shared/company_form.html
+----------------------------------------------------------------------------
+The content of the Add New Company overlay. base.js loads this fragment
+with fetch() and puts it into a <dialog>, as the message overlay does
+(the look comes from messaging.css). Thus the template extends no base
+template.
+
+base.js reads these data attributes:
+    data-company-form     the form
+    data-company-status   the text next to the buttons
+    data-company-close    each element that closes the overlay
+============================================================================
+{% endcomment %}
+<form class="msg-panel" method="post" action="{% url 'company_create' %}" data-company-form>
+    {% csrf_token %}
+
+    <header class="msg-panel__head">
+        <h2 class="msg-panel__title">Add New Company</h2>
+        <button class="icon-btn" type="button" data-company-close aria-label="Close the overlay" title="Close the overlay">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/>
+            </svg>
+        </button>
+    </header>
+
+    <div class="msg-panel__body">
+        {% for error in form.non_field_errors %}
+        <p class="msg-panel__error" role="alert">{{ error }}</p>
+        {% endfor %}
+
+        {% for field in form %}
+        <div class="msg-field">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% for error in field.errors %}<small class="msg-field__error">{{ error }}</small>{% endfor %}
+            {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+        </div>
+        {% endfor %}
+        <p class="msg-panel__text">You become the owner of the new company. It gets a standard chart of accounts and VAT codes. The app then selects it.</p>
+    </div>
+
+    <footer class="msg-panel__foot">
+        <span class="msg-panel__status" data-company-status aria-live="polite"></span>
+
+        <div class="msg-panel__actions">
+            <button class="tool" type="button" data-company-close>Cancel</button>
+            <button class="tool tool--primary" type="submit">Add Company</button>
+        </div>
+    </footer>
+</form>

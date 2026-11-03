@@ -15,13 +15,17 @@
       .dash-charts   three sunburst charts (_sunburst.html):
                        Cash position     the cash on hand and the
                                          short-term debt, in money
-                       Invoices          the number of invoices by state
-                       Bills and claims  the number of bills and claims by state
+                       Invoices          the invoices by state, in money
+                       Bills and claims  the bills and claims by state, in money
+                     The invoice and bill charts do not include the
+                     opening balances of the customers and suppliers.
       .dash-split    two columns:
                        Items needing attention   one row for each kind of work
                        Activity                  the audit trail: who did what, when
-      .cards         eight cards. Each card has the amount at the end of the
+      .cards         twelve cards. Each card has the amount at the end of the
                      range and a graph of the range (the sparkline filter).
+                     The last row gives the total payable and receivable,
+                     and the open part of the opening balances in them.
       .dash-extra    three columns:
                        Company location   the address of the company on a map
                        Public notes       the notes of all pages, as tiles
@@ -96,7 +100,10 @@
             an action, and the stream shows who did what. Each card shows an
             amount at the end of the range, with a graph of the range. The
             invoices and the bills that were paid in full show for the range
-            only. The last part shows the company on a map, the public notes
+            only. The invoice and bill figures do not include the opening
+            balances of the customers and suppliers. The last row of cards
+            shows the opening balances and the totals with them. The last
+            part shows the company on a map, the public notes
             of all pages, and the movement against the previous period. The
             date range at the top right is for this page only. Click a chart,
             a row, a card or a note to open its page.
@@ -108,6 +115,21 @@
         {% for chart in charts %}{% include "accounting/_sunburst.html" %}{% endfor %}
     </div>
 
+    {# ============================== CARDS =============================== #}
+    {% comment %} Each card is a link. overview.js reads data-points and shows
+         the date and the amount below the pointer on the graph. {% endcomment %}
+    <div class="dash-band cards cards--four">
+        {% for card in cards %}
+        <a class="card card--link" href="{{ card.href }}" data-points="{{ card.points }}">
+            <span class="card__label">{{ card.label }}</span>
+            {% if card.hint %}<span class="card__hint">{{ card.hint }}</span>{% endif %}
+            <div class="card__value {{ card.tone }}" data-unit="{{ currency }}">{{ card.value|money }}</div>
+            {{ card.series|sparkline:card.tone }}
+        </a>
+        {% endfor %}
+    </div>
+
+    
     {# ======================= ATTENTION AND ACTIVITY ======================= #}
     <div class="dash-band dash-split">
         <section class="dash-panel dash-panel--fixed" aria-labelledby="attention-title">
@@ -154,8 +176,8 @@
                 {% for item in activity %}
                 <li>
                     {% if item.href %}<a class="stream__item" href="{{ item.href }}">{% else %}<div class="stream__item">{% endif %}
-                        <span class="stream__avatar" aria-hidden="true">{{ item.initials }}</span>
-                        <span class="stream__text"><b>{{ item.who }}</b> {{ item.verb }} {{ item.what }}{% if item.party %}<span class="stream__party"> · {{ item.party }}</span>{% endif %}</span>
+                        <span class="stream__avatar" aria-hidden="true">{% if item.avatar_url %}<img src="{{ item.avatar_url }}" alt="" loading="lazy">{% else %}{{ item.initials }}{% endif %}</span>
+                        <span class="stream__text"><b>{{ item.who }}</b> {{ item.verb }} <span data-code>{{ item.what }}</span>{% if item.party %}<span class="stream__party"> · {{ item.party }}</span>{% endif %}</span>
                         <time class="stream__time" datetime="{{ item.when|date:'c' }}" title="{{ item.when|date:'j M Y, H:i' }}">{{ item.when_text }}</time>
                     {% if item.href %}</a>{% else %}</div>{% endif %}
                 </li>
@@ -164,20 +186,6 @@
                 {% endfor %}
             </ol>
         </section>
-    </div>
-
-    {# ============================== CARDS =============================== #}
-    {% comment %} Each card is a link. overview.js reads data-points and shows
-         the date and the amount below the pointer on the graph. {% endcomment %}
-    <div class="dash-band cards cards--four">
-        {% for card in cards %}
-        <a class="card card--link" href="{{ card.href }}" data-points="{{ card.points }}">
-            <span class="card__label">{{ card.label }}</span>
-            {% if card.hint %}<span class="card__hint">{{ card.hint }}</span>{% endif %}
-            <div class="card__value {{ card.tone }}" data-unit="{{ currency }}">{{ card.value|money }}</div>
-            {{ card.series|sparkline:card.tone }}
-        </a>
-        {% endfor %}
     </div>
 
     {# ============================ LAST BAND ============================= #}

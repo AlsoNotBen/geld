@@ -4,13 +4,15 @@ from django.utils import timezone
 from accounting.models import (Account, BankAccount, Document, Entity, Note, NumberSequence, OrganizationProfile,
                                Payment, RecurringDocument, in_one_month)
 from shared.models import Supplier
+from shared.forms import AvatarField
+from filestore.services import update_avatar
 from documents.forms import SelectWithSearch
 
 
-def _opening_fields(min_value=None):
-    """The amount and the date of an opening balance. The view uses today when the date is empty."""
-    return (forms.DecimalField(label="Opening balance", required=False, min_value=min_value, max_digits=13,
-                               decimal_places=2),
+def _opening_fields():
+    """The amount and the date of an opening balance. The amount can be negative (see
+    post_opening_document and set_bank_opening). The view uses today when the date is empty."""
+    return (forms.DecimalField(label="Opening balance", required=False, max_digits=13, decimal_places=2),
             forms.DateField(label="Opening balance date", required=False, initial=datetime.date.today,
                             widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d")))
 
@@ -113,15 +115,17 @@ class SupplierForm(forms.ModelForm):
     email = forms.EmailField(label="Email", required=False)
     phone = forms.CharField(label="Phone", max_length=50, required=False)
     vat_number = forms.CharField(label="VAT number", max_length=50, required=False)
-    opening_balance, opening_date = _opening_fields(min_value=0)    # A new supplier only (see post_opening_document)
+    avatar = AvatarField()
+    opening_balance, opening_date = _opening_fields()    # A new supplier only (see post_opening_document)
 
-    field_order = ["name", "code", "contact", "email", "phone", "vat_number", "terms", "bank_account",
+    field_order = ["avatar", "name", "code", "contact", "email", "phone", "vat_number", "terms", "bank_account",
                    "opening_balance", "opening_date"]
 
     class Meta:
         model = Supplier
         fields = ["code", "contact", "terms", "bank_account"]
         labels = {"contact": "Contact person", "terms": "Payment terms"}
+        widgets = {"bank_account": forms.Textarea(attrs={"rows": 4, "maxlength": 255})}
 
     def __init__(self, *args, company=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -138,6 +142,7 @@ class SupplierForm(forms.ModelForm):
             self.initial["code"] = NumberSequence.peek(company, "supplier", "SUP-")
         for field in self.fields.values():
             field.widget.attrs["class"] = "field__control"
+        self.fields["avatar"].widget.attrs["class"] = "file-input"
 
     def clean_code(self):
         code = self.cleaned_data["code"]
@@ -153,6 +158,7 @@ class SupplierForm(forms.ModelForm):
             company=self.company, created_by=user, type=Entity.EntityType.ORGANIZATION)
         entity.name, entity.email, entity.phone = data["name"], data["email"], data["phone"]
         entity.save()
+        update_avatar(entity, data["avatar"], self.data.get("avatar_clear"), user, self.company)
         if entity.type == Entity.EntityType.ORGANIZATION:
             OrganizationProfile.objects.update_or_create(
                 entity=entity, defaults={"legal_name": data["name"], "tax_number": data["vat_number"]})
@@ -164,13 +170,18 @@ class SupplierForm(forms.ModelForm):
 
 
 class BankAccountForm(forms.ModelForm):
-    """The fields of the New Bank Account and Edit Bank Account pages. The
-    ledger account is a current asset or a floating account of the chart of
-    accounts that no other bank account uses. The view sets the company. The
-    opening balance comes from the opening entry (see set_bank_opening). A
-    negative opening balance is an overdraft."""
+    """The fields of the New Bank Account and Edit Bank Account pages. A new
+    bank account gets a new ledger account below the parent account (see
+    child_account). The parent account is a current asset or a floating
+    account of the chart of accounts. The ledger account does not change
+    after that, thus the Edit page only shows it. The view sets the company.
+    The opening balance comes from the opening entry (see set_bank_opening).
+    A negative opening balance is an overdraft."""
 
+    parent = forms.ModelChoiceField(label="Parent account", queryset=Account.objects.none())
     opening_balance, opening_date = _opening_fields()
+
+    field_order = ["bank", "name", "account_number", "sort_code", "iban", "currency", "parent", "account", "is_active"]
 
     class Meta:
         model = BankAccount
@@ -181,14 +192,20 @@ class BankAccountForm(forms.ModelForm):
 
     def __init__(self, *args, company=None, **kwargs):
         super().__init__(*args, **kwargs)
-        used = BankAccount.objects.filter(company=company).exclude(pk=self.instance.pk).values("account_id")
-        accounts = Account.objects.filter(
-            company=company, is_active=True,
-            type__in=[Account.AccountType.CURRENT_ASSETS, Account.AccountType.FLOATING_NOMINAL],
-        ).exclude(pk__in=used)
-        self.fields["account"].queryset = accounts
-        self.fields["account"].empty_label = ("Select an account" if accounts.exists()
-                                              else "No free account. Add one in the Chart of Accounts.")
+        if self.instance.pk:
+            del self.fields["parent"]
+            self.fields["account"].queryset = Account.objects.filter(pk=self.instance.account_id)
+            self.fields["account"].empty_label = None
+            self.fields["account"].disabled = True
+        else:
+            del self.fields["account"]
+            parents = Account.objects.filter(
+                company=company, is_active=True,
+                type__in=[Account.AccountType.CURRENT_ASSETS, Account.AccountType.FLOATING_NOMINAL],
+            )
+            self.fields["parent"].queryset = parents
+            self.fields["parent"].empty_label = ("Select a parent account" if parents.exists()
+                                                 else "No parent account. Add one in the Chart of Accounts.")
         self.fields["currency"].label_from_instance = lambda currency: f"{currency.alpha_code} · {currency.name}"
         if not self.instance.pk:
             self.initial.setdefault("currency", company.base_currency_id)
@@ -205,8 +222,9 @@ class CustomerForm(forms.ModelForm):
     customer_entities). The VAT number is on the profile of an organization."""
 
     vat_number = forms.CharField(label="VAT number", max_length=50, required=False)
+    avatar = AvatarField()
 
-    field_order = ["name", "email", "phone", "vat_number", "address", "is_active"]
+    field_order = ["avatar", "name", "email", "phone", "vat_number", "address", "is_active"]
 
     class Meta:
         model = Entity
@@ -224,9 +242,11 @@ class CustomerForm(forms.ModelForm):
             del self.fields["vat_number"]
         for field in self.fields.values():
             field.widget.attrs["class"] = "field__control"
+        self.fields["avatar"].widget.attrs["class"] = "file-input"
 
-    def save(self):
+    def save(self, user=None):
         entity = super().save()
+        update_avatar(entity, self.cleaned_data["avatar"], self.data.get("avatar_clear"), user, entity.company)
         if "vat_number" in self.fields:
             OrganizationProfile.objects.update_or_create(
                 entity=entity, defaults={"legal_name": entity.name, "tax_number": self.cleaned_data["vat_number"]})

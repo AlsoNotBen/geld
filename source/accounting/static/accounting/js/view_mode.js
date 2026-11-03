@@ -14,7 +14,10 @@
    The script reads a comma, a no-break space or a narrow no-break space as
    the thousands separator, and also a number with no separator (1234.00).
    A number must have a separator group or a decimal part, thus dates, years
-   and codes do not change.
+   and codes do not change. An account code can have a decimal part (1000.1,
+   see child_account), thus the text of a select and of a [data-code]
+   element does not change. A number in a word, e.g. the reference
+   OB-1000.1, does not change.
 
    In easy mode, a cell that holds only an amount and has no direction class
    gets one from the sign: is-debit (red) below zero, is-credit (green) above.
@@ -29,7 +32,11 @@
     var TAGGED = ".is-debit, .is-credit, .is-overdue, .is-count";
     var SKIP = ".table--ledger td:nth-child(4), .table--ledger td:nth-child(5)";
 
-    function format(match, open, sign, digits, close) {
+    function format(match, open, sign, digits, close, offset, all) {
+        var end = offset + match.length;
+        if (/[\w.]/.test(all.charAt(offset - 1)) || /^(\w|\.\d)/.test(all.slice(end, end + 2))) {
+            return match;                                   // A number in a word, e.g. OB-1000.1
+        }
         var negative = sign || (open && close);
         var parts = digits.replace(/[,\u00a0\u202f]/g, "").split(".");
         var whole = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, SPACE);
@@ -52,7 +59,7 @@
     var walker = document.createTreeWalker(main, NodeFilter.SHOW_TEXT);
     var node;
     while ((node = walker.nextNode())) {
-        if (node.parentNode.closest("script, style, textarea")) continue;
+        if (node.parentNode.closest("script, style, textarea, select, [data-code]")) continue;
         node.nodeValue = node.nodeValue.replace(NUM, format);
         if (easy) colour(node.parentNode);
     }

@@ -13,8 +13,7 @@ from accounting.models import *
 from accounting.date_range import get_range, previous_range
 from accounting.documents import AGEING_LABELS, age_bucket, standard_rate
 from accounting.forms import BankAccountForm, BillForm, CustomerForm, NoteForm, PaymentForm, SupplierForm
-from accounting.posting import (CENT, PAYABLE, RECEIVABLE, VAT, _account, allocate, post_bill, post_opening_document,
-                                post_payment, set_bank_opening)
+from accounting.posting import (CENT, PAYABLE, RECEIVABLE, VAT, _account, allocate, post_bill, post_opening_document, post_payment, set_bank_opening)
 from datetime import datetime, timedelta
 from filestore.services import save_upload, validate
 
@@ -25,8 +24,6 @@ JOURNAL_TABS = {
     "purchase_entries": [JournalEntry.EntryType.PURCHASES],
     "cash_entries":     [JournalEntry.EntryType.RECEIPT, JournalEntry.EntryType.PAYMENT],
 }
-
-# The Overview (the first page of the module) is in overview.py.
 
 def journal_rows(lines):
     return [{
@@ -252,7 +249,7 @@ def payment_create(request):
                 payment.save()
                 documents = allocate(payment)     # Before post_payment: the cash entry reads the allocations.
                 post_payment(payment)
-                payment.files.add(*(save_upload(u, request.user) for u in uploads))
+                payment.files.add(*(save_upload(u, request.user, request.company) for u in uploads))
                 AuditLog.record(request, AuditLog.Action.CREATE, payment)
                 AuditLog.record(request, AuditLog.Action.UPDATE, *documents)
                 if payment.number == NumberSequence.peek(request.company, "payment", "PAY-"):
@@ -277,6 +274,7 @@ def note_create(request):
     page, the user and the time automatically. The page comes from the form."""
     if request.method != "POST":
         return redirect("accounting:dashboard")
+    
     form = NoteForm(request.POST)
     uploads = request.FILES.getlist("note_files")
     if form.is_valid():
@@ -290,7 +288,7 @@ def note_create(request):
                 note.created_by = request.user
                 note.range_start, note.range_end = start, end
                 note.save()
-                note.files.add(*(save_upload(u, request.user) for u in uploads))
+                note.files.add(*(save_upload(u, request.user, request.company) for u in uploads))
                 AuditLog.record(request, AuditLog.Action.CREATE, note)
             return JsonResponse({"saved": True})
         except ValidationError as error:
@@ -395,13 +393,28 @@ def account_create(request):
             name=request.POST["name"],
             type=request.POST["type"],
             normal_side=NORMAL_SIDE[request.POST["type"]],
-            parent_id=request.POST.get("parent") or None,
+            parent=Account.objects.filter(company=request.company, pk=request.POST.get("parent") or None).first(),
             currency_id=request.POST.get("currency") or None,
             is_active=bool(request.POST.get("is_active")),
             description=request.POST.get("description", ""),
         )
         AuditLog.record(request, AuditLog.Action.CREATE, account)
     return redirect("accounting:chartaccounts")
+
+def child_account(parent, name):
+    """Add an account with the name below the parent. It gets the type of the parent. The
+    code is the code of the parent, a point and the next number: 1000.1, 1000.2, 1000.3."""
+    accounts = Account.objects.filter(company_id=parent.company_id)
+    prefix = f"{parent.code}."
+    codes = accounts.filter(code__startswith=prefix).values_list("code", flat=True)
+    code = prefix + str(max((int(c[len(prefix):]) for c in codes if c[len(prefix):].isdecimal()), default=0) + 1)
+    if len(code) > Account._meta.get_field("code").max_length:
+        raise ValidationError(f"The code {code} is too long. Select a parent account with a shorter code.")
+    if accounts.filter(name=name).exists():
+        raise ValidationError(f'The chart of accounts already has an account "{name}". '
+                              "Give the bank account another name.")
+    return Account.objects.create(company_id=parent.company_id, code=code, name=name, type=parent.type,
+                                  normal_side=NORMAL_SIDE[parent.type], parent=parent)
 
 PROFIT_TYPES = [
     Account.AccountType.SALES, Account.AccountType.COST_OF_SALES, Account.AccountType.OTHER_INCOME,
@@ -739,11 +752,6 @@ def equity(request):
     })
     return render(request, "accounting/shareholder_equity.html", ctx)
 
-# ___________________________________UI SHELLS_______________________________________#
-# These pages have no model yet: Claims, Cards, Payment Runs and the tax
-# returns show an empty list. The Reports page links to the reports.
-
-
 def reports(request):
     return render(request, "accounting/reports.html")
 
@@ -833,7 +841,7 @@ def bill_create(request):
                 for line in lines:
                     line.document = bill
                 DocumentLine.objects.bulk_create(lines)
-                bill.files.add(*(save_upload(u, request.user) for u in uploads))
+                bill.files.add(*(save_upload(u, request.user, request.company) for u in uploads))
                 AuditLog.record(request, AuditLog.Action.CREATE, bill)
                 if form.cleaned_data["recurring"]:
                     RecurringDocument.start(bill, form.cleaned_data["frequency"], request.user)
@@ -901,6 +909,7 @@ def suppliers(request):
             "id": entity.id,
             "code": details and details.code,
             "name": entity.name,
+            "entity": entity,
             "contact": details and details.contact,
             "terms": details and details.get_terms_display(),
             "is_active": entity.is_active,
@@ -940,34 +949,48 @@ def module_settings(request):
         "next_quote": NumberSequence.peek(company, "quote", "QUO-"),
     })
 
-# ___________________________________CUSTOMERS_______________________________________#
-# A customer is an entity with a lead or with a sales document (see
-# customer_entities). The New Customer button opens the New Lead overlay
-# (see lead_form.js).
-
 def open_invoices(company):
-    """The issued invoices that are not paid in full, the next due first.
-    The balance of each is its open amount (see Document.balance)."""
-    S = Document.Status
-    return list(Document.objects
-                .filter(company=company, direction=Document.Direction.SALE, doc_type=Document.DocType.INVOICE,
-                        status__in=[S.SENT, S.APPROVED, S.PART_PAID])
-                .select_related("entity").prefetch_related("lines__tax_code", "allocations")
-                .order_by("due", "date"))
+    open_statuses = [
+        Document.Status.SENT,
+        Document.Status.APPROVED,
+        Document.Status.PART_PAID,
+    ]
+
+    invoices = Document.objects.filter(
+        company     = company,
+        direction   = Document.Direction.SALE,
+        doc_type    = Document.DocType.INVOICE,
+        status__in  = open_statuses,
+    )
+
+    invoices = invoices.select_related("entity")
+    invoices = invoices.prefetch_related("lines__tax_code", "allocations")
+
+    return list(invoices.order_by("due", "date"))
+
 
 def receivable_balances(company):
-    """The money that each customer owes: the posted Accounts Receivable
-    lines of the customer, as on the Account Statement. Returns {entity_id: Decimal}."""
-    return dict(JournalLine.objects
-                .filter(entry__company=company, entry__status=JournalEntry.Status.POSTED, account__name=RECEIVABLE)
-                .exclude(entry__basis=JournalEntry.Basis.CASH)
-                .values_list("entity")
-                .annotate(balance=Sum("base_debit") - Sum("base_credit")))
+
+    posted      = JournalEntry.Status.POSTED
+
+    lines = JournalLine.objects.filter(
+        entry__company  = company,
+        entry__status   = posted,
+        account__name   = RECEIVABLE,
+    ).exclude(
+        entry__basis    = JournalEntry.Basis.CASH,
+    )
+
+    per_entity = lines.values("entity").annotate(
+        balance         = Sum("base_debit") - Sum("base_credit"),
+    )
+
+    return {
+        entity_id: balance
+        for entity_id, balance in per_entity.values_list("entity", "balance")
+    }
 
 def customers(request):
-    """Each customer. The balance is the money that the customer owes (see
-    receivable_balances). The balance is overdue when an open invoice is
-    after its due date. The terms are the payment terms of the last invoice."""
     company = request.company
     S = Document.Status
     sales = Document.objects.filter(company=company, direction=Document.Direction.SALE,
@@ -982,6 +1005,7 @@ def customers(request):
         rows.append({
             "id": entity.id,
             "name": entity.name,
+            "entity": entity,
             "email": entity.email,
             "phone": entity.phone,
             "terms": entity.id in terms and PaymentTerms(terms[entity.id]).label,
@@ -993,13 +1017,14 @@ def customers(request):
 
 def customer_edit(request, pk):
     """The Edit Customer page. Save changes the entity, then the browser goes to the Customers page."""
-    form = CustomerForm(request.POST or None, instance=get_object_or_404(customer_entities(request.company), pk=pk))
+    entity = get_object_or_404(customer_entities(request.company), pk=pk)
+    form = CustomerForm(request.POST or None, request.FILES or None, instance=entity)
     if form.is_valid():
-        AuditLog.record(request, AuditLog.Action.UPDATE, form.save())
+        AuditLog.record(request, AuditLog.Action.UPDATE, form.save(request.user))
         return redirect("accounting:customers")
     return render(request, "accounting/record_form.html", {
         "title": "Edit Customer", "note": "Change the details of the customer.", "form": form,
-        "cancel_url": reverse("accounting:customers"), "page_key": "customers",
+        "cancel_url": reverse("accounting:customers"), "page_key": "customers", "avatar_owner": entity,
     })
 
 def receivables(request):
@@ -1044,15 +1069,13 @@ def aging_receivables(request):
     return render(request, "accounting/aging_receivables.html", aging_report(open_invoices(request.company)))
 
 def customer_dashboard(request):
-    """The position of the customers today, and the sales and the receipts of the date range.
-    Debtor days: the open amount divided by the sales of the range, times the days of the range."""
-    _, start, end = get_range(request)
-    company = request.company
-    today = timezone.localdate()
-    invoices = open_invoices(company)
-    late = [i for i in invoices if i.due and i.due < today]
-    receivable = sum((i.balance for i in invoices), ZERO)
-    sales = sum((d.gross for d in Document.objects
+    _, start, end   = get_range(request)
+    company         = request.company
+    today           = timezone.localdate()
+    invoices        = open_invoices(company)
+    late            = [i for i in invoices if i.due and i.due < today]
+    receivable      = sum((i.balance for i in invoices), ZERO)
+    sales           = sum((d.gross for d in Document.objects
                  .filter(company=company, direction=Document.Direction.SALE, doc_type=Document.DocType.INVOICE,
                          date__range=(start, end))
                  .exclude(status=Document.Status.VOID).prefetch_related("lines__tax_code")), ZERO)
@@ -1090,7 +1113,7 @@ def supplier_form(request, pk=None):
     if pk:
         entity = get_object_or_404(supplier_entities(company), pk=pk)
         supplier = getattr(entity, "supplier", None) or Supplier(company=company, entity=entity)
-    form = SupplierForm(request.POST or None, instance=supplier, company=company)
+    form = SupplierForm(request.POST or None, request.FILES or None, instance=supplier, company=company)
     if form.is_valid():
         is_new = form.instance.pk is None
         opening = form.cleaned_data.get("opening_balance")
@@ -1111,6 +1134,7 @@ def supplier_form(request, pk=None):
         "title": "Edit Supplier" if pk else "New Supplier",
         "note": "Change the details of the supplier." if pk else "Fill in the fields below to add a supplier.",
         "form": form, "cancel_url": reverse("accounting:suppliers"), "page_key": "suppliers",
+        "avatar_owner": supplier and supplier.entity,
     })
 
 def payables(request):
@@ -1180,10 +1204,12 @@ def bank_accounts(request):
     })
 
 def bank_account_form(request, pk=None):
-    """The New Bank Account page, and the Edit Bank Account page (pk). A change
-    of the opening balance, its date or the ledger account posts the opening
-    balance again (see set_bank_opening). A problem, e.g. no open period,
-    saves nothing. The browser then goes to the Bank Accounts page."""
+    """The New Bank Account page, and the Edit Bank Account page (pk). A new
+    bank account gets a new ledger account below the selected parent account,
+    with the name of the bank account (see child_account). A change of the
+    opening balance or its date posts the opening balance again (see
+    set_bank_opening). A problem, e.g. no open period, saves nothing. The
+    browser then goes to the Bank Accounts page."""
     company = request.company
     instance = get_object_or_404(BankAccount, company=company, pk=pk) if pk else None
     form = BankAccountForm(request.POST or None, instance=instance, company=company)
@@ -1192,8 +1218,11 @@ def bank_account_form(request, pk=None):
             with transaction.atomic():
                 bank = form.save(commit=False)
                 bank.company = company                          # Add to every function that creates a CompanyOwned record
+                if not pk:
+                    bank.account = child_account(form.cleaned_data["parent"], bank.name)
+                    AuditLog.record(request, AuditLog.Action.CREATE, bank.account)
                 bank.save()
-                if {"opening_balance", "opening_date", "account"} & set(form.changed_data):
+                if {"opening_balance", "opening_date"} & set(form.changed_data):
                     set_bank_opening(bank, form.cleaned_data["opening_balance"],
                                      form.cleaned_data["opening_date"] or timezone.localdate())
                 AuditLog.record(request, AuditLog.Action.UPDATE if pk else AuditLog.Action.CREATE, bank)
@@ -1203,8 +1232,9 @@ def bank_account_form(request, pk=None):
     return render(request, "accounting/record_form.html", {
         "title": "Edit Bank Account" if pk else "New Bank Account",
         "note": "Change the details of the bank account." if pk else
-                "Fill in the fields below to add a bank account. The balance comes from the ledger account. "
-                "The opening balance posts to the ledger account on its date.",
+                "Fill in the fields below to add a bank account. The bank account gets a new ledger account "
+                "below the parent account. Its code is the code of the parent, a point and the next number. "
+                "The balance comes from the ledger account. The opening balance posts to the ledger account on its date.",
         "form": form, "cancel_url": reverse("accounting:bank_accounts"), "page_key": "banking",
     })
 

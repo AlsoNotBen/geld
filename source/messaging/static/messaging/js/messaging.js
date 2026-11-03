@@ -93,6 +93,7 @@
             e.preventDefault();
             var data = new FormData(form);
             submit.disabled = true;
+            status.classList.remove("is-error");
             status.textContent = "The server sends the message\u2026";
 
             load().then(function (f) {
@@ -103,7 +104,8 @@
                 .then(function (answer) { show(answer, url, attachUrl, file); })
                 .catch(function () {
                     submit.disabled = false;
-                    status.textContent = "The message did not go. Try again.";
+                    status.classList.add("is-error");
+                    status.textContent = "The message was not sent. Try again.";
                 });
         });
 

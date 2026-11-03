@@ -3,8 +3,7 @@ inventory/views.py
 ------------------------------------------------------------------------
 The pages of the Inventory module. The data comes from three models:
 
-    Item              the items. An item has no company yet, thus each
-                      company sees all the items.
+    Item              the items of the company.
     ItemRelationship  a parent, a child, a type and a quantity. A kit is
                       an item that contains other items (see contents).
     StockMovement     a movement of the stock of the company. The quantity on hand and the
@@ -99,11 +98,12 @@ def matches(items, q):
 
 
 # ___________________________________KITS____________________________________________#
-def contents():
-    """The children of each kit: {parent_id: [(child, quantity)]}. A kit is
-    an item that contains other items (a Contains relationship)."""
+def contents(company):
+    """The children of each kit of the company: {parent_id: [(child, quantity)]}.
+    A kit is an item that contains other items (a Contains relationship)."""
     children = {}
-    for relation in ItemRelationship.objects.filter(relationship_type=CONTAINS).select_related("child"):
+    for relation in (ItemRelationship.objects.filter(parent__company=company, relationship_type=CONTAINS)
+                     .select_related("child")):
         children.setdefault(relation.parent_id, []).append((relation.child, relation.quantity))
     return children
 
@@ -126,10 +126,11 @@ def overview(request):
     company = request.company
     today = timezone.localdate()
     levels = stock_levels(company)
-    items = with_status(with_stock(Item.objects.order_by("name"), levels))
+    items = with_status(with_stock(Item.objects.filter(company=company).order_by("name"), levels))
     active = [i for i in items if i.active and not i.obsoleted]
     out = [i for i in active if i.item_type in STOCKED and i.on_hand <= 0]
-    due = list(StockTakeSchedule.objects.filter(active=True, next_due__lte=today).select_related("item"))
+    due = list(StockTakeSchedule.objects.filter(item__company=company, active=True, next_due__lte=today)
+               .select_related("item"))
     for schedule in due:
         schedule.item.on_hand = levels.get(schedule.item_id, (ZERO, ZERO))[0]
     week = StockMovement.objects.filter(company=company, date__gt=today - datetime.timedelta(days=7))
@@ -142,7 +143,7 @@ def overview(request):
         "stock_count": count[T.STOCK],
         "consumable_count": count[T.CONSUMABLE],
         "component_count": count[T.COMPONENT],
-        "kit_count": len(contents()),
+        "kit_count": len(contents(company)),
         "inactive_count": len(items) - len(active),
         "out": out,
         "due": due,
@@ -220,7 +221,7 @@ def analytics(request):
             if row["item__item_type"] == T.CONSUMABLE:
                 used[row["item__name"]] = used.get(row["item__name"], ZERO) + quantity
     levels = stock_levels(company)
-    items = with_stock(Item.objects.all(), levels)
+    items = with_stock(Item.objects.filter(company=company), levels)
     for row_type, row in by_type.items():
         row["net"] = row["received"] - row["issued"]
         row["value"] = sum((i.value for i in items if i.item_type == row_type), ZERO)
@@ -266,8 +267,9 @@ def assets(request):
     """The asset register. The text filter finds the name, the code, the tag
     or the serial number. The status filter is active or inactive."""
     q, status = request.GET.get("q", "").strip(), request.GET.get("status", "")
-    every = list(Item.objects.filter(item_type=T.ASSET))
-    listed = matches(Item.objects.filter(item_type=T.ASSET), q).order_by("name")
+    assets = Item.objects.filter(company=request.company, item_type=T.ASSET)
+    every = list(assets)
+    listed = matches(assets, q).order_by("name")
     if status in ("active", "inactive"):
         listed = listed.filter(active=status == "active")
     return render(request, "inventory/assets.html", {
@@ -288,12 +290,14 @@ def stock(request):
     company = request.company
     q = request.GET.get("q", "").strip()
     levels = stock_levels(company)
-    every = with_stock(Item.objects.filter(item_type=T.STOCK, active=True), levels)
-    listed = with_status(with_stock(matches(Item.objects.filter(item_type=T.STOCK), q).order_by("name"), levels))
+    stock_items = Item.objects.filter(company=company, item_type=T.STOCK)
+    every = with_stock(stock_items.filter(active=True), levels)
+    listed = with_status(with_stock(matches(stock_items, q).order_by("name"), levels))
     last = last_movements(company)
     for item in listed:
         item.last = last.get(item.pk)
-    due = StockTakeSchedule.objects.filter(active=True, next_due__lte=timezone.localdate(), item__item_type=T.STOCK)
+    due = StockTakeSchedule.objects.filter(item__company=company, active=True, next_due__lte=timezone.localdate(),
+                                           item__item_type=T.STOCK)
     return render(request, "inventory/stock.html", {
         "page_title": "Stock",
         "items": listed,
@@ -313,7 +317,8 @@ def consumables(request):
     company = request.company
     since = timezone.localdate() - datetime.timedelta(days=29)
     levels = stock_levels(company)
-    items = with_status(with_stock(Item.objects.filter(item_type=T.CONSUMABLE).order_by("name"), levels))
+    items = with_status(with_stock(Item.objects.filter(company=company, item_type=T.CONSUMABLE).order_by("name"),
+                                   levels))
     issues = StockMovement.objects.filter(company=company, direction=D.OUT, date__gte=since,
                                           item__item_type=T.CONSUMABLE)
     used = dict(issues.values_list("item_id").annotate(total=Sum("quantity")))
@@ -336,8 +341,8 @@ def kits(request):
     """The kits, then the components that the kits contain. A kit shows the
     number that the stock of its components can build (see buildable)."""
     levels = stock_levels(request.company)
-    children = contents()
-    kit_items = with_stock(Item.objects.filter(pk__in=children).order_by("name"), levels)
+    children = contents(request.company)
+    kit_items = with_stock(Item.objects.filter(company=request.company, pk__in=children).order_by("name"), levels)
     for kit in kit_items:
         kit.parts = children[kit.pk]
         kit.can_build = buildable(kit.pk, children, levels)[0]
@@ -357,8 +362,8 @@ def bom(request):
     kits with the number that each can build, the assembly map of the kit
     and its direct components."""
     levels = stock_levels(request.company)
-    children = contents()
-    kit_list = list(Item.objects.filter(pk__in=children).order_by("name"))
+    children = contents(request.company)
+    kit_list = list(Item.objects.filter(company=request.company, pk__in=children).order_by("name"))
     for kit in kit_list:
         kit.can_build = buildable(kit.pk, children, levels)[0]
         kit.part_count = len(children[kit.pk])
@@ -402,7 +407,8 @@ def bom(request):
         "parts": parts,
         "limit": next((p["item"] for p in parts if p["item"].pk in limits), None),
         "short_count": sum(1 for k in kit_list if not k.can_build),
-        "choices": Item.objects.filter(active=True).exclude(pk=kit.pk if kit else None).order_by("name"),
+        "choices": (Item.objects.filter(company=request.company, active=True)
+                    .exclude(pk=kit.pk if kit else None).order_by("name")),
     })
 
 
@@ -415,8 +421,10 @@ def items(request):
     A click selects an item (?item=pk): the form then changes that item, and
     the right column shows its relationships. Without a selection, the form
     makes a new item."""
-    selected = Item.objects.filter(pk=request.GET.get("item") or None).first()
-    form = ItemForm(request.POST or None, instance=selected)
+    company_items = Item.objects.filter(company=request.company)
+    item_id = request.GET.get("item", "")
+    selected = company_items.filter(pk=item_id).first() if item_id.isdigit() else None
+    form = ItemForm(request.POST or None, instance=selected or Item(company=request.company))
 
     if request.method == "POST" and form.is_valid():
         uploads = request.FILES.getlist("files")
@@ -429,12 +437,12 @@ def items(request):
         else:
             with transaction.atomic():
                 item = form.save()
-                item.files.add(*(save_upload(u, request.user) for u in uploads))
+                item.files.add(*(save_upload(u, request.user, request.company) for u in uploads))
             messages.success(request, f"Saved {item.name}.")
             return redirect(f"{request.path}?item={item.pk}")  # Post/Redirect/Get
 
     q, item_type = request.GET.get("q", "").strip(), request.GET.get("item_type", "")
-    listed = matches(Item.objects.all(), q).order_by("name")
+    listed = matches(company_items, q).order_by("name")
     if item_type in T.values:
         listed = listed.filter(item_type=item_type)
     listed = listed.annotate(relation_count=Count("child_relationships", distinct=True)
@@ -451,9 +459,9 @@ def items(request):
         "form": form,
         "selected": selected,
         "items": with_status(with_stock(listed, stock_levels(request.company))),
-        "item_count": Item.objects.count(),
+        "item_count": company_items.count(),
         "relationships": relationships,
         "relationship_types": ItemRelationship.RelationshipType.choices,
-        "related_choices": Item.objects.exclude(pk=selected.pk if selected else None).order_by("name"),
+        "related_choices": company_items.exclude(pk=selected.pk if selected else None).order_by("name"),
         "q": q, "item_type": item_type,
     })

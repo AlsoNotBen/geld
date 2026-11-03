@@ -1,5 +1,5 @@
 {% extends "sales/module_base.html" %}
-{% load fin %}
+{% load fin avatar_tags %}
 
 {% comment %}
   ============================================================================
@@ -62,7 +62,7 @@
         <tbody>
             {% for partner in partners %}
             <tr>
-                <td>{{ partner.name }}</td>
+                <td><span class="name-cell">{% avatar partner.entity "sm" %}{{ partner.name }}</span></td>
                 <td>{% if partner.is_supplier %}Customer and supplier{% else %}Customer{% endif %}</td>
                 <td>{% if partner.is_active %}<span class="status status--ok">Active</span>{% else %}<span class="status status--idle">Inactive</span>{% endif %}</td>
                 <td>{{ partner.contact|default:"—" }}</td>

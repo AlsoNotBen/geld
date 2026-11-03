@@ -17,7 +17,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from . import views
-from shared.views import RandomBackgroundLoginView
+from shared.views import RandomBackgroundLoginView, company_create, company_switch, profile, user_avatar
 
 
 urlpatterns = [
@@ -33,4 +33,8 @@ urlpatterns = [
     path('documents/',include('documents.urls')),
     path('files/', include('filestore.urls')),
     path('messaging/', include('messaging.urls')),
+    path('companies/switch/', company_switch, name='company_switch'),
+    path('companies/new/', company_create, name='company_create'),
+    path('profile/', profile, name='profile'),
+    path('users/<int:pk>/avatar/', user_avatar, name='user_avatar'),
 ]

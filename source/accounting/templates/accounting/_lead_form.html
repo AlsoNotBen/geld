@@ -3,149 +3,204 @@
   lead_form tag, so the Leads page and the customer "+" of the Quote and
   Invoice overlays use the same form. lead_form.js gives the behaviour.
   The New Customer button also shows the opening balance fields
-  (data-for-customer).
+  (data-for-customer). The fields are in tabs: Basic Info, Lead Info,
+  Contact Details and Opening Balance. New Customer hides Lead Info and
+  shows Opening Balance. The fields of Lead Info then send their default
+  values (the customer gets a lead, see customer_entities). lead_form.js
+  switches the tabs, and opens the tab of a field that is not valid.
 {% endcomment %}
 <dialog class="sheet sheet--wide" id="lead-dialog" aria-labelledby="lead-dialog-title">
-    <form method="post" action="{% url 'sales:lead_create' %}">
+    <form method="post" action="{% url 'sales:lead_create' %}" enctype="multipart/form-data">
         {% csrf_token %}
         <div class="sheet__head">
             <h2 class="sheet__title" id="lead-dialog-title">Create New Lead</h2>
         </div>
-        <div class="sheet__body sheet__body--split">
-            <div class="sheet__errors field--wide" role="alert" data-lead-errors hidden></div>
-            <div class="field">
-                <label class="field__label" for="ld-name">Name</label>
-                <input class="field__control" id="ld-name" name="name" type="text" maxlength="255" required>
-            </div>
-            <div class="field">
-                <label class="field__label" for="ld-type">Type</label>
-                <select class="field__control" id="ld-type" name="type" required>
-                    <option value="I">Individual</option>
-                    <option value="O" selected>Organization</option>
-                </select>
+        <div class="sheet__body">
+            <div class="sheet__errors" role="alert" data-lead-errors hidden></div>
+
+            <div class="tabset__list lead-form__tabs" role="tablist" aria-label="Lead details">
+                <button class="tabset__tab" type="button" role="tab" data-tab="basic"
+                        id="ld-tab-basic" aria-controls="ld-panel-basic" aria-selected="true">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0116 0" stroke-linecap="round"/></svg>
+                    Basic Info
+                </button>
+                <button class="tabset__tab" type="button" role="tab" data-tab="lead" data-for-lead
+                        id="ld-tab-lead" aria-controls="ld-panel-lead" aria-selected="false" tabindex="-1">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 7h6v6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Lead Info
+                </button>
+                <button class="tabset__tab" type="button" role="tab" data-tab="contact"
+                        id="ld-tab-contact" aria-controls="ld-panel-contact" aria-selected="false" tabindex="-1">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Contact Details
+                </button>
+                <button class="tabset__tab" type="button" role="tab" data-tab="opening" data-for-customer hidden
+                        id="ld-tab-opening" aria-controls="ld-panel-opening" aria-selected="false" tabindex="-1">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h15a1 1 0 011 1v11a1 1 0 01-1 1H5a1 1 0 01-1-1V7z" stroke-linejoin="round"/><path d="M4 7l12-3v3" stroke-linejoin="round"/><path d="M15 13.5h2" stroke-linecap="round"/></svg>
+                    Opening Balance
+                </button>
             </div>
 
-            {# Individual fields. leads.js shows them when Type is Individual. #}
-            <div class="field" data-for-type="I">
-                <label class="field__label" for="ld-lastname">Last name</label>
-                <input class="field__control" id="ld-lastname" name="lastname" type="text" maxlength="100" required>
-            </div>
-            <div class="field" data-for-type="I">
-                <label class="field__label" for="ld-birthdate">Date of birth</label>
-                <input class="field__control" id="ld-birthdate" name="birthdate" type="date">
-            </div>
-            <div class="field" data-for-type="I">
-                <label class="field__label" for="ld-role">Role</label>
-                <select class="field__control" id="ld-role" name="role">
-                    <option value="">No role</option>
-                    {% for role in roles %}<option value="{{ role.pk }}">{{ role }}</option>{% endfor %}
-                </select>
-            </div>
-            <div class="field" data-for-type="I">
-                <label class="field__label" for="ld-title">Title</label>
-                <select class="field__control" id="ld-title" name="title">
-                    <option value="">No title</option>
-                    {% for title in titles %}<option value="{{ title.pk }}">{{ title }}</option>{% endfor %}
-                </select>
+            {# ------------------------------ BASIC INFO ------------------------------ #}
+            <div class="tabset__panel sheet__body--split lead-form__panel" id="ld-panel-basic" role="tabpanel"
+                 data-panel="basic" aria-labelledby="ld-tab-basic">
+                <div class="field">
+                    <label class="field__label" for="ld-name">Name</label>
+                    <input class="field__control" id="ld-name" name="name" type="text" maxlength="255" required>
+                </div>
+                <div class="field">
+                    <label class="field__label" for="ld-type">Type</label>
+                    <select class="field__control" id="ld-type" name="type" required>
+                        <option value="I">Individual</option>
+                        <option value="O" selected>Organization</option>
+                    </select>
+                </div>
+
+                {# Individual fields. lead_form.js shows them when Type is Individual. #}
+                <div class="field" data-for-type="I">
+                    <label class="field__label" for="ld-lastname">Last name</label>
+                    <input class="field__control" id="ld-lastname" name="lastname" type="text" maxlength="100" required>
+                </div>
+                <div class="field" data-for-type="I">
+                    <label class="field__label" for="ld-birthdate">Date of birth</label>
+                    <input class="field__control" id="ld-birthdate" name="birthdate" type="date">
+                </div>
+                <div class="field" data-for-type="I">
+                    <label class="field__label" for="ld-role">Role</label>
+                    <select class="field__control" id="ld-role" name="role">
+                        <option value="">No role</option>
+                        {% for role in roles %}<option value="{{ role.pk }}">{{ role }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="field" data-for-type="I">
+                    <label class="field__label" for="ld-title">Title</label>
+                    <select class="field__control" id="ld-title" name="title">
+                        <option value="">No title</option>
+                        {% for title in titles %}<option value="{{ title.pk }}">{{ title }}</option>{% endfor %}
+                    </select>
+                </div>
+
+                {# Organization fields. lead_form.js shows them when Type is Organization. #}
+                <div class="field" data-for-type="O">
+                    <label class="field__label" for="ld-taxnumber">Tax number</label>
+                    <input class="field__control" id="ld-taxnumber" name="taxnumber" type="text" maxlength="50">
+                </div>
+                <div class="field" data-for-type="O">
+                    <label class="field__label" for="ld-registration">Registration number</label>
+                    <input class="field__control" id="ld-registration" name="registration" type="text" maxlength="50">
+                </div>
+                <div class="field" data-for-type="O">
+                    <label class="field__label" for="ld-url">Website</label>
+                    <input class="field__control" id="ld-url" name="url" type="text" maxlength="250">
+                </div>
+                <div class="field" data-for-type="O">
+                    <label class="field__label" for="ld-industry">Industry</label>
+                    <select class="field__control" id="ld-industry" name="industry">
+                        <option value="">No industry</option>
+                        {% for industry in industries %}<option value="{{ industry.pk }}">{{ industry }}</option>{% endfor %}
+                    </select>
+                </div>
+
+                {# The avatar. lead_form.js shows the current image, base.js the selected file. #}
+                <div class="field field--wide">
+                    <label class="field__label" for="ld-avatar">Avatar</label>
+                    <div class="avatar-field">
+                        <span class="avatar avatar--lg" data-avatar-preview></span>
+                        {% include "shared/_file_pick.html" with input_id="ld-avatar" name="avatar" %}
+                    </div>
+                </div>
+                <div class="field field--wide">
+                    <label class="field__label" for="ld-desc">Description</label>
+                    <textarea class="field__control" id="ld-desc" name="description" rows="3" maxlength="1000"></textarea>
+                </div>
             </div>
 
-            {# Organization fields. leads.js shows them when Type is Organization. #}
-            <div class="field" data-for-type="O">
-                <label class="field__label" for="ld-taxnumber">Tax number</label>
-                <input class="field__control" id="ld-taxnumber" name="taxnumber" type="text" maxlength="50">
-            </div>
-            <div class="field" data-for-type="O">
-                <label class="field__label" for="ld-registration">Registration number</label>
-                <input class="field__control" id="ld-registration" name="registration" type="text" maxlength="50">
-            </div>
-            <div class="field" data-for-type="O">
-                <label class="field__label" for="ld-url">Website</label>
-                <input class="field__control" id="ld-url" name="url" type="text" maxlength="250">
-            </div>
-            <div class="field" data-for-type="O">
-                <label class="field__label" for="ld-industry">Industry</label>
-                <select class="field__control" id="ld-industry" name="industry">
-                    <option value="">No industry</option>
-                    {% for industry in industries %}<option value="{{ industry.pk }}">{{ industry }}</option>{% endfor %}
-                </select>
-            </div>
-            <div class="field">
-                <label class="field__label" for="ld-owner">Owner</label>
-                <select class="field__control" id="ld-owner" name="owner">
-                    <option value="">No owner</option>
-                    {% for person in owners %}
-                    <option value="{{ person.pk }}" {% if person.pk == request.user.pk %}selected{% endif %}>{{ person.get_full_name|default:person.username }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="field">
-                <label class="field__label" for="ld-turn">Next step</label>
-                <select class="field__control" id="ld-turn" name="turn">
-                    <option value="theirs">Their turn</option>
-                    <option value="yours">Your turn</option>
-                </select>
-            </div>
-            <div class="field">
-                <label class="field__label" for="ld-stage">Stage</label>
-                <select class="field__control" id="ld-stage" name="stage" required>
-                    {% for value, label in stages %}
-                    <option value="{{ value }}">{{ label }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="field">
-                <label class="field__label" for="ld-status">Status</label>
-                <select class="field__control" id="ld-status" name="status" required>
-                    {% for value, label in statuses %}
-                    <option value="{{ value }}">{{ label }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="field">
-                <label class="field__label" for="ld-size">Size (1 to 1000)</label>
-                <input class="field__control" id="ld-size" name="size" type="number" min="1" max="1000" value="1">
-            </div>
-            <div class="field">
-                <label class="field__label" for="ld-score">Qualifying score (0 to 100)</label>
-                <input class="field__control" id="ld-score" name="qualifying_score" type="number" min="0" max="100">
-            </div>
-            <div class="field">
-                <label class="field__label" for="ld-temp">Temperature</label>
-                <select class="field__control" id="ld-temp" name="temperature" required>
-                    {% for value, label in temperatures %}
-                    <option value="{{ value }}" {% if value == "N" %}selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="field">
-                <label class="field__label" for="ld-resp">Last response</label>
-                <input class="field__control" id="ld-resp" name="responsiveness" type="datetime-local">
-            </div>
-            <div class="field">
-                <label class="field__label" for="ld-email">Email</label>
-                <input class="field__control" id="ld-email" name="email" type="email" maxlength="254">
-            </div>
-            <div class="field">
-                <label class="field__label" for="ld-phone">Phone</label>
-                <input class="field__control" id="ld-phone" name="phone" type="tel" maxlength="50">
+            {# ------------------------------ LEAD INFO ------------------------------- #}
+            <div class="tabset__panel sheet__body--split lead-form__panel" id="ld-panel-lead" role="tabpanel"
+                 data-panel="lead" aria-labelledby="ld-tab-lead" hidden>
+                <div class="field">
+                    <label class="field__label" for="ld-owner">Owner</label>
+                    <select class="field__control" id="ld-owner" name="owner">
+                        <option value="">No owner</option>
+                        {% for person in owners %}
+                        <option value="{{ person.pk }}" {% if person.pk == request.user.pk %}selected{% endif %}>{{ person.get_full_name|default:person.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field">
+                    <label class="field__label" for="ld-turn">Next step</label>
+                    <select class="field__control" id="ld-turn" name="turn">
+                        <option value="theirs">Their turn</option>
+                        <option value="yours">Your turn</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label class="field__label" for="ld-stage">Stage</label>
+                    <select class="field__control" id="ld-stage" name="stage" required>
+                        {% for value, label in stages %}
+                        <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field">
+                    <label class="field__label" for="ld-status">Status</label>
+                    <select class="field__control" id="ld-status" name="status" required>
+                        {% for value, label in statuses %}
+                        <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field">
+                    <label class="field__label" for="ld-size">Size (1 to 1000)</label>
+                    <input class="field__control" id="ld-size" name="size" type="number" min="1" max="1000" value="1">
+                </div>
+                <div class="field">
+                    <label class="field__label" for="ld-score">Qualifying score (0 to 100)</label>
+                    <input class="field__control" id="ld-score" name="qualifying_score" type="number" min="0" max="100">
+                </div>
+                <div class="field">
+                    <label class="field__label" for="ld-temp">Temperature</label>
+                    <select class="field__control" id="ld-temp" name="temperature" required>
+                        {% for value, label in temperatures %}
+                        <option value="{{ value }}" {% if value == "N" %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field">
+                    <label class="field__label" for="ld-resp">Last response</label>
+                    <input class="field__control" id="ld-resp" name="responsiveness" type="datetime-local">
+                </div>
             </div>
 
-            {# The opening balance of a new customer. lead_form.js shows it for New Customer only. #}
-            <div class="field" data-for-customer hidden>
-                <label class="field__label" for="ld-opening">Opening balance</label>
-                <input class="field__control" id="ld-opening" name="opening_balance" type="number" min="0" step="0.01" disabled>
+            {# ---------------------------- CONTACT DETAILS --------------------------- #}
+            <div class="tabset__panel sheet__body--split lead-form__panel" id="ld-panel-contact" role="tabpanel"
+                 data-panel="contact" aria-labelledby="ld-tab-contact" hidden>
+                <div class="field">
+                    <label class="field__label" for="ld-email">Email</label>
+                    <input class="field__control" id="ld-email" name="email" type="email" maxlength="254">
+                </div>
+                <div class="field">
+                    <label class="field__label" for="ld-phone">Phone</label>
+                    <input class="field__control" id="ld-phone" name="phone" type="tel" maxlength="50">
+                </div>
+                <div class="field field--wide">
+                    <label class="field__label" for="ld-address">Address</label>
+                    <textarea class="field__control" id="ld-address" name="address" rows="3" maxlength="500"></textarea>
+                </div>
             </div>
-            <div class="field" data-for-customer hidden>
-                <label class="field__label" for="ld-opening-date">Opening balance date</label>
-                <input class="field__control" id="ld-opening-date" name="opening_date" type="date" value="{% now 'Y-m-d' %}" disabled>
-            </div>
-            <div class="field field--wide">
-                <label class="field__label" for="ld-address">Address</label>
-                <textarea class="field__control" id="ld-address" name="address" rows="3" maxlength="500"></textarea>
-            </div>
-            <div class="field field--wide">
-                <label class="field__label" for="ld-desc">Description</label>
-                <textarea class="field__control" id="ld-desc" name="description" rows="4" maxlength="1000"></textarea>
+
+            {# ---------------------------- OPENING BALANCE --------------------------- #}
+            {# A new customer only. lead_form.js shows the tab and enables the fields. #}
+            <div class="tabset__panel sheet__body--split lead-form__panel" id="ld-panel-opening" role="tabpanel"
+                 data-panel="opening" aria-labelledby="ld-tab-opening" hidden>
+                <div class="field" data-for-customer hidden>
+                    <label class="field__label" for="ld-opening">Opening balance</label>
+                    <input class="field__control" id="ld-opening" name="opening_balance" type="number" step="0.01" disabled>
+                </div>
+                <div class="field" data-for-customer hidden>
+                    <label class="field__label" for="ld-opening-date">Opening balance date</label>
+                    <input class="field__control" id="ld-opening-date" name="opening_date" type="date" value="{% now 'Y-m-d' %}" disabled>
+                </div>
             </div>
         </div>
         <div class="sheet__foot">

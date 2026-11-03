@@ -1,5 +1,5 @@
 {% extends "accounting/module_base.html" %}
-{% load fin %}
+{% load fin avatar_tags %}
 
 {% comment %}
   ============================================================================
@@ -53,7 +53,7 @@
         <tbody>
             {% for customer in customers %}
             <tr>
-                <td>{{ customer.name }}</td>
+                <td><span class="name-cell">{% avatar customer.entity "sm" %}{{ customer.name }}</span></td>
                 <td>{{ customer.email|default:"—" }}</td>
                 <td>{{ customer.phone|default:"—" }}</td>
                 <td>{{ customer.terms|default:"—" }}</td>

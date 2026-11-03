@@ -9,7 +9,7 @@
     {% if row.group %}
     <td colspan="4">{{ row.name }}</td>
     {% else %}
-    <td>{{ row.name }}</td><td>{{ row.code }}</td>
+    <td>{{ row.name }}</td><td><span data-code>{{ row.code }}</span></td>
     <td>{{ row.this|money }}</td><td>{{ row.last|money }}</td>
     {% endif %}
 </tr>

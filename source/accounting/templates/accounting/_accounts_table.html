@@ -3,6 +3,8 @@
   The table of one Chart of Accounts tab.
   Give it: rows, total, total_label. Each row is (account, depth). The
   depth indents the name of a child account (see tree_order in views.py).
+  A code can look like a number (1000.1), thus it is in a [data-code]
+  span: base.js and view_mode.js do not format it.
 {% endcomment %}
 {% load fin %}
 <table class="table table--coa">
@@ -12,7 +14,7 @@
     <tbody>
         {% for account, depth in rows %}
         <tr{% if account.is_group %} class="is-group"{% endif %}>
-            <td>{{ account.code }}</td>
+            <td><span data-code>{{ account.code }}</span></td>
             <td style="--depth: {{ depth }}">{{ account.name }}</td>
             <td>{{ account.get_type_display }}</td>
             <td class="{% if account.is_debit %}is-debit{% else %}is-credit{% endif %}">{{ account.balance|money }}</td>

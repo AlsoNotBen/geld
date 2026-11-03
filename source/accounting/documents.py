@@ -74,7 +74,7 @@ def catalog(company, item_types, purchase=False):
     lists the items only, with the cost of each item as its price."""
     services = [] if purchase else Service.objects.filter(company=company).order_by("name")
     rows = [{"description": s.name, "unit": "", "unit_price": ""} for s in services]
-    for item in Item.objects.filter(item_type__in=item_types, active=True, obsoleted=False).order_by("name"):
+    for item in Item.objects.filter(company=company, item_type__in=item_types, active=True, obsoleted=False).order_by("name"):
         price = item.cost if purchase and item.cost is not None else ""
         rows.append({"description": item.name, "unit": "", "unit_price": str(price)})
     return rows

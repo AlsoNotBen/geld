@@ -1,6 +1,7 @@
 import json
 from datetime import datetime, timedelta
 from django import forms
+from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.http import JsonResponse
@@ -11,7 +12,10 @@ from accounting.date_range import get_range
 from accounting.models import (AuditLog, Document, Entity, IndividualProfile, OrganizationProfile, customer_entities,
                                supplier_entities)
 from accounting.posting import post_opening_document
+from filestore.services import update_avatar
+from shared.templatetags.avatar_tags import avatar_url
 from sales.models import Lead
+from shared.models import Membership
 from accounting.views import ZERO, open_invoices, receivable_balances
 
 
@@ -56,6 +60,7 @@ def card_data(lead, now):
     lead.name       = entity.display_name or entity.name
     lead.owner_name = (owner.get_full_name() or owner.username) if owner else ""
     lead.tone       = STATUS_TONE.get(lead.status, "idle")
+    lead.avatar_url = avatar_url(entity)
     lead.temp_level = TEMPERATURES.index(lead.temperature) * 100 // (len(TEMPERATURES) - 1)
 
     if lead.size is not None:
@@ -90,6 +95,7 @@ def card_data(lead, now):
         "registration": org and org.registration_number,
         "url": org and org.url, 
         "industry": org and org.industry_id,
+        "avatar_url": lead.avatar_url,
     }, default=str)
 
     
@@ -109,15 +115,20 @@ def leads(request):
         "closed_leads": [l for l in rows if l.stage == Lead.SaleStage.CLOSED],
     })
 
-def save_lead(lead, post):
+def save_lead(lead, post, files=None, user=None):
     """Copy the lead form to the lead and its entity, then save both. The
-    New Lead overlay and the Edit Lead overlay use the same form."""
+    New Lead overlay and the Edit Lead overlay use the same form. An image
+    in files["avatar"] becomes the avatar of the entity. avatar_clear
+    removes the avatar."""
     when                = post.get("responsiveness")
     entity              = lead.entity
+    owner               = post.get("owner") or None
+    if owner and not Membership.objects.filter(company=lead.company_id, user_id=owner).exists():
+        raise ValidationError("The owner must be a member of the company.")
     entity.name         = post["name"]
     entity.description  = post.get("description","")
     entity.type         = post["type"]
-    entity.owner_id     = post.get("owner") or None
+    entity.owner_id     = owner
     entity.email        = post.get("email", "")
     entity.phone        = post.get("phone", "")
     entity.address      = post.get("address", "")
@@ -136,6 +147,7 @@ def save_lead(lead, post):
 
     with transaction.atomic():
         entity.save()
+        update_avatar(entity, files and files.get("avatar"), post.get("avatar_clear"), user, lead.company)
         if entity.type == Entity.EntityType.INDIVIDUAL:
             OrganizationProfile.objects.filter(entity=entity).delete()
             IndividualProfile.objects.update_or_create(entity=entity, defaults={
@@ -157,9 +169,10 @@ def save_lead(lead, post):
         lead.save()
 
 def opening_balance(post):
-    """The opening balance of the New Customer overlay and its date. No date gives today."""
+    """The opening balance of the New Customer overlay and its date. A negative amount is a
+    credit of the customer (see post_opening_document). No date gives today."""
     try:
-        amount = forms.DecimalField(min_value=0, max_digits=13, decimal_places=2, required=False).clean(
+        amount = forms.DecimalField(max_digits=13, decimal_places=2, required=False).clean(
             post.get("opening_balance"))
         day = forms.DateField(required=False).clean(post.get("opening_date"))
     except ValidationError as error:
@@ -176,7 +189,7 @@ def lead_create(request):
         try:
             amount, day = opening_balance(request.POST)
             with transaction.atomic():
-                save_lead(Lead(company=request.company, entity=entity), request.POST)
+                save_lead(Lead(company=request.company, entity=entity), request.POST, request.FILES, request.user)
                 if amount:
                     AuditLog.record(request, AuditLog.Action.CREATE,
                                     post_opening_document(request.company, entity, amount, day, sale=True))
@@ -190,7 +203,11 @@ def lead_create(request):
 def lead_update(request, pk):
     """The Save button of the Edit Lead overlay."""
     if request.method == "POST":
-        save_lead(get_object_or_404(Lead.objects.select_related("entity"), pk=pk), request.POST)
+        lead = get_object_or_404(Lead.objects.select_related("entity"), pk=pk, company=request.company)
+        try:
+            save_lead(lead, request.POST, request.FILES, request.user)
+        except ValidationError as error:
+            messages.error(request, " ".join(error.messages))
     return redirect("sales:leads")
 
 @require_POST
@@ -286,6 +303,7 @@ def partners(request):
     return render(request, "sales/partners.html", {"partners": [{
         "id": entity.id,
         "name": entity.name,
+        "entity": entity,
         "is_supplier": entity.id in suppliers,
         "is_active": entity.is_active,
         "contact": entity.email or entity.phone,

@@ -27,6 +27,7 @@ class StoredFile(models.Model):
     size            = models.PositiveBigIntegerField()
     checksum        = models.CharField(max_length=64, help_text="SHA-256")
     uploaded_by     = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,on_delete=models.SET_NULL, related_name="+",)
+    company         = models.ForeignKey("shared.Company", null=True, blank=True, on_delete=models.PROTECT, related_name="+")  # Only members of the company can download the file
     created_at      = models.DateTimeField(auto_now_add=True)
 
     class Meta:

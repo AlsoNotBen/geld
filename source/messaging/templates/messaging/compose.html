@@ -26,6 +26,22 @@ messaging.js reads these data attributes:
     </header>
 
     <div class="msg-panel__body">
+        {% if failure %}
+        {# The send failed. The form keeps the values, thus Send tries again. #}
+        <div class="msg-result msg-result--fail msg-result--banner" role="alert">
+            <span class="msg-result__icon" aria-hidden="true">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M7 7l10 10M17 7L7 17" stroke-width="2.4" stroke-linecap="round"/>
+                </svg>
+            </span>
+            <div>
+                <p class="msg-result__title">Message not sent</p>
+                <p class="msg-result__text">The email was not sent. Examine the details, then click Send to try again.</p>
+                <p class="msg-result__detail">{{ failure }}</p>
+            </div>
+        </div>
+        {% endif %}
+
         {% for error in form.non_field_errors %}
         <p class="msg-panel__error" role="alert">{{ error }}</p>
         {% endfor %}

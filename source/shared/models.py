@@ -126,6 +126,11 @@ class Membership(models.Model):
     def can_edit(self):
         return self.role != self.Role.VIEWER
 
+# The avatar of a user. A user can be a member of many companies, thus the image has no company (see shared.views.user_avatar).
+class UserProfile(models.Model):
+    user    = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile")
+    avatar  = models.ForeignKey("filestore.StoredFile", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+
 # Used for customers, suppliers, partners, leads etc. Any trade activity entities (do not confuse with Company model)
 class Entity(CompanyOwned, TimeStamped):
     class EntityType(models.TextChoices):
@@ -141,6 +146,7 @@ class Entity(CompanyOwned, TimeStamped):
     phone               = models.CharField(max_length=50, blank=True)
     address             = models.TextField(blank=True)          
     is_active           = models.BooleanField(default=True)
+    avatar              = models.ForeignKey("filestore.StoredFile", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")   # see filestore.services.set_avatar
 
     def __str__(self):
         return self.name

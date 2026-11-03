@@ -76,7 +76,8 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'accounting.context_processors.pending_entries',
-                'accounting.context_processors.date_range'
+                'accounting.context_processors.date_range',
+                'shared.context_processors.companies',
             ],
         },
     },

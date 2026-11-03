@@ -3,7 +3,7 @@ from shared.models import *
 import uuid
 
 # Generic class for Inventory. Specific types are determined by their relation
-class Item(models.Model):
+class Item(CompanyOwned):
 
     class ItemType(models.TextChoices):
         ASSET       = "ASSET", "Asset"
@@ -18,7 +18,7 @@ class Item(models.Model):
 
     sku         = models.CharField(max_length=100,null=True,blank=True)               # user defined labelling structure
     tag         = models.CharField(max_length=32,unique=True,null=True,blank=True)
-    serial      = models.CharField(max_length=100,unique=True,null=True,blank=True)
+    serial      = models.CharField(max_length=100,null=True,blank=True)              # unique per company (see Meta)
     name        = models.CharField(max_length=255)
     cost        = models.DecimalField(max_digits=12,decimal_places=2,null=True,blank=True)
     depreciate  = models.BooleanField(default=False)
@@ -29,6 +29,9 @@ class Item(models.Model):
     obsoleted   = models.BooleanField(default=False)
     active      = models.BooleanField(default=True)
     files       = models.ManyToManyField("filestore.StoredFile", blank=True, related_name="+")
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["company", "serial"], name="unique_item_serial_per_company")]
 
     def save(self, *args, **kwargs):
         if self.item_type == self.ItemType.ASSET and not self.tag:

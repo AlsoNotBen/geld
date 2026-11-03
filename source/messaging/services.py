@@ -36,8 +36,8 @@ class Message:
 def send_email(message):
     """Send the message through the "default" entry of settings.MAILERS.
 
-    The sender is settings.DEFAULT_FROM_EMAIL. An SMTP error or a
-    network error raises an OSError.
+    The sender is settings.DEFAULT_FROM_EMAIL. An error is logged, then
+    raised again, thus the caller can tell the user.
     """
     domain = parseaddr(settings.DEFAULT_FROM_EMAIL)[1].rpartition("@")[2]
 
@@ -53,6 +53,7 @@ def send_email(message):
 
     except Exception as e:
         logging.error(f"Error while attempting to send mail: {e}")
+        raise
 
 
 CHANNELS = {

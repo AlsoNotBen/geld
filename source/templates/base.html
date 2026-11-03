@@ -1,4 +1,4 @@
-{% load static %}
+{% load static avatar_tags %}
 
 <!DOCTYPE html>
 <html lang="en">
@@ -86,6 +86,39 @@
             </div>
         </form>
 
+        <!-- Company switch. Only the companies of which the user is a member
+             show. A company item submits the form. base.js opens and closes
+             the menu, and "Add New Company" opens the overlay of
+             shared/company_form.html. -->
+        {% if request.user.is_authenticated %}
+        <div class="company-switch" data-company-switch>
+            <button class="company-switch__btn" type="button" aria-haspopup="true" aria-expanded="false" data-company-toggle>
+                <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 21V5a1 1 0 011-1h9a1 1 0 011 1v16M15 9h4a1 1 0 011 1v11M3 21h18M8 8h3M8 12h3M8 16h3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span class="company-switch__name">{{ request.company.name|default:"No company" }}</span>
+                <svg class="icon caret" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="company-switch__menu" role="menu" aria-label="Companies" data-company-menu>
+                <form method="post" action="{% url 'company_switch' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.path }}">
+                    {% for company in user_companies %}
+                    <button class="company-switch__item{% if company.pk == request.company.pk %} is-current{% endif %}" type="submit" name="company" value="{{ company.pk }}"
+                            role="menuitemradio" aria-checked="{% if company.pk == request.company.pk %}true{% else %}false{% endif %}">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 21V5a1 1 0 011-1h9a1 1 0 011 1v16M15 9h4a1 1 0 011 1v11M3 21h18M8 8h3M8 12h3M8 16h3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        <span class="company-switch__name">{{ company.name }}</span>
+                        <svg class="icon check" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12l5 5 9-10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
+                    {% endfor %}
+                </form>
+                <div class="company-switch__sep"></div>
+                <button class="company-switch__item" type="button" role="menuitem" data-company-new="{% url 'company_create' %}">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                    <span class="company-switch__name">Add New Company</span>
+                </button>
+            </div>
+        </div>
+        {% endif %}
+
         <div class="ribbon__actions">
             {% block topbar_actions %}
             <button class="icon-btn" type="button" aria-label="Notifications">
@@ -93,12 +126,13 @@
             </button>
             {% endblock %}
 
-            {% comment %} The avatar shows the initials of the user, else the
-                 first two letters of the user name. {% endcomment %}
+            {% comment %} The avatar shows the image of the user (Profile page). Without
+                 an image, it shows the initials, else the first two letters
+                 of the user name. {% endcomment %}
             {% with user=request.user %}
             <div class="profile">
                 <button class="profile__btn" type="button" aria-haspopup="true" aria-expanded="false" data-menu-toggle>
-                    <span class="avatar">{% if user.first_name or user.last_name %}{{ user.first_name|slice:":1"|upper }}{{ user.last_name|slice:":1"|upper }}{% else %}{{ user.get_username|slice:":2"|upper }}{% endif %}</span>
+                    {% avatar user %}
                     <svg class="icon caret" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </button>
                 <div class="menu" role="menu" data-menu>
@@ -106,7 +140,7 @@
                         <div class="menu__name">{{ user.get_full_name|default:user.get_username }}</div>
                         {% if user.email %}<div class="menu__mail">{{ user.email }}</div>{% endif %}
                     </div>
-                    <a href="#" role="menuitem">
+                    <a href="{% url 'profile' %}" role="menuitem">
                         <svg class="icon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0116 0"/></svg>
                         Profile
                     </a>
