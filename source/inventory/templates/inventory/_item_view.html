@@ -1,0 +1,46 @@
+{% comment %}
+  The content of the View overlay of the All items table. items.html loads
+  it with fetch() and puts it into its <dialog>. item_view in views.py
+  gives item and checkout. A blank value shows as a dash.
+{% endcomment %}
+{% with model=item.model %}
+<div class="sheet__head item-view__head">
+    {% if model.thumbnail_id %}
+    <img class="item-thumb item-thumb--lg" src="{% url 'filestore:download' model.thumbnail_id %}?inline" alt="">
+    {% endif %}
+    <div>
+        <h2 class="sheet__title">{{ model.name }}{% if item.sku %} · {{ item.sku }}{% endif %}</h2>
+        <p class="chart-note" style="margin: 4px 0 0;">{{ item.get_item_type_display }}{% if not item.active %} · Inactive{% endif %}{% if not model.active %} · Obsolete model{% endif %}</p>
+    </div>
+</div>
+<div class="sheet__body">
+    <dl class="item-view">
+        <dt>Manufacturer</dt>
+        <dd>
+            {% if model.manufacturer %}
+                {% if model.manufacturer.logo_id %}<img class="item-thumb" src="{% url 'filestore:download' model.manufacturer.logo_id %}?inline" alt="">{% endif %}
+                {{ model.manufacturer.name }}{% if model.manufacturer.origin %} · {{ model.manufacturer.origin.name }}{% endif %}
+            {% else %}—{% endif %}
+        </dd>
+        <dt>Category</dt><dd>{{ model.category.name|default:"—" }}</dd>
+        <dt>Part number</dt><dd>{{ model.number|default:"—" }}</dd>
+        <dt>Version</dt><dd>{{ model.generation|default_if_none:"—" }}</dd>
+        <dt>Serial number</dt><dd>{{ item.serial|default:"—" }}</dd>
+        <dt>Tag</dt><dd class="is-code">{{ item.tag|default:"—" }}</dd>
+        <dt>Cost</dt><dd>{{ item.unit_cost|default_if_none:"—" }}{% if item.cost is None and model.cost is not None %} (model cost){% endif %}</dd>
+        <dt>Useful life</dt><dd>{% if model.lifespan_months %}{{ model.lifespan_months }} months{% else %}No depreciation{% endif %}</dd>
+        <dt>Checked out</dt><dd>{% if checkout %}{% if checkout.entity %}{{ checkout.entity }}{% else %}{{ checkout.location.address }}{% endif %} · {{ checkout.created_at|date:"j M Y" }}{% else %}No{% endif %}</dd>
+        <dt>Description</dt><dd>{{ item.description|default:"—"|linebreaksbr }}</dd>
+        <dt>Files</dt>
+        <dd>
+            {% for file in item.files.all %}<a href="{% url 'filestore:download' file.pk %}">{{ file.original_name }}</a><br>{% endfor %}
+            {% for file in model.datasheets.all %}<a href="{% url 'filestore:download' file.pk %}">{{ file.original_name }}</a> (datasheet)<br>{% endfor %}
+            {% if not item.files.exists and not model.datasheets.exists %}—{% endif %}
+        </dd>
+    </dl>
+</div>
+<div class="sheet__foot">
+    <button class="tool" type="button" data-dialog-cancel>Close</button>
+    <a class="tool tool--primary" href="{% url 'inventory:items' %}?item={{ item.pk }}">Edit</a>
+</div>
+{% endwith %}

@@ -24,8 +24,8 @@ class PaymentForm(forms.ModelForm):
 
     class Meta:
         model = Payment
-        fields = ["number", "date", "direction", "entity", "bank_account", "amount", "reference"]
-        labels = {"number": "Payment number", "entity": "Customer or supplier"}
+        fields = ["number", "date", "direction", "entity", "bank_account", "account", "amount", "reference"]
+        labels = {"number": "Payment number", "entity": "Customer or supplier", "account": "Account"}
         widgets = {
             "date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
             "entity": SelectWithSearch(search_action="search-entity", search_label="Search the customers and suppliers"),
@@ -39,6 +39,9 @@ class PaymentForm(forms.ModelForm):
         self.fields["entity"].queryset = Entity.objects.filter(company=company, is_active=True).order_by("name")
         self.fields["bank_account"].queryset = banks
         self.fields["bank_account"].label_from_instance = lambda bank: bank.name
+        # Empty: the control account pays the open invoices or bills (see posting.post_payment).
+        self.fields["account"].queryset = Account.objects.filter(company=company, is_active=True).order_by("code")
+        self.fields["account"].empty_label = "Default: Accounts Receivable / Payable"
         if first_bank is None:
             self.fields["bank_account"].empty_label = "No bank account. Add one first."
         self.fields["amount"].widget.attrs["min"] = "0.01"

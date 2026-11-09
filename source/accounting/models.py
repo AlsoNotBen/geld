@@ -368,6 +368,7 @@ class Payment(CompanyOwned, TimeStamped):
     exchange_rate = models.DecimalField(max_digits=18, decimal_places=8, default=1)
     amount        = models.DecimalField(max_digits=13, decimal_places=2)
     reference     = models.CharField(max_length=255, blank=True)
+    account       = models.ForeignKey(Account, on_delete=models.PROTECT, null=True, blank=True, related_name="+")     # Empty: the control account (see posting.post_payment)
     journal_entry = models.OneToOneField(JournalEntry, on_delete=models.PROTECT, null=True, blank=True, related_name="payment")      # ACCRUAL: Dr Bank / Cr AR
     cash_entry    = models.OneToOneField(JournalEntry, on_delete=models.PROTECT, null=True, blank=True, related_name="cash_payment") # CASH: see accounting/posting.py
     files         = models.ManyToManyField("filestore.StoredFile", blank=True, related_name="+")                                     # Proof of payment

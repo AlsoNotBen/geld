@@ -45,6 +45,25 @@ class ExchangeRate(models.Model):
             ),
         ]
 
+# [ISO 3166-1] Country codes combined
+class Country(models.Model):
+    alpha2                  = models.CharField(max_length=2)
+    alpha3                  = models.CharField(max_length=3)
+    numeric3                = models.CharField(max_length=3)
+    name                    = models.CharField(max_length=100, unique=True)
+    international_dial_code = models.CharField(max_length=10)               # [ITU-T E.164]
+    mcc                     = models.CharField(max_length=3)                # [ITU-T E.212]
+    
+    @property
+    def flag(self):
+        return "".join(
+            chr(ord(char) + 127397)
+            for char in self.alpha2.upper()
+        )
+
+    def __str__(self):
+        return f"{self.flag} {self.name}"
+    
 # Dropdown List Tables
 class Source(models.Model):
     name = models.CharField(max_length=250, unique=True)
@@ -194,6 +213,9 @@ class Supplier(CompanyOwned, TimeStamped):
 
     def __str__(self):
         return self.code
+
+class Location(CompanyOwned):
+    address     = models.TextField()
 
 class Project(CompanyOwned):
     code       = models.CharField(max_length=20)

@@ -22,11 +22,11 @@ from documents.forms import (
     DocumentOptionsForm, LineItemsField, SelectWithAddButton,
 )
 from documents.registry import DocumentType, register
-from inventory.models import Item
+from inventory.models import ItemType
 
 
 CENT = Decimal("0.01")
-PURCHASED = [Item.ItemType.STOCK, Item.ItemType.CONSUMABLE, Item.ItemType.COMPONENT]
+PURCHASED = [ItemType.STOCK, ItemType.CONSUMABLE, ItemType.COMPONENT]
 
 
 def _suppliers(company):

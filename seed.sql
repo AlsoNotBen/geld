@@ -249,6 +249,21 @@ INSERT INTO shared_industry (sector) VALUES
     ('Utilities'),
     ('Real Estate');
 
+
+-- ____________________________________________________________________________
+-- 2. Countries: ISO 3166-1, ITU-T E.164 and ITU-T E.212.
+
+INSERT INTO shared_country
+    (alpha2, alpha3, numeric3, name,
+     international_dial_code, mcc)
+VALUES
+    ('ZA', 'ZAF', '710', 'South Africa', '+27', '655'),
+    ('GB', 'GBR', '826', 'United Kingdom', '+44', '234'),
+    ('US', 'USA', '840', 'United States', '+1', '310'),
+    ('DE', 'DEU', '276', 'Germany', '+49', '262'),
+    ('AU', 'AUS', '036', 'Australia', '+61', '505');
+
+
 -- ____________________________________________________________________________
 -- 3. The first user, the company and the membership.
 

@@ -1,5 +1,5 @@
 {% extends "inventory/module_base.html" %}
-{% load fin stock %}
+{% load fin stock note_tags %}
 
 {% comment %}
   ============================================================================
@@ -25,7 +25,7 @@
 <section class="page">
 
     <div class="page__head">
-        <h1 class="page__title" data-period="{{ total }} asset{{ total|pluralize }}">Assets</h1>
+        <h1 class="page__title">Assets{% notes_pill %}</h1>
         <p class="page__note">
             An asset is one thing that the business keeps and tracks by a
             tag: a laptop, a monitor, a radio, a vehicle, a tool or a
@@ -73,6 +73,14 @@
                 Find
             </button>
         </form>
+        <span class="tool__sep" aria-hidden="true"></span>
+
+        <div class="actionbar__group">
+            <button class="tool" type="button" data-note-new>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 4h9l3 3v13H6V4z" stroke-linejoin="round"/><path d="M15 4v4h4" stroke-linejoin="round"/><path d="M9 13h6M12 10v6" stroke-linecap="round"/></svg>
+                Note
+            </button>
+        </div>
     </div>
 
     <div class="cards">
@@ -119,8 +127,8 @@
                 </td>
                 <td class="is-code">{{ asset.sku|default:"—" }}</td>
                 <td class="is-code">{{ asset.tag|default:"—" }}</td>
-                <td>{% if asset.depreciate and asset.lifespan %}{{ asset.lifespan|qty }} {{ asset.get_lifeunits_display|default:"" }}{% else %}—{% endif %}</td>
-                <td class="is-qty">{{ asset.cost|money }}</td>
+                <td>{% if asset.model.lifespan_months %}{{ asset.model.lifespan_months }} month{{ asset.model.lifespan_months|pluralize }}{% else %}—{% endif %}</td>
+                <td class="is-qty">{{ asset.unit_cost|money }}</td>
                 <td><span class="status status--{{ asset.tone }}">{{ asset.status }}</span></td>
             </tr>
             {% empty %}
@@ -133,5 +141,6 @@
             </tr>
         </tfoot>
     </table>
+    {% notes_section %}
 </section>
 {% endblock %}

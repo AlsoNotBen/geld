@@ -21,7 +21,8 @@
   Blocks that a page can override:
     title            Text for the browser tab.
     page_key         The key of the side panel item: dashboard, analytics,
-                     reports, assets, stock, consumables or kits.
+                     reports, items, bom or codes. A page that has no
+                     side panel item (e.g. assets) marks no item.
     toolbar          The tool buttons. Use block.super to keep the
                      default buttons and to add more.
     context_actions  The buttons at the right side of the module bar.
@@ -42,6 +43,8 @@
 {% endcomment %}
 {% block module_css %}
 <link rel="stylesheet" href="{% static 'inventory/css/inventory.css' %}">
+{% comment %} The upload field of the New Note overlay. {% endcomment %}
+<link rel="stylesheet" href="{% static 'filestore/css/filestore.css' %}">
 {% endblock %}
 
 
@@ -203,11 +206,11 @@
             <a class="nav__item" data-nav="reports"   href="{% url 'inventory:reports' %}">Reports</a>
 
             <div class="nav__group">Inventory Control</div>
-            <a class="nav__item" data-nav="assets" href="{% url 'inventory:items' %}">Item Management</a>
+            <a class="nav__item" data-nav="items" href="{% url 'inventory:items' %}">Item Management</a>
             <a class="nav__item" data-nav="bom" href="{% url 'inventory:bom' %}">Bill of Materials</a>
-            <a class="nav__item" data-nav="kits" href="{% url 'inventory:codes' %}">Codes Management</a>
-            <a class="nav__item" data-nav="stock" href="#">Warhouse Management</a>
-            <a class="nav__item" data-nav="consumables" href="#">Suppliers</a>
+            <a class="nav__item" data-nav="codes" href="{% url 'inventory:codes' %}">Codes Management</a>
+            <a class="nav__item" data-nav="warehouse" href="#">Warehouse Management</a>
+            <a class="nav__item" data-nav="suppliers" href="#">Suppliers</a>
 
             <div class="nav__group">Movement</div>
             <a class="nav__item" data-nav="receive"   href="#">Receive</a>
@@ -238,4 +241,12 @@
 
 {% comment %} The scrim closes the drawer. base.js reads data-drawer-close. {% endcomment %}
 <div class="scrim" data-drawer-close></div>
+{% endblock %}
+
+{# ===================== MODULE SCRIPTS ===================== #}
+{% comment %} The two scripts are of the Accounting module, thus both
+     modules use the same Info button and the same upload field. {% endcomment %}
+{% block extra_js %}
+<script src="{% static 'filestore/js/filestore.js' %}"></script>
+<script src="{% static 'accounting/js/page_note.js' %}"></script>
 {% endblock %}

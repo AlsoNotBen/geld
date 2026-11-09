@@ -26,4 +26,8 @@ urlpatterns = [
     path("bom/", views.bom, name="bom"),
     path("codes/", views.codes, name="codes"),
     path("items/", views.items, name="items"),
+    path("items/new/<str:kind>/", views.item_entry, name="itementry"),
+    path("items/<int:pk>/", views.item_view, name="itemview"),
+    path("items/<int:pk>/checkout/", views.item_checkout, name="itemcheckout"),
+    path("items/<int:pk>/checkin/", views.item_checkin, name="itemcheckin"),
 ]

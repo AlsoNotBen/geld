@@ -1,4 +1,5 @@
 {% extends "inventory/module_base.html" %}
+{% load note_tags %}
 
 {% comment %}
   ============================================================================
@@ -22,7 +23,7 @@
 <section class="page">
 
     <div class="page__head">
-        <h1 class="page__title">Reports</h1>
+        <h1 class="page__title">Reports{% notes_pill %}</h1>
         <p class="page__note">
             An inventory report puts the figures of the module on paper or
             into a file. The reports come in a later phase, when the module
@@ -33,6 +34,10 @@
 
     <div class="actionbar" role="group" aria-label="Report controls">
         <div class="actionbar__group">
+            <button class="tool" type="button" data-note-new>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 4h9l3 3v13H6V4z" stroke-linejoin="round"/><path d="M15 4v4h4" stroke-linejoin="round"/><path d="M9 13h6M12 10v6" stroke-linecap="round"/></svg>
+                Note
+            </button>
             <button class="tool" type="button" data-print disabled>
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
                 Print
@@ -109,5 +114,6 @@
             </p>
         </li>
     </ul>
+    {% notes_section %}
 </section>
 {% endblock %}

@@ -1,5 +1,5 @@
 {% extends "inventory/module_base.html" %}
-{% load static fin stock %}
+{% load static fin stock note_tags %}
 
 {% comment %}
   ============================================================================
@@ -13,30 +13,24 @@
   types, with a quantity. The page shows the relationships of the
   selected item at the right, and a small form adds one more.
 
-  The three columns reuse .bom, the grid that the Bill of Materials page
-  built first:
-      left    the items. Search, filter by type, and select one.
-      middle  the form of the selected item: code, name, type,
-              description and the active flag.
+  The editor is hidden until New Item (?new=1) is clicked, or an item is
+  selected in the table (?item=pk). It reuses .bom with two columns:
+      left    the form of the item, in three tabs: Manufacturer, Model
+              (with its Category) and Item. Each tab has a select, a
+              search button and a "+" button that shows the fields of a
+              new entry.
       right   the relationships of the selected item, and the form that
               adds one. A note names the one rule that the middleware
               checks: a relationship must not close a circle.
 
-  The view gives the items of the list (?q, ?item_type), the selected
+  The view gives the items of the table (?q, ?item_type), the selected
   item (?item=pk) and its relationships. Without a selection, the form
-  makes a new item. The form has more fields than the model: the model
-  has no manufacturer, model, part number, version, quantity or notes
-  yet, and ItemForm ignores these fields.
+  makes a new item. The quantity and the notes have no model field yet,
+  and ItemForm ignores these fields.
   ============================================================================
 {% endcomment %}
 
 {% block page_key %}items{% endblock %}
-
-{% block module_css %}
-{{ block.super }}
-<link rel="stylesheet" href="{% static 'filestore/css/filestore.css' %}">
-<script src="{% static 'filestore/js/filestore.js' %}" defer></script>
-{% endblock %}
 
 {% block title %}Items · Inventory · Console{% endblock %}
 
@@ -44,7 +38,7 @@
 <section class="page">
 
     <div class="page__head">
-        <h1 class="page__title" data-period="{{ item_count }} item{{ item_count|pluralize }}">Items</h1>
+        <h1 class="page__title">Items{% notes_pill %}</h1>
         <p class="page__note">
             An item is a row of one kind: an asset, a stock item, a
             consumable or a component. The type of an item does not
@@ -52,14 +46,14 @@
             relationship joins two items, a parent and a child, with a
             type and a quantity. A bill of materials, an accessory, a
             replacement and a compatible part are all the same kind of
-            row, with a different type. Select an item at the left to
-            edit it, or to change what it relates to.
+            row, with a different type. Select an item in the table
+            below to edit it, or to change what it relates to.
         </p>
     </div>
 
     <div class="actionbar" role="group" aria-label="Item controls">
         <div class="actionbar__group">
-            <a class="tool tool--primary" href="{% url 'inventory:items' %}">
+            <a class="tool tool--primary" href="?new=1">
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
                 New Item
             </a>
@@ -68,80 +62,47 @@
                 Duplicate Item
             </button>
             <span class="tool__sep" aria-hidden="true"></span>
+            <button class="tool" type="button" data-note-new>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 4h9l3 3v13H6V4z" stroke-linejoin="round"/><path d="M15 4v4h4" stroke-linejoin="round"/><path d="M9 13h6M12 10v6" stroke-linecap="round"/></svg>
+                Note
+            </button>
             <button class="tool" type="button">
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 Export
             </button>
         </div>
 
-        <p class="actionbar__hint">{% if selected %}Editing: {{ selected.name }}{% if selected.sku %} · {{ selected.sku }}{% endif %} · {{ selected.get_item_type_display }}{% else %}New item{% endif %}</p>
+        {% if show_editor %}<p class="actionbar__hint">{% if selected %}Editing: {{ selected.name }}{% if selected.sku %} · {{ selected.sku }}{% endif %} · {{ selected.get_item_type_display }}{% else %}New item{% endif %}</p>{% endif %}
     </div>
 
+    {% for message in messages %}
+    <p class="item-flash{% if message.level_tag == 'error' %} is-error{% endif %}" role="status" style="margin: 16px 0 0;">{{ message }}</p>
+    {% endfor %}
+
+    {% comment %} The editor shows only after New Item (?new=1), or when an
+         item is selected (?item=pk) or the form comes back with errors.
+         Refer to items in views.py. {% endcomment %}
+    {% if show_editor %}
     <h2 class="page__subtitle">Item editor</h2>
-    <div class="bom">
+    <div class="bom bom--two">
 
-        {% comment %} ================= LEFT: the items ================= {% endcomment %}
-        <div class="card">
-            <span class="card__label">Items</span>
-
-            {% comment %} items in views.py reads q and item_type.
-                 The search field and its button sit in one field-row, thus
-                 the button stays next to the field on a narrow column. The
-                 type sits on the row below, because two full-width fields
-                 read better stacked than squeezed onto one line. {% endcomment %}
-            <form method="get" action="" role="search" aria-label="Find an item" style="margin-top: 14px;">
-                <div class="field-row field-row--full" style="margin-top: 0;">
-                    <label class="visually-hidden" for="item-q">Find an item</label>
-                    <input class="field" id="item-q" name="q" type="search" value="{{ q }}"
-                           placeholder="Name or code" autocomplete="off" style="flex: 1 1 auto;">
-
-                    <button class="tool tool--sm" type="submit" aria-label="Find" style="flex: none;">
-                        <svg class="icon" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4" stroke-linecap="round"/></svg>
-                    </button>
-                </div>
-
-                <div class="field-row field-row--full">
-                    <label class="visually-hidden" for="item-type-filter">Item type</label>
-                    <select class="field field--select" id="item-type-filter" name="item_type">
-                        <option value="">All types</option>
-                        {% for value, label in form.fields.item_type.choices %}
-                        <option value="{{ value }}"{% if value == item_type %} selected{% endif %}>{{ label }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-            </form>
-
-            <nav class="nav bom__list" aria-label="Items">
-                {% for item in items %}
-                <a class="nav__item{% if item.pk == selected.pk %} is-active{% endif %}" href="?item={{ item.pk }}"{% if item.pk == selected.pk %} aria-current="true"{% endif %}>
-                    <span class="bom__name">{{ item.name }}
-                        <span class="cell-sub">{% if item.sku %}{{ item.sku }} · {% endif %}{{ item.get_item_type_display }}</span>
-                    </span>
-                    <span class="status status--{{ item.tone }}">{{ item.status }}</span>
-                </a>
-                {% empty %}
-                <p class="bom__total">There are no items{% if q or item_type %} that match the filter{% endif %}.</p>
-                {% endfor %}
-            </nav>
-
-            <div class="bom__foot">
-                <p class="bom__total">{{ items|length }} of {{ item_count }} item{{ item_count|pluralize }}.</p>
-            </div>
-        </div>
-
-        {% comment %} ================= MIDDLE: the item form =================
-             The form makes an Item, or changes the selected item. ItemForm
-             in forms.py reads only the fields with a model name: sku, name,
-             item_type, serial, description, active, depreciate, lifespan,
-             lifeunits.
-             The other fields have no model field yet, and the form
-             ignores them. Refer to views.py. {% endcomment %}
+        {% comment %} ================= LEFT: the item form =================
+             Three tabs: Manufacturer, Model and Item. Each tab has a
+             select, a search button (documents.js) and a "+" button. The
+             "+" button shows the fields of a new entry and turns off the
+             select. A closed fieldset is disabled, thus it sends nothing.
+             Next, Previous and Save Item first save each open entry of
+             the tab with item_entry in views.py (fetch), then select it.
+             The Item fieldset is the exception: closed, it still sends
+             its defaults, thus a user can save an item with a model only.
+             The progress bar at the bottom shows which steps have a value.
+             ItemForm in forms.py reads the fields. {% endcomment %}
         <div class="card">
             <span class="card__label">Item Details</span>
+            <a class="icon-btn item-close" href="{% url 'inventory:items' %}" title="Close the item editor" aria-label="Close the item editor">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>
+            </a>
 
-            {% for message in messages %}
-                <p class="chart-note" role="status" style="margin-top: 14px; color: var(--gold);">{{ message }}</p>
-            {% endfor %}
             {% if form.errors %}
                 <div role="alert" style="margin-top: 14px;">
                     {% for field, errors in form.errors.items %}{% for error in errors %}
@@ -151,176 +112,364 @@
             {% endif %}
 
             <form id="item-form" method="post" action="" enctype="multipart/form-data"
-                  aria-label="Edit the selected item" style="margin-top: 14px;">
+                  aria-label="Edit the item" style="margin-top: 14px;"
+                  data-entry-url="{% url 'inventory:items' %}new/">
                 {% csrf_token %}
 
-                <span class="field-row__label field-row__label--first">Code</span>
-                <div class="field-row field-row--full">
-                    <label class="visually-hidden" for="item-code">Code</label>
-                    <input class="field" id="item-code" name="sku" type="text" value="{{ form.sku.value|default_if_none:'' }}">
-                </div>
-                <p class="chart-note" style="margin-top: 4px;">Must be unique across every item.</p>
-
-                <span class="field-row__label">Name</span>
-                <div class="field-row field-row--full">
-                    <label class="visually-hidden" for="item-name">Name</label>
-                    <input class="field" id="item-name" name="name" type="text" value="{{ form.name.value|default_if_none:'' }}" required>
-                </div>
-
-                <span class="field-row__label">Item Type</span>
-                <div class="field-row field-row--full">
-                    <label class="visually-hidden" for="item-type">Item type</label>
-                    <select class="field field--select" id="item-type" name="item_type">
-                        {% for value, label in form.fields.item_type.choices %}
-                            <option value="{{ value }}"{% if value == form.item_type.value %} selected{% endif %}>{{ label }}</option>
-                        {% endfor %}
-                    </select>
+                <div class="tabset__list item-tabs" role="tablist" aria-label="Item details">
+                    <button class="tabset__tab" type="button" role="tab" id="it-tab-manufacturer"
+                            aria-controls="it-panel-manufacturer" aria-selected="{% if selected %}false{% else %}true{% endif %}"{% if selected %} tabindex="-1"{% endif %}>
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 21V10l6 4V10l6 4V4h6v17H3z" stroke-linejoin="round"/></svg>
+                        Manufacturer
+                    </button>
+                    <button class="tabset__tab" type="button" role="tab" id="it-tab-model"
+                            aria-controls="it-panel-model" aria-selected="false" tabindex="-1">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z" stroke-linejoin="round"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9" stroke-linejoin="round"/></svg>
+                        Model
+                    </button>
+                    <button class="tabset__tab" type="button" role="tab" id="it-tab-item"
+                            aria-controls="it-panel-item" aria-selected="{% if selected %}true{% else %}false{% endif %}"{% if not selected %} tabindex="-1"{% endif %}>
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 12V4a1 1 0 011-1h8l9 9-9 9-9-9z" stroke-linejoin="round"/><circle cx="8" cy="8" r="1.5"/></svg>
+                        Item
+                    </button>
                 </div>
 
-                <span class="field-row__label">Manufacturer &amp; Model</span>
-                <div class="field-row">
-                    <label class="visually-hidden" for="item-manufacturer">Manufacturer</label>
-                    <input class="field" id="item-manufacturer" name="manufacturer" type="text"
-                           placeholder="Manufacturer">
+                {% comment %} The result of a saved entry. The script hides it after a few seconds. {% endcomment %}
+                <p class="item-flash" role="status" data-flash hidden></p>
 
-                    <label class="visually-hidden" for="item-model">Model</label>
-                    <input class="field" id="item-model" name="model" type="text"
-                           placeholder="Model">
+                {# ------------------------------ MANUFACTURER ------------------------------ #}
+                <div class="tabset__panel" id="it-panel-manufacturer" role="tabpanel" aria-labelledby="it-tab-manufacturer"
+                     data-saves="manufacturer"{% if selected %} hidden{% endif %}>
+                    <label class="field-row__label field-row__label--first" for="item-manufacturer">Manufacturer</label>
+                    <div class="doc-inline item-pick">
+                        <select class="field field--select" id="item-manufacturer" name="manufacturer">
+                            <option value="">No manufacturer</option>
+                            {% for m in form.fields.manufacturer.queryset %}
+                            <option value="{{ m.pk }}"{% if m.pk|stringformat:"s" == form.manufacturer.value|stringformat:"s" %} selected{% endif %}>{{ m.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="doc-inline__search" data-doc-search="manufacturer" title="Search the manufacturers" aria-label="Search the manufacturers">
+                            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4" stroke-linecap="round"/></svg>
+                        </button>
+                        <button type="button" class="doc-inline__add" data-new-toggle="new-manufacturer" title="Add a manufacturer" aria-label="Add a manufacturer" aria-expanded="false">+</button>
+                    </div>
+
+                    <fieldset class="item-new" id="new-manufacturer" hidden disabled>
+                        <legend class="field-row__label">New manufacturer</legend>
+                        <div class="field-row field-row--full" style="margin-top: 0;">
+                            <label class="visually-hidden" for="new-manufacturer-name">Name</label>
+                            <input class="field" id="new-manufacturer-name" name="new_manufacturer-name" type="text" placeholder="Name" maxlength="255">
+                        </div>
+                        <div class="field-row field-row--full">
+                            <label class="visually-hidden" for="new-manufacturer-url">Website</label>
+                            <input class="field" id="new-manufacturer-url" name="new_manufacturer-url" type="url" placeholder="Website">
+                        </div>
+                        <div class="field-row">
+                            <label class="visually-hidden" for="new-manufacturer-email">Email</label>
+                            <input class="field" id="new-manufacturer-email" name="new_manufacturer-email" type="email" placeholder="Email">
+                            <label class="visually-hidden" for="new-manufacturer-phone">Phone</label>
+                            <input class="field" id="new-manufacturer-phone" name="new_manufacturer-phone" type="tel" placeholder="Phone">
+                        </div>
+                        <div class="field-row field-row--full">
+                            <label class="visually-hidden" for="new-manufacturer-origin">Country of origin</label>
+                            <select class="field field--select" id="new-manufacturer-origin" name="new_manufacturer-origin">
+                                <option value="">Country of origin</option>
+                                {% for country in countries %}<option value="{{ country.pk }}">{{ country.name }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <span class="field-row__label">Logo</span>
+                        {% include "filestore/upload_field.html" with name="new_manufacturer-logo" accept=".png,.jpg,.jpeg,.webp,.gif" hint="PNG, JPG, WEBP or GIF, max. 20 MB" %}
+                    </fieldset>
+                    <p class="chart-note" style="margin-top: 10px;">The manufacturer applies to the model, thus to every item of that model.</p>
+
+                    <div class="item-nav">
+                        <span></span>
+                        <button class="tool tool--primary" type="button" data-tab-go="1">
+                            Next
+                            <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
+                    </div>
                 </div>
 
-                <span class="field-row__label">Part Number &amp; Serial Number</span>
-                <div class="field-row">
-                    <label class="visually-hidden" for="item-part-number">Part number</label>
-                    <input class="field" id="item-part-number" name="part_number" type="text"
-                           placeholder="Part number">
+                {# --------------------------------- MODEL ---------------------------------- #}
+                {% comment %} The category saves before the model, thus a new model gets a new category. {% endcomment %}
+                <div class="tabset__panel" id="it-panel-model" role="tabpanel" aria-labelledby="it-tab-model"
+                     data-saves="category model" hidden>
+                    <label class="field-row__label field-row__label--first" for="item-model">Model</label>
+                    <div class="doc-inline item-pick">
+                        <select class="field field--select" id="item-model" name="model">
+                            <option value="">Select a model</option>
+                            {% for m in form.fields.model.queryset %}
+                            <option value="{{ m.pk }}" data-manufacturer="{{ m.manufacturer_id|default_if_none:'' }}" data-category="{{ m.category_id|default_if_none:'' }}"{% if m.pk|stringformat:"s" == form.model.value|stringformat:"s" %} selected{% endif %}>{{ m.name }}{% if m.number %} · {{ m.number }}{% endif %}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="doc-inline__search" data-doc-search="model" title="Search the models" aria-label="Search the models">
+                            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4" stroke-linecap="round"/></svg>
+                        </button>
+                        <button type="button" class="doc-inline__add" data-new-toggle="new-model" title="Add a model" aria-label="Add a model" aria-expanded="false">+</button>
+                    </div>
 
-                    <label class="visually-hidden" for="item-serial-number">Serial number</label>
-                    <input class="field" id="item-serial-number" name="serial" type="text"
-                           placeholder="Serial number" value="{{ form.serial.value|default_if_none:'' }}">
+                    <fieldset class="item-new" id="new-model" hidden disabled>
+                        <legend class="field-row__label">New model</legend>
+                        <div class="field-row field-row--full" style="margin-top: 0;">
+                            <label class="visually-hidden" for="new-model-name">Name</label>
+                            <input class="field" id="new-model-name" name="new_model-name" type="text" placeholder="Name" maxlength="255">
+                        </div>
+                        <div class="field-row">
+                            <label class="visually-hidden" for="new-model-number">Part number</label>
+                            <input class="field" id="new-model-number" name="new_model-number" type="text" placeholder="Part number">
+                            <label class="visually-hidden" for="new-model-version">Version number</label>
+                            <input class="field" id="new-model-version" name="new_model-generation" type="number" min="0" step="1" placeholder="Version number">
+                        </div>
+                        <div class="field-row">
+                            <label class="visually-hidden" for="new-model-cost">Cost</label>
+                            <input class="field" id="new-model-cost" name="new_model-cost" type="number" min="0" step="0.01" placeholder="Cost">
+                            <label class="visually-hidden" for="new-model-alert">Alert amount</label>
+                            <input class="field" id="new-model-alert" name="new_model-alert_amount" type="number" min="0" step="1" placeholder="Alert amount (low stock)">
+                        </div>
+                        <div class="field-row">
+                            <label class="field-check">
+                                <input type="checkbox" name="new_model-active" checked>
+                                Active model
+                            </label>
+                            <label class="field-check">
+                                <input type="checkbox" name="new_model-depreciate">
+                                Depreciating model
+                            </label>
+                        </div>
+                        {% comment %} Shown only when Depreciating model is ticked. Refer to inventory.css. {% endcomment %}
+                        <div class="field-row useful-life-row">
+                            <label class="visually-hidden" for="item-life-months">Useful life in months</label>
+                            <input class="field" id="item-life-months" name="new_model-lifespan_months" type="number" min="1" step="1"
+                                   placeholder="Useful life (months)">
+                        </div>
+                        <p class="chart-note useful-life-hint" style="margin-top: 4px;">
+                            Sets the depreciation schedule of every item of this model.
+                        </p>
+                        <span class="field-row__label">Image</span>
+                        {% include "filestore/upload_field.html" with name="new_model-thumbnail" accept=".png,.jpg,.jpeg,.webp,.gif" hint="PNG, JPG, WEBP or GIF, max. 20 MB" %}
+                        <span class="field-row__label">Datasheets</span>
+                        {% include "filestore/upload_field.html" with name="new_model-datasheets" multiple=True accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.csv,.docx,.xlsx" hint="PDF, image or office files, max. 20 MB each" %}
+                    </fieldset>
+
+                    <label class="field-row__label" for="item-category">Category</label>
+                    <div class="doc-inline item-pick">
+                        <select class="field field--select" id="item-category" name="category">
+                            <option value="">No category</option>
+                            {% for c in form.fields.category.queryset %}
+                            <option value="{{ c.pk }}"{% if c.pk|stringformat:"s" == form.category.value|stringformat:"s" %} selected{% endif %}>{{ c.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="doc-inline__search" data-doc-search="category" title="Search the categories" aria-label="Search the categories">
+                            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4" stroke-linecap="round"/></svg>
+                        </button>
+                        <button type="button" class="doc-inline__add" data-new-toggle="new-category" title="Add a category" aria-label="Add a category" aria-expanded="false">+</button>
+                    </div>
+
+                    <fieldset class="item-new" id="new-category" hidden disabled>
+                        <legend class="field-row__label">New category</legend>
+                        <div class="field-row field-row--full" style="margin-top: 0;">
+                            <label class="visually-hidden" for="new-category-name">Name</label>
+                            <input class="field" id="new-category-name" name="new_category-name" type="text" placeholder="Name" maxlength="255">
+                        </div>
+                    </fieldset>
+
+                    <div class="item-nav">
+                        <button class="tool" type="button" data-tab-go="-1">
+                            <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 6l-6 6 6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            Previous
+                        </button>
+                        <button class="tool tool--primary" type="button" data-tab-go="1">
+                            Next
+                            <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
+                    </div>
                 </div>
 
-                <span class="field-row__label">Version Number</span>
-                <div class="field-row field-row--full">
-                    <label class="visually-hidden" for="item-version">Version number</label>
-                    <input class="field" id="item-version" name="version_number" type="text"
-                           placeholder="Version number">
+                {# ---------------------------------- ITEM ---------------------------------- #}
+                {% comment %} The select of this tab opens an item to edit. It sends
+                     nothing, because it has no name. {% endcomment %}
+                <div class="tabset__panel" id="it-panel-item" role="tabpanel" aria-labelledby="it-tab-item"
+                     data-saves=""{% if not selected %} hidden{% endif %}>
+                    <label class="field-row__label field-row__label--first" for="item-pick">Item</label>
+                    <div class="doc-inline item-pick">
+                        <select class="field field--select" id="item-pick" data-item-jump>
+                            <option value="">Select an item</option>
+                            {% for item in all_items %}
+                            <option value="{{ item.pk }}"{% if item.pk == selected.pk %} selected{% endif %}>{{ item.name }}{% if item.sku %} · {{ item.sku }}{% endif %}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="doc-inline__search" data-doc-search="item" title="Search the items" aria-label="Search the items">
+                            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4" stroke-linecap="round"/></svg>
+                        </button>
+                        {% if selected %}
+                        <a class="doc-inline__add" href="?new=item" title="Add an item" aria-label="Add an item">+</a>
+                        {% else %}
+                        <button type="button" class="doc-inline__add" data-new-toggle="new-item" title="Add an item" aria-label="Add an item"
+                                aria-expanded="{% if item_open %}true{% else %}false{% endif %}">+</button>
+                        {% endif %}
+                    </div>
+
+                    <fieldset class="item-new" id="new-item" data-send-hidden{% if not item_open %} hidden{% endif %}>
+                        {% if not selected %}<legend class="field-row__label">New item</legend>{% endif %}
+
+                        <div class="field-row"{% if not selected %} style="margin-top: 0;"{% endif %}>
+                            <label class="visually-hidden" for="item-code">Code</label>
+                            <input class="field" id="item-code" name="sku" type="text" placeholder="Code"
+                                   value="{{ form.sku.value|default_if_none:'' }}">
+                            <label class="visually-hidden" for="item-type">Item type</label>
+                            <select class="field field--select" id="item-type" name="item_type">
+                                {% for value, label in form.fields.item_type.choices %}
+                                    <option value="{{ value }}"{% if value == form.item_type.value %} selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <p class="chart-note" style="margin-top: 4px;">The code must be unique across every item.</p>
+
+                        <div class="field-row">
+                            <label class="visually-hidden" for="item-tag">Tag</label>
+                            <input class="field" id="item-tag" name="tag" type="text" maxlength="32" placeholder="Tag"
+                                   value="{{ form.tag.value|default_if_none:'' }}">
+                            <label class="visually-hidden" for="item-cost">Cost</label>
+                            <input class="field" id="item-cost" name="cost" type="number" min="0" step="0.01" placeholder="Cost"
+                                   value="{{ form.cost.value|default_if_none:'' }}">
+                        </div>
+                        <p class="chart-note" style="margin-top: 4px;">An asset gets a tag automatically. A blank cost uses the cost of the model.</p>
+
+                        {% if selected %}
+                        <div class="field-row field-row--full">
+                            <label class="visually-hidden" for="item-serial-number">Serial number</label>
+                            <input class="field" id="item-serial-number" name="serial" type="text" placeholder="Serial number"
+                                   value="{{ form.serial.value|default_if_none:'' }}">
+                        </div>
+                        {% else %}
+                        {% comment %} A new item: the quantity sets how many items to make.
+                             With Serial numbers ticked, the script shows one field
+                             for each item. A paste of several lines fills the fields
+                             in order. Refer to ItemForm.clean. {% endcomment %}
+                        <span class="field-row__label">Quantity</span>
+                        <div class="field-row" style="margin-top: 0;">
+                            <label class="visually-hidden" for="item-quantity">Quantity</label>
+                            <input class="field" id="item-quantity" name="quantity" type="number" min="1" max="500" step="1"
+                                   placeholder="Quantity" value="{{ form.quantity.value|default:1 }}" inputmode="numeric">
+                            <label class="field-check">
+                                <input type="checkbox" name="has_serials" data-serials-toggle{% if form.has_serials.value %} checked{% endif %}>
+                                Serial numbers
+                            </label>
+                        </div>
+                        <div class="serials" data-serials hidden>
+                            <p class="chart-note serials__count" data-serials-count></p>
+                            <div class="serials__list" data-serials-list></div>
+                        </div>
+                        {{ posted_serials|json_script:"posted-serials" }}
+                        {% endif %}
+
+                        <div class="field-row field-row--full">
+                            <label class="visually-hidden" for="item-description">Description</label>
+                            <textarea class="field field--area" id="item-description" name="description"
+                                      placeholder="A short description of the item">{{ form.description.value|default_if_none:'' }}</textarea>
+                        </div>
+
+                        <div class="field-row field-row--full">
+                            <label class="field-check">
+                                <input type="checkbox" name="active"{% if form.active.value %} checked{% endif %}>
+                                Active item
+                            </label>
+                        </div>
+                        <p class="chart-note" style="margin-top: 4px;">
+                            An inactive item stays on record but drops out of new stock
+                            counts, assignments and relationships.
+                        </p>
+
+                        <span class="field-row__label">Images &amp; Documents</span>
+                        {% include "filestore/upload_field.html" with name="files" multiple=True accept=".pdf,.png,.jpg,.jpeg,.webp" hint="Images or PDF, max. 20 MB each" %}
+                    </fieldset>
+
+                    <p class="chart-note" style="margin-top: 16px;">Only a model is necessary. You can add the other details later.</p>
+                    <div class="item-nav">
+                        <button class="tool" type="button" data-tab-go="-1">
+                            <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 6l-6 6 6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            Previous
+                        </button>
+                        <div class="item-nav__end">
+                            <a class="tool" href="{% url 'inventory:items' %}">Cancel</a>
+                            <button class="tool tool--save" type="submit">
+                                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                Save Item
+                            </button>
+                        </div>
+                    </div>
                 </div>
-
-                <span class="field-row__label">Quantity</span>
-                <div class="field-row field-row--full">
-                    <label class="visually-hidden" for="item-quantity">Quantity</label>
-                    <input class="field" id="item-quantity" name="quantity" type="number"
-                           min="0" step="1" placeholder="Quantity">
-                </div>
-
-                <span class="field-row__label">Description</span>
-                <div class="field-row field-row--full">
-                    <label class="visually-hidden" for="item-description">Description</label>
-                    <textarea class="field field--area" id="item-description" name="description"
-                              placeholder="A short description of the item">{{ form.description.value|default_if_none:'' }}</textarea>
-                </div>
-
-                <span class="field-row__label">Notes</span>
-                <div class="field-row field-row--full">
-                    <label class="visually-hidden" for="item-notes">Notes</label>
-                    <textarea class="field field--area" id="item-notes" name="notes"
-                              placeholder="Internal notes"></textarea>
-                </div>
-
-                <div class="field-row field-row--full">
-                    <label class="field-check">
-                        <input type="checkbox" name="active"{% if form.active.value %} checked{% endif %}>
-                        Active item
-                    </label>
-                </div>
-                <p class="chart-note" style="margin-top: 4px;">
-                    An inactive item stays on record but drops out of new stock
-                    counts, assignments and relationships.
-                </p>
-
-                <div class="field-row field-row--full">
-                    <label class="field-check">
-                        <input type="checkbox" name="depreciate"{% if form.depreciate.value %} checked{% endif %}>
-                        Depreciating item
-                    </label>
-                </div>
-
-                {% comment %} Shown only when Depreciating item is ticked. No
-                     script does this: form:has() reads the checkbox above,
-                     because both sit inside the same form. Refer to
-                     inventory.css. {% endcomment %}
-                <span class="field-row__label">Useful Life</span>
-                <div class="field-row useful-life-row">
-                    <label class="visually-hidden" for="item-life-qty">Useful life, quantity</label>
-                    <input class="field field--sm" id="item-life-qty" name="lifespan" type="number"
-                           min="0" step="0.01" value="{{ form.lifespan.value|default_if_none:'' }}">
-
-                    <label class="visually-hidden" for="item-life-unit">Useful life, unit</label>
-                    <select class="field field--select field--sm" id="item-life-unit" name="lifeunits">
-                        {% for value, label in form.fields.lifeunits.choices %}
-                            <option value="{{ value }}"{% if value == form.lifeunits.value %} selected{% endif %}>{{ label }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <p class="chart-note useful-life-hint" style="margin-top: 4px;">
-                    Sets the depreciation schedule of this asset.
-                </p>
-
-                <span class="field-row__label">Images &amp; Documents</span>
-                {% include "filestore/upload_field.html" with name="files" multiple=True accept=".pdf,.png,.jpg,.jpeg,.webp" hint="Images or PDF, max. 20 MB each" %}
             </form>
 
-            <div class="bom__foot">
-                <a class="tool" href="{% url 'inventory:items' %}">
-                    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
-                    New Item
-                </a>
-                <button class="tool tool--primary" type="submit" form="item-form">
-                    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                    Save Item
-                </button>
-                <button class="tool tool--danger" type="button">
-                    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2m-7 0v12a2 2 0 002 2h4a2 2 0 002-2V7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                    Delete Item
-                </button>
+            {% comment %} The progress of the form: one dot for each step, in
+                 the order Manufacturer, Model, Category, Item. A dot fills
+                 when its step has a value. The bar fills up to the last dot
+                 of an unbroken row from the start. A dot opens its tab. {% endcomment %}
+            <div class="bom__foot item-foot">
+                <div class="item-progress" role="progressbar" aria-label="Item details complete"
+                     aria-valuemin="0" aria-valuemax="4" aria-valuenow="0" data-progress>
+                    <div class="item-progress__track"><span class="item-progress__fill" data-progress-fill></span></div>
+                    <button class="item-progress__step" type="button" data-step="manufacturer" data-tab="it-tab-manufacturer">
+                        <span class="item-progress__dot"></span>Manufacturer
+                    </button>
+                    <button class="item-progress__step" type="button" data-step="model" data-tab="it-tab-model">
+                        <span class="item-progress__dot"></span>Model
+                    </button>
+                    <button class="item-progress__step" type="button" data-step="category" data-tab="it-tab-model">
+                        <span class="item-progress__dot"></span>Category
+                    </button>
+                    <button class="item-progress__step" type="button" data-step="item" data-tab="it-tab-item">
+                        <span class="item-progress__dot"></span>Item
+                    </button>
+                </div>
             </div>
         </div>
 
         {% comment %} ================= RIGHT: the relationships =================
              Every relationship of the model has a parent, a child, a
              type and a quantity. The role select tells the form which
-             side the selected item takes. Refer to views.py. {% endcomment %}
+             side the selected item takes. Each control takes the full
+             width of the column. Refer to views.py. {% endcomment %}
         <div class="card">
             <span class="card__label">Relationships</span>
 
-            <form class="actionbar__group" method="post" action=""
-                  aria-label="Add a relationship" style="margin-top: 14px;">
+            <form method="post" action="" aria-label="Add a relationship" style="margin-top: 14px;">
                 {% csrf_token %}
-                <label class="visually-hidden" for="rel-type">Relationship type</label>
-                <select class="field field--select field--wide" id="rel-type" name="relationship_type">
-                    {% for value, label in relationship_types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
-                </select>
+                <label class="field-row__label field-row__label--first" for="rel-type">Type</label>
+                <div class="field-row field-row--full" style="margin-top: 0;">
+                    <select class="field field--select" id="rel-type" name="relationship_type">
+                        {% for value, label in relationship_types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+                    </select>
+                </div>
 
-                <label class="visually-hidden" for="rel-role">This item is the</label>
-                <select class="field field--select" id="rel-role" name="role">
-                    <option value="parent" selected>Parent of</option>
-                    <option value="child">Child of</option>
-                </select>
+                <label class="field-row__label" for="rel-role">This item is the</label>
+                <div class="field-row field-row--full" style="margin-top: 0;">
+                    <select class="field field--select" id="rel-role" name="role">
+                        <option value="parent" selected>Parent of</option>
+                        <option value="child">Child of</option>
+                    </select>
+                </div>
 
-                <label class="visually-hidden" for="rel-item">Related item</label>
-                <select class="field field--select field--wide" id="rel-item" name="related_item">
-                    <option value="">Select an item</option>
-                    {% for item in related_choices %}<option value="{{ item.pk }}">{{ item.name }}{% if item.sku %} · {{ item.sku }}{% endif %}</option>{% endfor %}
-                </select>
+                <label class="field-row__label" for="rel-item">Related item</label>
+                <div class="field-row field-row--full" style="margin-top: 0;">
+                    <select class="field field--select" id="rel-item" name="related_item">
+                        <option value="">Select an item</option>
+                        {% for item in related_choices %}<option value="{{ item.pk }}">{{ item.name }}{% if item.sku %} · {{ item.sku }}{% endif %}</option>{% endfor %}
+                    </select>
+                </div>
 
-                <label class="visually-hidden" for="rel-qty">Quantity</label>
-                <input class="field field--sm" id="rel-qty" name="quantity" type="number"
-                       min="0" step="0.001" value="1.000">
+                <label class="field-row__label" for="rel-qty">Quantity</label>
+                <div class="field-row field-row--full" style="margin-top: 0;">
+                    <input class="field" id="rel-qty" name="quantity" type="number" min="1" step="1" value="1" inputmode="numeric">
+                </div>
 
-                <button class="tool tool--primary" type="submit">
-                    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
-                    Add Relationship
-                </button>
+                <div class="field-row">
+                    <button class="tool tool--primary" type="submit">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                        Add Relationship
+                    </button>
+                </div>
             </form>
 
             <p class="chart-note" style="margin-top: 10px;">
@@ -363,8 +512,13 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
     <h2 class="page__subtitle">All items</h2>
+    {% comment %} Each row has the image of its model, and three actions:
+         View opens the overlay (item_view), Edit opens the editor, and
+         Checkout opens the checkout overlay. A checked-out item shows
+         Check In instead. A stock item has no checkout (see Checkout.clean). {% endcomment %}
     <table class="table table--inv">
         <thead>
             <tr>
@@ -373,26 +527,390 @@
                 <th>Type</th>
                 <th class="is-qty">Relationships</th>
                 <th>Status</th>
+                <th><span class="visually-hidden">Actions</span></th>
             </tr>
         </thead>
         <tbody>
             {% for item in items %}
             <tr>
-                <td class="is-name"><a href="?item={{ item.pk }}">{{ item.name }}</a></td>
+                <td class="is-name">
+                    <span class="item-cell">
+                        {% if item.model.thumbnail_id %}
+                        <img class="item-thumb" src="{% url 'filestore:download' item.model.thumbnail_id %}?inline" alt="" loading="lazy">
+                        {% else %}
+                        <span class="item-thumb item-thumb--none" aria-hidden="true"></span>
+                        {% endif %}
+                        <a href="?item={{ item.pk }}">{{ item.name }}</a>
+                    </span>
+                </td>
                 <td class="is-code">{{ item.sku|default:"—" }}</td>
                 <td>{{ item.get_item_type_display }}</td>
                 <td class="is-qty">{{ item.relation_count }}</td>
-                <td><span class="status status--{{ item.tone }}">{{ item.status }}</span></td>
+                <td>
+                    <span class="status status--{{ item.tone }}">{{ item.status }}</span>
+                    {% if item.open_checkout %}<span class="cell-sub">Out to {% if item.open_checkout.entity %}{{ item.open_checkout.entity }}{% else %}{{ item.open_checkout.location.address|truncatechars:30 }}{% endif %}</span>{% endif %}
+                </td>
+                <td>
+                    <div class="row-actions">
+                        <button class="tool tool--sm tool--neutral" type="button" data-item-view="{% url 'inventory:itemview' item.pk %}">
+                            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" stroke-linejoin="round"/><circle cx="12" cy="12" r="3"/></svg>
+                            View
+                        </button>
+                        <a class="tool tool--sm tool--neutral" href="?item={{ item.pk }}">
+                            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 20h4L19 9l-4-4L4 16v4z" stroke-linejoin="round"/></svg>
+                            Edit
+                        </a>
+                        {% if item.open_checkout %}
+                        <form method="post" action="{% url 'inventory:itemcheckin' item.pk %}">
+                            {% csrf_token %}
+                            <button class="tool tool--sm tool--neutral" type="submit">
+                                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M15 12H3M7 8l-4 4 4 4M13 4h6a1 1 0 011 1v14a1 1 0 01-1 1h-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                Check In
+                            </button>
+                        </form>
+                        {% else %}
+                        <button class="tool tool--sm tool--neutral" type="button"
+                                data-checkout="{% url 'inventory:itemcheckout' item.pk %}" data-name="{{ item.name }}{% if item.sku %} · {{ item.sku }}{% endif %}"
+                                {% if item.item_type == stock_type %}disabled title="A stock item is not checked out"{% endif %}>
+                            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M9 12h12M17 8l4 4-4 4M11 4H5a1 1 0 00-1 1v14a1 1 0 001 1h6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            Checkout
+                        </button>
+                        {% endif %}
+                    </div>
+                </td>
             </tr>
             {% empty %}
-            <tr><td colspan="5">There are no items{% if q or item_type %} that match the filter{% endif %}.</td></tr>
+            <tr><td colspan="6">There are no items{% if q or item_type %} that match the filter{% endif %}.</td></tr>
             {% endfor %}
         </tbody>
         <tfoot>
             <tr>
-                <td colspan="5">{{ items|length }} of {{ item_count }} item{{ item_count|pluralize }}</td>
+                <td colspan="6">{{ items|length }} of {{ item_count }} item{{ item_count|pluralize }}</td>
             </tr>
         </tfoot>
     </table>
+
+    {% comment %} The View overlay. The script loads its content from item_view. {% endcomment %}
+    <dialog class="sheet sheet--wide" id="item-view-dialog" aria-label="Item"></dialog>
+
+    {% comment %} The Checkout overlay. The script sets the action of the form
+         to the row of the button. item_checkout in views.py reads target. {% endcomment %}
+    <dialog class="sheet" id="checkout-dialog" aria-labelledby="checkout-title">
+        <form method="post" action="" data-checkout-form>
+            {% csrf_token %}
+            <div class="sheet__head">
+                <h2 class="sheet__title" id="checkout-title">Check out <span data-checkout-name></span></h2>
+            </div>
+            <div class="sheet__body">
+                <label class="field-row__label field-row__label--first" for="checkout-target">Check out to</label>
+                <select class="field field--select" id="checkout-target" name="target" required style="width: 100%;">
+                    <option value="">Select a person, organization or location</option>
+                    <optgroup label="People and organizations">
+                        {% for entity in entities %}<option value="e:{{ entity.pk }}">{{ entity.name }}</option>{% endfor %}
+                    </optgroup>
+                    <optgroup label="Locations">
+                        {% for location in locations %}<option value="l:{{ location.pk }}">{{ location.address|truncatechars:60 }}</option>{% endfor %}
+                    </optgroup>
+                </select>
+            </div>
+            <div class="sheet__foot">
+                <button class="tool" type="button" data-dialog-cancel>Cancel</button>
+                <button class="tool tool--primary" type="submit">Check Out</button>
+            </div>
+        </form>
+    </dialog>
+    {% notes_section %}
 </section>
+{% endblock %}
+{% block extra_js %}
+{{ block.super }}
+<script>
+/* The All items table: the View and the Checkout overlays. */
+(function () {
+    var viewDialog = document.getElementById("item-view-dialog");
+    var checkoutDialog = document.getElementById("checkout-dialog");
+
+    document.addEventListener("click", function (e) {
+        var view = e.target.closest("[data-item-view]");
+        if (view) {
+            viewDialog.innerHTML = '<div class="sheet__body"><p class="chart-note">The item loads…</p></div>';
+            viewDialog.showModal();
+            fetch(view.dataset.itemView, { credentials: "same-origin" })
+                .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
+                .then(function (html) { viewDialog.innerHTML = html; })
+                .catch(function () {
+                    viewDialog.innerHTML = '<div class="sheet__body"><p class="chart-note">The item did not load.</p></div>' +
+                        '<div class="sheet__foot"><button class="tool" type="button" data-dialog-cancel>Close</button></div>';
+                });
+            return;
+        }
+        var checkout = e.target.closest("[data-checkout]");
+        if (checkout) {
+            checkoutDialog.querySelector("[data-checkout-form]").action = checkout.dataset.checkout;
+            checkoutDialog.querySelector("[data-checkout-name]").textContent = checkout.dataset.name;
+            checkoutDialog.showModal();
+            return;
+        }
+        var cancel = e.target.closest("[data-dialog-cancel]");
+        if (cancel && cancel.closest("#item-view-dialog, #checkout-dialog")) cancel.closest("dialog").close();
+    });
+})();
+
+/* The item editor: the tabs, Next and Previous, the "+" entries, the
+   progress bar, the serial numbers and the selects. */
+(function () {
+    var form = document.getElementById("item-form");
+    if (!form) return;
+
+    var tabs = Array.prototype.slice.call(form.querySelectorAll("[role=tab]"));
+    function showTab(tab) {
+        tabs.forEach(function (t) {
+            var on = t === tab;
+            t.setAttribute("aria-selected", on);
+            t.tabIndex = on ? 0 : -1;
+            document.getElementById(t.getAttribute("aria-controls")).hidden = !on;
+        });
+    }
+    function tabOf(el) {
+        return form.querySelector('[aria-controls="' + el.closest("[role=tabpanel]").id + '"]');
+    }
+    tabs.forEach(function (t) { t.addEventListener("click", function () { showTab(t); }); });
+
+    // A field that is not valid can be in a closed tab. Open that tab, thus
+    // the browser can show its message.
+    form.addEventListener("invalid", function (e) {
+        var panel = e.target.closest("[role=tabpanel]");
+        if (panel && panel.hidden) showTab(tabOf(e.target));
+    }, true);
+
+    // The "+" button shows or hides the fields of a new entry. While the
+    // fields show, the select and its search button are off.
+    form.addEventListener("click", function (e) {
+        var button = e.target.closest("[data-new-toggle]");
+        if (!button) return;
+        var fields = document.getElementById(button.dataset.newToggle);
+        var open = fields.hidden;
+        fields.hidden = !open;
+        if (!fields.hasAttribute("data-send-hidden")) fields.disabled = !open;
+        button.setAttribute("aria-expanded", open);
+        var select = button.parentElement.querySelector("select[name]");
+        if (select) {
+            select.disabled = open;
+            button.parentElement.querySelector("[data-doc-search]").disabled = open;
+        }
+        if (open) fields.querySelector("input, select, textarea").focus();
+        updateProgress();
+    });
+
+    // A short message about a saved entry. It goes away after 4 seconds.
+    var flash = form.querySelector("[data-flash]"), flashTimer;
+    function say(text, ok) {
+        flash.textContent = text;
+        flash.classList.toggle("is-error", !ok);
+        flash.hidden = false;
+        clearTimeout(flashTimer);
+        flashTimer = setTimeout(function () { flash.hidden = true; }, 4000);
+    }
+
+    // Save the open "+" entry of one kind (manufacturer, model or category)
+    // with item_entry in views.py. On success, the select gets the new
+    // entry and the fields close. An entry with no value saves nothing and
+    // closes. The promise gives true when the work can continue.
+    var csrf = form.querySelector("[name=csrfmiddlewaretoken]").value;
+    function selectValue(kind) {
+        var select = document.getElementById("item-" + kind);
+        return select.disabled ? "" : select.value;
+    }
+    function saveEntry(kind) {
+        var fields = document.getElementById("new-" + kind);
+        if (fields.disabled) return Promise.resolve(true);
+        var toggle = form.querySelector('[data-new-toggle="new-' + kind + '"]');
+        var data = new FormData(), filled = false;
+        fields.querySelectorAll("input, select").forEach(function (el) {
+            if (el.type === "file") {
+                Array.prototype.forEach.call(el.files, function (file) { data.append(el.name, file); filled = true; });
+            } else if (el.type === "checkbox") {
+                if (el.checked) data.append(el.name, "on");
+            } else {
+                data.append(el.name, el.value);
+                if (el.value.trim()) filled = true;
+            }
+        });
+        if (!filled) { toggle.click(); return Promise.resolve(true); }
+        data.append("csrfmiddlewaretoken", csrf);
+        if (kind === "model") {
+            data.append("new_model-manufacturer", selectValue("manufacturer"));
+            data.append("new_model-category", selectValue("category"));
+        }
+        return fetch(form.dataset.entryUrl + kind + "/", { method: "POST", body: data, credentials: "same-origin" })
+            .then(function (r) { return r.json().then(function (body) { return { ok: r.ok, body: body }; }); })
+            .then(function (res) {
+                if (!res.ok) {
+                    showTab(tabOf(fields));
+                    say("Not saved. " + res.body.error, false);
+                    return false;
+                }
+                var select = document.getElementById("item-" + kind);
+                var option = new Option(res.body.label, res.body.pk);
+                option.dataset.manufacturer = res.body.manufacturer;
+                option.dataset.category = res.body.category;
+                select.add(option);
+                var remove;
+                while ((remove = fields.querySelector(".upload__remove"))) remove.click();
+                fields.querySelectorAll("input, select").forEach(function (el) {
+                    if (el.type === "checkbox") el.checked = el.defaultChecked;
+                    else if (el.type !== "file") el.value = "";
+                });
+                toggle.click();
+                select.value = res.body.pk;
+                updateProgress();
+                saved.push(res.body.label);
+                say("Saved " + saved.join(" and ") + ".", true);
+                return true;
+            })
+            .catch(function () {
+                showTab(tabOf(fields));
+                say("Not saved. The " + kind + " could not be saved. Try again.", false);
+                return false;
+            });
+    }
+    // Save the kinds one after the other. Stop at the first failure.
+    // saved holds the names for the message.
+    var saved = [];
+    function saveAll(kinds) {
+        saved = [];
+        return kinds.reduce(function (chain, kind) {
+            return chain.then(function (ok) { return ok && saveEntry(kind); });
+        }, Promise.resolve(true));
+    }
+
+    // Next and Previous save the open entries of the tab, then go to the
+    // next or the previous tab. A failure keeps the tab open.
+    form.addEventListener("click", function (e) {
+        var go = e.target.closest("[data-tab-go]");
+        if (!go) return;
+        var panel = go.closest("[role=tabpanel]");
+        go.disabled = true;
+        saveAll(panel.dataset.saves.split(" ").filter(Boolean)).then(function (ok) {
+            go.disabled = false;
+            if (ok) showTab(tabs[tabs.indexOf(tabOf(panel)) + Number(go.dataset.tabGo)]);
+        });
+    });
+
+    // Save Item first saves each open entry, thus the item gets them.
+    var ready = false;
+    form.addEventListener("submit", function (e) {
+        if (ready) return;
+        e.preventDefault();
+        saveAll(["manufacturer", "category", "model"]).then(function (ok) {
+            if (ok) { ready = true; form.submit(); }
+        });
+    });
+
+    // The manufacturer and the category follow the selected model.
+    var model = document.getElementById("item-model");
+    model.addEventListener("change", function () {
+        var option = model.selectedOptions[0];
+        if (!option.value) return;
+        document.getElementById("item-manufacturer").value = option.dataset.manufacturer;
+        document.getElementById("item-category").value = option.dataset.category;
+    });
+
+    // A step has a value when its select has a value, or, with the "+"
+    // fields open, when the new name has a value.
+    function has(selectId, nameId) {
+        var name = document.getElementById(nameId);
+        return name.matches(":disabled") ? !!document.getElementById(selectId).value : !!name.value.trim();
+    }
+    var done = {
+        manufacturer: function () { return has("item-manufacturer", "new-manufacturer-name"); },
+        model: function () { return has("item-model", "new-model-name"); },
+        category: function () { return has("item-category", "new-category-name"); },
+        item: function () {
+            return Array.prototype.some.call(
+                document.querySelectorAll("#new-item input[type=text], #new-item input[type=number]:not(#item-quantity), #new-item textarea"),
+                function (el) { return el.value.trim(); });
+        }
+    };
+    var progress = document.querySelector("[data-progress]");
+    var steps = progress.querySelectorAll("[data-step]");
+    function updateProgress() {
+        var count = 0, run = 0, unbroken = true;
+        steps.forEach(function (step) {
+            var on = done[step.dataset.step]();
+            step.classList.toggle("is-done", on);
+            if (on) count++;
+            unbroken = unbroken && on;
+            if (unbroken) run++;
+        });
+        progress.setAttribute("aria-valuenow", count);
+        progress.querySelector("[data-progress-fill]").style.width = (Math.max(run - 1, 0) / (steps.length - 1) * 100) + "%";
+    }
+    form.addEventListener("input", updateProgress);
+    form.addEventListener("change", updateProgress);
+    steps.forEach(function (step) {
+        step.addEventListener("click", function () { showTab(document.getElementById(step.dataset.tab)); });
+    });
+    updateProgress();
+
+    // Serial numbers of new items: one field for each item of the quantity.
+    // The fields keep their values when the quantity changes. A paste of
+    // several lines into a field fills that field and the fields after it.
+    var serialsToggle = form.querySelector("[data-serials-toggle]");
+    if (serialsToggle) {
+        var quantity = document.getElementById("item-quantity");
+        var box = form.querySelector("[data-serials]");
+        var list = form.querySelector("[data-serials-list]");
+        var counter = form.querySelector("[data-serials-count]");
+        var values = JSON.parse(document.getElementById("posted-serials").textContent);
+
+        function count() { return Math.min(Math.max(parseInt(quantity.value, 10) || 1, 1), 500); }
+        function showCount() {
+            var given = values.slice(0, count()).filter(function (v) { return v.trim(); }).length;
+            counter.textContent = given + " of " + count() + " serial numbers given. Paste a list to fill the fields in order.";
+        }
+        function renderSerials() {
+            box.hidden = !serialsToggle.checked;
+            list.textContent = "";
+            if (!serialsToggle.checked) return;
+            for (var i = 0; i < count(); i++) {
+                var input = document.createElement("input");
+                input.className = "field";
+                input.type = "text";
+                input.name = "serials";
+                input.placeholder = "Serial " + (i + 1);
+                input.setAttribute("aria-label", "Serial number " + (i + 1));
+                input.required = true;
+                input.value = values[i] || "";
+                input.dataset.index = i;
+                list.appendChild(input);
+            }
+            showCount();
+        }
+        list.addEventListener("input", function (e) {
+            values[e.target.dataset.index] = e.target.value;
+            showCount();
+        });
+        list.addEventListener("paste", function (e) {
+            var lines = (e.clipboardData || window.clipboardData).getData("text").split(/\r?\n/)
+                .map(function (line) { return line.trim(); }).filter(Boolean);
+            if (lines.length < 2) return;
+            e.preventDefault();
+            var start = Number(e.target.dataset.index);
+            lines.forEach(function (line, i) { values[start + i] = line; });
+            if (start + lines.length > count()) quantity.value = Math.min(start + lines.length, 500);
+            renderSerials();
+            updateProgress();
+        });
+        serialsToggle.addEventListener("change", renderSerials);
+        quantity.addEventListener("input", renderSerials);
+        renderSerials();
+    }
+
+    // The select of the Item tab opens the selected item.
+    document.querySelector("[data-item-jump]").addEventListener("change", function () {
+        location.search = this.value ? "?item=" + this.value : "?new=1";
+    });
+})();
+</script>
 {% endblock %}

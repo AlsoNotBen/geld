@@ -233,6 +233,19 @@ window.App = window.App || {};      // Make the namespace before you fill it.
     document.addEventListener("keydown", function (e) {
         if (e.key === "Escape") setMenu(false);
     });
+
+    // A long company name pans on hover (see .company-switch__name in base.css).
+    // The distance is the hidden part of the name. The speed is 60 px a second.
+    document.querySelectorAll(".company-switch__name").forEach(function (name) {
+        var button = name.closest("button");
+        function measure() {
+            var hidden = Math.max(name.scrollWidth - name.clientWidth, 0);
+            name.style.setProperty("--pan", -hidden + "px");
+            name.style.setProperty("--pan-time", hidden / 60 + "s");
+        }
+        button.addEventListener("mouseenter", measure);
+        button.addEventListener("focus", measure);
+    });
 })();
 
 

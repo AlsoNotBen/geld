@@ -94,7 +94,7 @@
         <div class="company-switch" data-company-switch>
             <button class="company-switch__btn" type="button" aria-haspopup="true" aria-expanded="false" data-company-toggle>
                 <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 21V5a1 1 0 011-1h9a1 1 0 011 1v16M15 9h4a1 1 0 011 1v11M3 21h18M8 8h3M8 12h3M8 16h3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                <span class="company-switch__name">{{ request.company.name|default:"No company" }}</span>
+                <span class="company-switch__name"><span>{{ request.company.name|default:"No company" }}</span></span>
                 <svg class="icon caret" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
             <div class="company-switch__menu" role="menu" aria-label="Companies" data-company-menu>
@@ -105,7 +105,7 @@
                     <button class="company-switch__item{% if company.pk == request.company.pk %} is-current{% endif %}" type="submit" name="company" value="{{ company.pk }}"
                             role="menuitemradio" aria-checked="{% if company.pk == request.company.pk %}true{% else %}false{% endif %}">
                         <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 21V5a1 1 0 011-1h9a1 1 0 011 1v16M15 9h4a1 1 0 011 1v11M3 21h18M8 8h3M8 12h3M8 16h3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        <span class="company-switch__name">{{ company.name }}</span>
+                        <span class="company-switch__name"><span>{{ company.name }}</span></span>
                         <svg class="icon check" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12l5 5 9-10" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     </button>
                     {% endfor %}

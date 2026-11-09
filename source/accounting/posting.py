@@ -91,6 +91,12 @@ def _pay(payment, document, amount):
     return part
 
 
+def is_direct(payment):
+    """True when the user selected an account that is not a control account.
+    Such a payment is not for an invoice or a bill (e.g. a bank charge or a loan)."""
+    return payment.account_id is not None and payment.account.name not in (RECEIVABLE, PAYABLE)
+
+
 def allocate(payment):
     """Allocate the payment to the open documents of its entity. Money out
     pays bills. Money in pays invoices. A draft or void document does not count.
@@ -100,8 +106,11 @@ def allocate(payment):
     always for bills, and for invoices only when the company has the setting
     "Allocate unreferenced to oldest invoices". An amount that is left over
     stays unallocated (see post_cash_entry: it goes to Suspense).
+    A direct payment (see is_direct) pays no document.
     Returns the documents that the payment pays.
     """
+    if is_direct(payment):
+        return []
     S = Document.Status
     paid_out = payment.direction == Payment.Direction.OUT
     documents = Document.objects.filter(
@@ -148,12 +157,16 @@ def post_payment(payment):
     and the statement of the customer find it.
     CASH: see post_cash_entry. Without allocations, the amount goes to
     the Suspense account.
+
+    The account of the payment, when the user selected one, replaces the
+    control account. A direct payment (see is_direct) has no allocations,
+    thus its cash entry also goes to that account, not to Suspense.
     """
     company = payment.company
     period = _open_period(company, payment.date)
     received = payment.direction == Payment.Direction.IN
-    control = control_account(payment)
-    suspense = _account(company, SUSPENSE)
+    control = payment.account or control_account(payment)
+    suspense = payment.account if is_direct(payment) else _account(company, SUSPENSE)
     sign = 1 if received else -1
 
     with transaction.atomic():

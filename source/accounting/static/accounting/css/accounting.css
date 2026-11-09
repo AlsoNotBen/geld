@@ -1057,6 +1057,8 @@ textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
    cells then have two lines, thus the text of each cell starts at the top. */
 .table--review td { vertical-align: top; }
 .review__tax { display: block; margin-top: 8px; }
+.review__line { display: block; }
+.review__line + .review__line { margin-top: 8px; }
 .review__tag {
     margin-left: 8px;
     font-family: var(--font-mono);
@@ -2550,6 +2552,20 @@ textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
 .bill-lines td:nth-child(4) { width: 14%; }
 .bill-lines td:nth-child(5) { width: 13%; }
 .bill-lines .num { text-align: right; }     /* The amounts of the View overlay */
+
+/* The lines of the journal entry overlay (journals.html) */
+.entry-lines { width: 100%; border-collapse: collapse; }
+.entry-lines th { padding: 0 6px 6px 0; text-align: left; font-size: 11px; font-weight: 500; color: var(--ink); }
+.entry-lines td { padding: 0 6px 6px 0; }
+.entry-lines .field__control { width: 100%; min-width: 0; }
+.entry-lines .num { text-align: right; }
+.entry-lines th:nth-child(1) { width: 30%; }
+.entry-lines th:nth-child(2) { width: 22%; }
+.entry-lines th:nth-child(3) { width: 16%; }
+.entry-lines th:nth-child(4),
+.entry-lines th:nth-child(5) { width: 14%; }
+.entry-lines tfoot td { padding-top: 6px; font-weight: 500; }
+.entry-balance { min-height: 1.4em; margin: 6px 0 0; color: var(--debit); font-size: 12px; }
 
 /* ================================================================== */
 /*  OVERVIEW  (overview.html, see overview.py)                        */

@@ -294,12 +294,29 @@ button {
     white-space: nowrap;
 }
 
+/* A long name pans from left to right on hover or focus, thus the user
+   can read all of it. base.js sets --pan (the distance) and --pan-time.
+   The inner span must be an inline-block to move. Thus it is an
+   inline-block only during the pan, and the ellipsis shows at rest. */
+.company-switch__btn:is(:hover, :focus-visible) .company-switch__name,
+.company-switch__item:is(:hover, :focus-visible) .company-switch__name { text-overflow: clip; }
+.company-switch__btn:is(:hover, :focus-visible) .company-switch__name > span,
+.company-switch__item:is(:hover, :focus-visible) .company-switch__name > span {
+    display: inline-block;
+    transform: translateX(var(--pan, 0));
+    transition: transform var(--pan-time, 0s) linear 0.3s;
+}
+@media (prefers-reduced-motion: reduce) {
+    .company-switch__name > span { transition: none !important; }
+}
+
 .company-switch__menu {
     position: absolute;
     top: calc(100% + 8px);
     right: 0;
     width: max(100%, 240px);
     display: grid;
+    grid-template-columns: minmax(0, 1fr);      /* An item can be narrower than its text. */
     gap: 6px;
     padding: 6px;
     background: var(--navy);
@@ -312,7 +329,7 @@ button {
     transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
 }
 .company-switch__menu[data-open="true"] { opacity: 1; visibility: visible; transform: translateY(0); }
-.company-switch__menu form { display: grid; gap: 6px; margin: 0; }
+.company-switch__menu form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; margin: 0; min-width: 0; }
 .company-switch__item .check { visibility: hidden; stroke: var(--gold); }
 .company-switch__item.is-current { border-color: var(--gold-line); background: var(--gold-soft); }
 .company-switch__item.is-current .check { visibility: visible; }

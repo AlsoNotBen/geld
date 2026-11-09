@@ -19,14 +19,17 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Case, Count, DecimalField, F, Q, Sum, When
-from django.shortcuts import redirect, render
+from django.http import Http404, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from filestore.services import save_upload, validate
-from .forms import ItemForm
-from .models import Item, ItemRelationship, StockTakeSchedule, StockMovement
+from django.views.decorators.http import require_POST
+from filestore.services import save_upload, validate, validate_image
+from .forms import CategoryForm, ItemForm, ManufacturerForm, ModelEntryForm
+from shared.models import Country, Entity, Location
+from .models import Checkout, Item, ItemRelationship, ItemType, StockTakeSchedule, StockMovement
 
 ZERO = Decimal("0")
-T = Item.ItemType
+T = ItemType
 D = StockMovement.Direction
 STOCKED = [T.STOCK, T.CONSUMABLE, T.COMPONENT]     # The types that have a quantity on hand
 CONTAINS = ItemRelationship.RelationshipType.CONTAINS
@@ -55,9 +58,19 @@ def with_stock(items, levels):
     return items
 
 
+def company_items(company):
+    """The items of the company with their model. Item.name reads the model."""
+    return Item.objects.filter(company=company).select_related("model")
+
+
+def in_use(item):
+    """An active item of an active model."""
+    return item.active and item.model.active
+
+
 def status_of(item):
     """The text and the tone of the status pill of an item."""
-    if item.obsoleted:
+    if not item.model.active:
         return "Obsolete", "idle"
     if not item.active:
         return "Inactive", "idle"
@@ -76,7 +89,7 @@ def movement_rows(company, limit=None, **filters):
     """The last stock movements, the newest first: the date, the text and
     the change with its sign. A movement has no reference."""
     movements = (StockMovement.objects.filter(company=company, **filters)
-                 .select_related("item").order_by("-date", "-id")[:limit])
+                 .select_related("item__model").order_by("-date", "-id")[:limit])
     return [{"date": m.date, "reference": "",
              "text": f"{MOVED[m.direction]} · {m.item.name}",
              "change": -m.quantity if m.direction == D.OUT else m.quantity} for m in movements]
@@ -94,7 +107,7 @@ def matches(items, q):
     """The items with the text in the name, the code, the tag or the serial number."""
     if not q:
         return items
-    return items.filter(Q(name__icontains=q) | Q(sku__icontains=q) | Q(tag__icontains=q) | Q(serial__icontains=q))
+    return items.filter(Q(model__name__icontains=q) | Q(sku__icontains=q) | Q(tag__icontains=q) | Q(serial__icontains=q))
 
 
 # ___________________________________KITS____________________________________________#
@@ -103,7 +116,7 @@ def contents(company):
     A kit is an item that contains other items (a Contains relationship)."""
     children = {}
     for relation in (ItemRelationship.objects.filter(parent__company=company, relationship_type=CONTAINS)
-                     .select_related("child")):
+                     .select_related("child__model")):
         children.setdefault(relation.parent_id, []).append((relation.child, relation.quantity))
     return children
 
@@ -126,11 +139,11 @@ def overview(request):
     company = request.company
     today = timezone.localdate()
     levels = stock_levels(company)
-    items = with_status(with_stock(Item.objects.filter(company=company).order_by("name"), levels))
-    active = [i for i in items if i.active and not i.obsoleted]
+    items = with_status(with_stock(company_items(company).order_by("model__name"), levels))
+    active = [i for i in items if in_use(i)]
     out = [i for i in active if i.item_type in STOCKED and i.on_hand <= 0]
     due = list(StockTakeSchedule.objects.filter(item__company=company, active=True, next_due__lte=today)
-               .select_related("item"))
+               .select_related("item__model"))
     for schedule in due:
         schedule.item.on_hand = levels.get(schedule.item_id, (ZERO, ZERO))[0]
     week = StockMovement.objects.filter(company=company, date__gt=today - datetime.timedelta(days=7))
@@ -188,7 +201,7 @@ def analytics(request):
     since = today - datetime.timedelta(days=29)
     moves = StockMovement.objects.filter(company=company)
     window = list(moves.filter(date__gte=months[0], date__lte=today)
-                  .values("date", "direction", "quantity", "total_cost", "item__name", "item__item_type"))
+                  .values("date", "direction", "quantity", "total_cost", "item__model__name", "item__item_type"))
     opening = moves.filter(date__lt=months[0]).aggregate(total=Sum(signed("total_cost")))["total"] or ZERO
 
     # Chart 1 and 2: the units received and issued, and the value at the end, of each month.
@@ -213,22 +226,22 @@ def analytics(request):
     by_type = {t: {"label": label, "received": ZERO, "issued": ZERO} for t, label in T.choices}
     for row in recent:
         quantity = row["quantity"]
-        moved[row["item__name"]] = moved.get(row["item__name"], ZERO) + abs(quantity)
+        moved[row["item__model__name"]] = moved.get(row["item__model__name"], ZERO) + abs(quantity)
         if row["direction"] == D.IN:
             by_type[row["item__item_type"]]["received"] += quantity
         elif row["direction"] == D.OUT:
             by_type[row["item__item_type"]]["issued"] += quantity
             if row["item__item_type"] == T.CONSUMABLE:
-                used[row["item__name"]] = used.get(row["item__name"], ZERO) + quantity
+                used[row["item__model__name"]] = used.get(row["item__model__name"], ZERO) + quantity
     levels = stock_levels(company)
-    items = with_stock(Item.objects.filter(company=company), levels)
+    items = with_stock(company_items(company), levels)
     for row_type, row in by_type.items():
         row["net"] = row["received"] - row["issued"]
         row["value"] = sum((i.value for i in items if i.item_type == row_type), ZERO)
 
     # The ring: the active items by type.
     circle = Decimal("339.29")              # The length of the circle of the ring: 2 × π × 54
-    active = [i for i in items if i.active and not i.obsoleted]
+    active = [i for i in items if in_use(i)]
     parts, start = [], ZERO
     for n, (item_type, label) in enumerate(T.choices, 1):
         count = sum(1 for i in active if i.item_type == item_type)
@@ -267,9 +280,9 @@ def assets(request):
     """The asset register. The text filter finds the name, the code, the tag
     or the serial number. The status filter is active or inactive."""
     q, status = request.GET.get("q", "").strip(), request.GET.get("status", "")
-    assets = Item.objects.filter(company=request.company, item_type=T.ASSET)
+    assets = company_items(request.company).filter(item_type=T.ASSET)
     every = list(assets)
-    listed = matches(assets, q).order_by("name")
+    listed = matches(assets, q).order_by("model__name")
     if status in ("active", "inactive"):
         listed = listed.filter(active=status == "active")
     return render(request, "inventory/assets.html", {
@@ -278,8 +291,8 @@ def assets(request):
         "total": len(every),
         "active": sum(1 for a in every if a.active),
         "inactive": sum(1 for a in every if not a.active),
-        "depreciating": sum(1 for a in every if a.depreciate),
-        "cost": sum((a.cost or ZERO for a in every), ZERO),
+        "depreciating": sum(1 for a in every if a.model.lifespan_months),
+        "cost": sum((a.unit_cost or ZERO for a in every), ZERO),
         "q": q, "status": status,
     })
 
@@ -290,9 +303,9 @@ def stock(request):
     company = request.company
     q = request.GET.get("q", "").strip()
     levels = stock_levels(company)
-    stock_items = Item.objects.filter(company=company, item_type=T.STOCK)
+    stock_items = company_items(company).filter(item_type=T.STOCK)
     every = with_stock(stock_items.filter(active=True), levels)
-    listed = with_status(with_stock(matches(stock_items, q).order_by("name"), levels))
+    listed = with_status(with_stock(matches(stock_items, q).order_by("model__name"), levels))
     last = last_movements(company)
     for item in listed:
         item.last = last.get(item.pk)
@@ -317,14 +330,14 @@ def consumables(request):
     company = request.company
     since = timezone.localdate() - datetime.timedelta(days=29)
     levels = stock_levels(company)
-    items = with_status(with_stock(Item.objects.filter(company=company, item_type=T.CONSUMABLE).order_by("name"),
+    items = with_status(with_stock(company_items(company).filter(item_type=T.CONSUMABLE).order_by("model__name"),
                                    levels))
     issues = StockMovement.objects.filter(company=company, direction=D.OUT, date__gte=since,
                                           item__item_type=T.CONSUMABLE)
     used = dict(issues.values_list("item_id").annotate(total=Sum("quantity")))
     for item in items:
         item.used = used.get(item.pk, ZERO)
-    active = [i for i in items if i.active and not i.obsoleted]
+    active = [i for i in items if in_use(i)]
     return render(request, "inventory/consumables.html", {
         "page_title": "Consumables",
         "items": items,
@@ -342,7 +355,7 @@ def kits(request):
     number that the stock of its components can build (see buildable)."""
     levels = stock_levels(request.company)
     children = contents(request.company)
-    kit_items = with_stock(Item.objects.filter(company=request.company, pk__in=children).order_by("name"), levels)
+    kit_items = with_stock(company_items(request.company).filter(pk__in=children).order_by("model__name"), levels)
     for kit in kit_items:
         kit.parts = children[kit.pk]
         kit.can_build = buildable(kit.pk, children, levels)[0]
@@ -363,7 +376,7 @@ def bom(request):
     and its direct components."""
     levels = stock_levels(request.company)
     children = contents(request.company)
-    kit_list = list(Item.objects.filter(company=request.company, pk__in=children).order_by("name"))
+    kit_list = list(company_items(request.company).filter(pk__in=children).order_by("model__name"))
     for kit in kit_list:
         kit.can_build = buildable(kit.pk, children, levels)[0]
         kit.part_count = len(children[kit.pk])
@@ -407,8 +420,8 @@ def bom(request):
         "parts": parts,
         "limit": next((p["item"] for p in parts if p["item"].pk in limits), None),
         "short_count": sum(1 for k in kit_list if not k.can_build),
-        "choices": (Item.objects.filter(company=request.company, active=True)
-                    .exclude(pk=kit.pk if kit else None).order_by("name")),
+        "choices": (company_items(request.company).filter(active=True)
+                    .exclude(pk=kit.pk if kit else None).order_by("model__name")),
     })
 
 
@@ -421,9 +434,9 @@ def items(request):
     A click selects an item (?item=pk): the form then changes that item, and
     the right column shows its relationships. Without a selection, the form
     makes a new item."""
-    company_items = Item.objects.filter(company=request.company)
+    items = company_items(request.company)
     item_id = request.GET.get("item", "")
-    selected = company_items.filter(pk=item_id).first() if item_id.isdigit() else None
+    selected = items.filter(pk=item_id).first() if item_id.isdigit() else None
     form = ItemForm(request.POST or None, instance=selected or Item(company=request.company))
 
     if request.method == "POST" and form.is_valid():
@@ -436,13 +449,16 @@ def items(request):
             form.add_error(None, error)
         else:
             with transaction.atomic():
-                item = form.save()
-                item.files.add(*(save_upload(u, request.user, request.company) for u in uploads))
-            messages.success(request, f"Saved {item.name}.")
-            return redirect(f"{request.path}?item={item.pk}")  # Post/Redirect/Get
+                saved = form.save()
+                stored = [save_upload(u, request.user, request.company) for u in uploads]
+                for item in saved:
+                    item.files.add(*stored)
+            count = len(saved)
+            messages.success(request, f"Saved {count} items of {saved[0].name}." if count > 1 else f"Saved {saved[0].name}.")
+            return redirect(f"{request.path}?item={saved[0].pk}")  # Post/Redirect/Get
 
     q, item_type = request.GET.get("q", "").strip(), request.GET.get("item_type", "")
-    listed = matches(company_items, q).order_by("name")
+    listed = matches(items, q).order_by("model__name")
     if item_type in T.values:
         listed = listed.filter(item_type=item_type)
     listed = listed.annotate(relation_count=Count("child_relationships", distinct=True)
@@ -451,17 +467,126 @@ def items(request):
     if selected:
         relationships = (
             [{"item": r.child, "type": r.get_relationship_type_display(), "role": "Parent of", "quantity": r.quantity}
-             for r in selected.child_relationships.select_related("child")]
+             for r in selected.child_relationships.select_related("child__model")]
             + [{"item": r.parent, "type": r.get_relationship_type_display(), "role": "Child of", "quantity": r.quantity}
-               for r in selected.parent_relationships.select_related("parent")])
+               for r in selected.parent_relationships.select_related("parent__model")])
+    # The open checkout of each item, for the Checkout and Check In buttons.
+    open_checkouts = {c.item_id: c for c in Checkout.objects.filter(company=request.company, checked_in_at__isnull=True)
+                      .select_related("entity", "location")}
+    listed = with_status(with_stock(listed.select_related("model__thumbnail"), stock_levels(request.company)))
+    for item in listed:
+        item.open_checkout = open_checkouts.get(item.pk)
+    # ?new=1 opens an empty editor. ?new=item also opens the Item tab fields.
+    new = request.GET.get("new", "")
     return render(request, "inventory/items.html", {
         "page_title": "Items",
         "form": form,
         "selected": selected,
-        "items": with_status(with_stock(listed, stock_levels(request.company))),
-        "item_count": company_items.count(),
+        "show_editor": bool(selected or form.is_bound or new),
+        "item_open": bool(selected or form.is_bound or new == "item"),
+        "items": listed,
+        "posted_serials": request.POST.getlist("serials"),
+        "countries": Country.objects.order_by("name"),
+        "entities": Entity.objects.filter(company=request.company).order_by("name"),
+        "locations": Location.objects.filter(company=request.company).order_by("address"),
+        "stock_type": T.STOCK,
+        "all_items": items.order_by("model__name"),
+        "item_count": items.count(),
         "relationships": relationships,
         "relationship_types": ItemRelationship.RelationshipType.choices,
-        "related_choices": company_items.exclude(pk=selected.pk if selected else None).order_by("name"),
+        "related_choices": items.exclude(pk=selected.pk if selected else None).order_by("model__name"),
         "q": q, "item_type": item_type,
     })
+
+
+# The "+" entries of the item editor: the form, the image field and the
+# files field of the record.
+ENTRIES = {
+    "manufacturer": (ManufacturerForm, "logo", None),
+    "model": (ModelEntryForm, "thumbnail", "datasheets"),
+    "category": (CategoryForm, None, None),
+}
+
+
+@require_POST
+def item_entry(request, kind):
+    """Saves a new manufacturer, model or category of the item editor. The
+    Next and Previous buttons send the fields of the open "+" entry here.
+    The fields have the prefix new_<kind>. Returns JSON: the new record, or
+    an error."""
+    if kind not in ENTRIES:
+        raise Http404
+    form_class, image_field, files_field = ENTRIES[kind]
+    prefix = f"new_{kind}"
+    form = form_class(request.POST, prefix=prefix, instance=form_class._meta.model(company=request.company))
+    image = request.FILES.get(f"{prefix}-{image_field}") if image_field else None
+    files = request.FILES.getlist(f"{prefix}-{files_field}") if files_field else []
+    if form.is_valid():
+        try:
+            if image:
+                validate_image(image)
+            for upload in files:
+                validate(upload)
+        except ValidationError as error:
+            form.add_error(None, error)
+    if form.errors:
+        errors = [f"{form[f].label}: {e}" if f != "__all__" else e for f, es in form.errors.items() for e in es]
+        return JsonResponse({"error": " ".join(errors)}, status=400)
+
+    with transaction.atomic():
+        if image:
+            setattr(form.instance, image_field, save_upload(image, request.user, request.company))
+        entry = form.save()
+        if files:
+            getattr(entry, files_field).add(*(save_upload(u, request.user, request.company) for u in files))
+    number = getattr(entry, "number", "")
+    return JsonResponse({
+        "pk": entry.pk,
+        "label": f"{entry.name} · {number}" if number else entry.name,
+        "manufacturer": getattr(entry, "manufacturer_id", None) or "",
+        "category": getattr(entry, "category_id", None) or "",
+    })
+
+
+def item_view(request, pk):
+    """The content of the View overlay of an item (see items.html)."""
+    item = get_object_or_404(company_items(request.company).select_related(
+        "model__manufacturer__logo", "model__manufacturer__origin", "model__category", "model__thumbnail"), pk=pk)
+    return render(request, "inventory/_item_view.html", {
+        "item": item,
+        "checkout": item.current_checkout,
+    })
+
+
+@require_POST
+def item_checkout(request, pk):
+    """Check an item out to a person, an organization or a location. The
+    target is "e:<pk>" for an entity or "l:<pk>" for a location."""
+    item = get_object_or_404(company_items(request.company), pk=pk)
+    kind, _, target = request.POST.get("target", "").partition(":")
+    checkout = Checkout(company=request.company, item=item, created_by=request.user)
+    if target.isdigit():
+        if kind == "e":
+            checkout.entity = Entity.objects.filter(company=request.company, pk=target).first()
+        elif kind == "l":
+            checkout.location = Location.objects.filter(company=request.company, pk=target).first()
+    if not (checkout.entity or checkout.location):
+        messages.error(request, f"{item.name} was not checked out. Select a person, organization or location.")
+        return redirect("inventory:items")
+    try:
+        checkout.full_clean()
+    except ValidationError as error:
+        messages.error(request, f"{item.name} was not checked out. " + " ".join(error.messages))
+    else:
+        checkout.save()
+        messages.success(request, f"Checked out {item.name} to {checkout.entity or checkout.location.address}.")
+    return redirect("inventory:items")
+
+
+@require_POST
+def item_checkin(request, pk):
+    """Check in the open checkout of an item."""
+    checkout = get_object_or_404(Checkout, company=request.company, item_id=pk, checked_in_at__isnull=True)
+    checkout.check_in(request.user)
+    messages.success(request, f"Checked in {checkout.item.name}.")
+    return redirect("inventory:items")

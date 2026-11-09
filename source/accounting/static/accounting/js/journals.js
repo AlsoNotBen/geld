@@ -124,12 +124,16 @@
 /* ==========================================================================
    The entry overlay. It uses the same pattern as accounts.js.
 
-   The New Entry button opens an empty form, which goes to the create URL.
-   The View button opens the same form with the data of its row, and it
-   sends the form to the update URL of that entry. The data comes from the
-   data-* attributes of the button (see journals.html). In the view, the
-   user can change the line description only. The other fields are
-   disabled.
+   The New Entry button opens an empty form with two lines, which goes to
+   the create URL. Each line has a debit or a credit, before tax. A tax code
+   adds the tax on the same side, as the server does (see entry_lines). The
+   tax and the totals show below the lines. The Save button works only when
+   the debits equal the credits, with the tax. The server does the same check.
+
+   The View button opens the same form with the lines of its row (the
+   data-lines JSON, see draft_rows), and it sends the form to the update
+   URL of that entry. In the view, the user can change the line
+   descriptions only. The other fields are disabled.
    ========================================================================== */
 (function () {
     const dialog = document.getElementById("entry-dialog");
@@ -140,23 +144,124 @@
     const submit = dialog.querySelector(".tool--primary[type=submit]");
     const voidBtn = dialog.querySelector("[data-entry-void]");
     const postBtn = dialog.querySelector("[data-entry-post]");
+    const addBtn = dialog.querySelector("[data-entry-line-add]");
+    const lines = dialog.querySelector("[data-entry-lines]");
+    const template = lines.querySelector("[data-entry-line]").cloneNode(true);
+    const totalDebit = dialog.querySelector("[data-total-debit]");
+    const totalCredit = dialog.querySelector("[data-total-credit]");
+    const taxRow = dialog.querySelector("[data-entry-tax-row]");
+    const taxDebit = dialog.querySelector("[data-tax-debit]");
+    const taxCredit = dialog.querySelector("[data-tax-credit]");
+    const balance = dialog.querySelector("[data-entry-balance]");
     const createUrl = form.getAttribute("action");
     const field = form.elements;
-    const locked = dialog.querySelectorAll(".field__control:not([name=description])");
+    let viewing = false;
+
+    // Amounts in cents, thus the sums have no rounding errors.
+    function cents(input) {
+        return Math.round((parseFloat(input.value) || 0) * 100);
+    }
+
+    function text(value) {
+        return (value / 100).toFixed(2);
+    }
+
+    function addLine(data) {
+        const row = template.cloneNode(true);
+        if (data) {
+            row.querySelector("[name=line_id]").value = data.id;
+            row.querySelector("[name=line_id]").disabled = false;
+            row.querySelector("[name=line_account]").value = data.account;
+            row.querySelector("[name=line_tax]").value = data.tax;
+            row.querySelector("[name=line_description]").value = data.description;
+            row.querySelector("[name=line_debit]").value = data.debit;
+            row.querySelector("[name=line_credit]").value = data.credit;
+        }
+        lines.appendChild(row);
+    }
+
+    function setLines(data) {
+        lines.replaceChildren();
+        data.forEach(addLine);
+    }
+
+    /* The tax of an amount in cents, rounded half up as the server does.
+       The rate is in hundredths of a percent, thus the product is exact. */
+    function tax(amount, row) {
+        const account = row.querySelector("[name=line_account]").selectedOptions[0];
+        const code = row.querySelector("[name=line_tax]").selectedOptions[0];
+        if (viewing || !code || (account && account.hasAttribute("data-tax-account"))) return 0;
+        return Math.round(amount * Math.round(parseFloat(code.dataset.rate) * 100) / 10000);
+    }
+
+    function update() {
+        let debit = 0, credit = 0, debitTax = 0, creditTax = 0, noAccount = false;
+        lines.querySelectorAll("tr").forEach(function (row) {
+            const lineDebit = cents(row.querySelector("[name=line_debit]"));
+            const lineCredit = cents(row.querySelector("[name=line_credit]"));
+            if ((lineDebit || lineCredit) && !row.querySelector("[name=line_account]").value) noAccount = true;
+            debit += lineDebit;
+            credit += lineCredit;
+            debitTax += tax(lineDebit, row);
+            creditTax += tax(lineCredit, row);
+        });
+        debit += debitTax;
+        credit += creditTax;
+        taxDebit.textContent = text(debitTax);
+        taxCredit.textContent = text(creditTax);
+        taxRow.hidden = viewing;        // A saved entry already has its tax lines.
+        totalDebit.textContent = text(debit);
+        totalCredit.textContent = text(credit);
+
+        let problem = "";
+        if (debit !== credit) problem = "Not balanced. The difference is " + text(Math.abs(debit - credit)) + ".";
+        else if (!debit) problem = "Give the amounts of the lines.";
+        else if (noAccount) problem = "Select an account for each line.";
+        balance.textContent = viewing ? "" : problem;
+        submit.disabled = !viewing && problem !== "";
+    }
+
+    // A line has a debit or a credit. A value on one side clears the other side.
+    lines.addEventListener("input", function (e) {
+        const row = e.target.closest("tr");
+        if (e.target.name === "line_debit" && e.target.value) row.querySelector("[name=line_credit]").value = "";
+        if (e.target.name === "line_credit" && e.target.value) row.querySelector("[name=line_debit]").value = "";
+        update();
+    });
+
+    // Remove a line. Two lines stay, thus the form always has a debit and a credit.
+    lines.addEventListener("click", function (e) {
+        const button = e.target.closest("[data-entry-line-remove]");
+        if (button && lines.children.length > 2) {
+            button.closest("tr").remove();
+            update();
+        }
+    });
+
+    addBtn.onclick = function () { addLine(); };
 
     function lock(isLocked) {
-        locked.forEach(function (control) { control.disabled = isLocked; });
+        form.querySelectorAll(".field__control:not([name=line_description])").forEach(function (control) {
+            control.disabled = isLocked;
+        });
+        form.querySelectorAll("[data-entry-line-remove]").forEach(function (button) { button.hidden = isLocked; });
+        addBtn.hidden = isLocked;
     }
 
     const openBtn = document.querySelector("[data-entry-new]");
     if (openBtn) openBtn.onclick = function () {
         form.reset();
+        setLines([null, null]);
+        viewing = false;
         lock(false);
+        const now = new Date();                   // Today in the time zone of the user
+        field.date.value = new Date(now - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
         form.setAttribute("action", createUrl);
         title.textContent = "New Journal Entry";
-        submit.textContent = "Post Entry";
+        submit.textContent = "Save Draft";
         voidBtn.hidden = true;
         postBtn.hidden = true;
+        update();
         dialog.showModal();
     };
 
@@ -166,15 +271,10 @@
             form.setAttribute("action", data.url);
             field.date.value = data.date;
             field.entry_type.value = data.entryType;
-            field.period.value = data.period;
             field.reference.value = data.reference;
-            field.debit_account.value = data.debit;
-            field.credit_account.value = data.credit;
-            field.amount.value = data.amount;
-            field.currency.value = data.currency;
-            field.tax_code.value = data.tax;
-            field.description.value = data.description;
             field.narration.value = data.narration;
+            setLines(JSON.parse(data.lines));
+            viewing = true;
             lock(true);
             title.textContent = "View Journal Entry";
             submit.textContent = "Save as Draft";
@@ -184,6 +284,7 @@
             postBtn.setAttribute("formaction", data.postUrl);
             voidBtn.hidden = false;
             postBtn.hidden = false;
+            update();
             dialog.showModal();
         };
     });

@@ -28,6 +28,7 @@ from documents.forms import (DocumentOptionsForm, LineItemsField, SelectWithAddB
 from documents.registry import DocumentType, register
 from accounting.models import *
 from accounting.posting import RECEIVABLE, _account, invoice_posted, post_invoice_entry
+from inventory.models import Item, ItemType
 
 
 CENT = Decimal("0.01")
@@ -71,11 +72,14 @@ def catalog(company, item_types, purchase=False):
     """The rows of the "Add from the catalog" select. A sale lists the
     services of the company, then the active items of the types, with no
     price: the data has no sale price, thus the user types it. A purchase
-    lists the items only, with the cost of each item as its price."""
+    lists the items only, with the unit cost of each item as its price.
+    An item of an obsolete model is not in the list."""
     services = [] if purchase else Service.objects.filter(company=company).order_by("name")
     rows = [{"description": s.name, "unit": "", "unit_price": ""} for s in services]
-    for item in Item.objects.filter(company=company, item_type__in=item_types, active=True, obsoleted=False).order_by("name"):
-        price = item.cost if purchase and item.cost is not None else ""
+    items = (Item.objects.filter(company=company, item_type__in=item_types, active=True, model__active=True)
+             .select_related("model").order_by("model__name"))
+    for item in items:
+        price = item.unit_cost if purchase and item.unit_cost is not None else ""
         rows.append({"description": item.name, "unit": "", "unit_price": str(price)})
     return rows
 
@@ -91,6 +95,24 @@ def standard_rate(company):
     code = (TaxCode.objects.filter(company=company, kind=TaxCode.Kind.STANDARD, valid_from__lte=today)
             .filter(Q(valid_to__isnull=True) | Q(valid_to__gte=today)).order_by("-valid_from").first())
     return code.rate if code else ZERO
+
+
+def currency_choices():
+    """The currencies for the Currency select. The value is the code. The form gives the symbol (see clean_currency)."""
+    return [(c.alpha_code, f"{c.alpha_code} ({c.symbol or c.alpha_code})") for c in Currency.objects.order_by("alpha_code")]
+
+
+def tax_rate_choices(company):
+    """The rates of the tax codes of the company that apply today, for the Tax rate select.
+    Codes with the same rate give one choice. Zero is always a choice."""
+    today = datetime.date.today()
+    codes = (TaxCode.objects.filter(company=company, valid_from__lte=today)
+             .filter(Q(valid_to__isnull=True) | Q(valid_to__gte=today)).order_by("-rate", "code"))
+    choices = {}
+    for code in codes:
+        choices.setdefault(f"{code.rate:.2f}", f"{code.code} ({code.rate.normalize():f}%)")
+    choices.setdefault("0.00", "No tax (0%)")
+    return list(choices.items())
 
 
 def _bank_field():
@@ -152,14 +174,17 @@ def _build_lines(lines, tax_rate, discount_rate=Decimal("0")):
     """
     computed = []
     subtotal = Decimal("0")
+    taxable = Decimal("0")
 
     for line in lines:
-        total       = (line["quantity"] * line["unit_price"]).quantize(CENT, ROUND_HALF_UP)
+        gross       = line["quantity"] * line["unit_price"]
+        total       = gross.quantize(CENT, ROUND_HALF_UP)
         subtotal    += total
+        # The net of each line, as DocumentLine.net_amount. Thus the PDF agrees with the journal entry.
+        taxable     += (gross - gross * discount_rate / 100).quantize(CENT, ROUND_HALF_UP)
         computed.append({**line, "total": total})
 
-    discount    = (subtotal * discount_rate / 100).quantize(CENT, ROUND_HALF_UP)
-    taxable     = subtotal - discount
+    discount    = subtotal - taxable
     tax         = (taxable * tax_rate / 100).quantize(CENT, ROUND_HALF_UP)
     
     return {
@@ -205,13 +230,11 @@ class SalesDocumentOptionsForm(DocumentOptionsForm):
         help_text="Used only when the payment terms are Custom.",
         widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
     )
-    currency = forms.CharField(
-        label="Currency symbol",
-        required=False,
-        max_length=4,
-    )
-    tax_rate = forms.DecimalField(
-        label="Tax rate (%)",
+    # SalesDocument.get_options_form gives the choices of the two selects.
+    currency = forms.ChoiceField(label="Currency", required=False)
+    tax_rate = forms.TypedChoiceField(label="Tax rate", coerce=Decimal, empty_value=ZERO)
+    discount_rate = forms.DecimalField(
+        label="Discount (%)",
         initial=ZERO,
         min_value=Decimal("0"),
         max_value=Decimal("100"),
@@ -222,6 +245,11 @@ class SalesDocumentOptionsForm(DocumentOptionsForm):
         required=False,
         widget=forms.Textarea(attrs={"rows": 3}),
     )
+
+    def clean_currency(self):
+        """The PDF shows the symbol of the selected currency."""
+        currency = Currency.objects.filter(pk=self.cleaned_data["currency"]).first()
+        return (currency.symbol or currency.alpha_code) if currency else ""
 
     def clean(self):
         data = super().clean()
@@ -236,7 +264,7 @@ class SalesDocumentOptionsForm(DocumentOptionsForm):
 class InvoiceOptionsForm(SalesDocumentOptionsForm):
     field_order = [
         "pro_forma", "recurring", "frequency", "number", "issue_date", "terms", "due_date", "customer", "line_items",
-        "currency", "tax_rate", "bank_account", "notes",
+        "currency", "tax_rate", "discount_rate", "bank_account", "notes",
     ]
 
     pro_forma = forms.BooleanField(label="Pro-Forma", required=False, initial=False)
@@ -254,6 +282,7 @@ class StatementOptionsForm(SalesDocumentOptionsForm):
 
     line_items = None   # A None value removes the field of the parent form.
     tax_rate = None
+    discount_rate = None
     muted_field_names = ("number", "currency", "bank_account")
     field_order = [
         "number", "start_date", "end_date", "customer", "brought_forward",
@@ -308,11 +337,13 @@ class SalesDocument(DocumentType):
             company, fields = request.company, form.fields
             fields["number"].initial = NumberSequence.peek(company, self.key, self.prefix)
             fields["customer"].choices = _customer_choices(company)
-            fields["currency"].initial = currency_symbol(company)
+            fields["currency"].choices = currency_choices()
+            fields["currency"].initial = company.base_currency_id
             if "line_items" in fields:
-                fields["line_items"].widget.catalog = catalog(company, [Item.ItemType.STOCK])
+                fields["line_items"].widget.catalog = catalog(company, [ItemType.STOCK])
             if "tax_rate" in fields:
-                fields["tax_rate"].initial = standard_rate(company)
+                fields["tax_rate"].choices = tax_rate_choices(company)
+                fields["tax_rate"].initial = f"{standard_rate(company):.2f}"
             if "bank_account" in fields:
                 banks = list(BankAccount.objects.filter(company=company, is_active=True).order_by("id"))
                 fields["bank_account"].choices = [("", "No bank details")] + [
@@ -346,7 +377,7 @@ class InvoiceDocument(SalesDocument):
     options_form_class = InvoiceOptionsForm
 
     def get_context(self, request, options):
-        money = _build_lines(options["line_items"], options["tax_rate"])
+        money = _build_lines(options["line_items"], options["tax_rate"], options["discount_rate"])
         return {"options": options, "customer": _customer(options, request.company), "due": _due(options),
                 "terms": _terms_label(options), "bank_details": self.bank_details(request, options), **money}
 
@@ -363,7 +394,7 @@ class InvoiceDocument(SalesDocument):
             if invoice_posted(request.company, options["number"]):
                 return
             document, _ = _sales_record(request.company, options, entity, Document.DocType.INVOICE, _due(options),
-                                        Document.Status.SENT)
+                                        Document.Status.SENT, discount=options["discount_rate"])
             document.journal_entry = post_invoice_entry(document)
             document.save(update_fields=["journal_entry"])
             AuditLog.record(request, AuditLog.Action.CREATE, document)

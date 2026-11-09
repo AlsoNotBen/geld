@@ -92,19 +92,18 @@
             </thead>
             <tbody>
                 {% for entry in draft_entries %}
-                {% comment %} A tax line shows below the account on its side: the
-                     code, the name and the amount (see draft_rows). {% endcomment %}
+                {% comment %} Each line of a side shows on its own line in the cell.
+                     A line on a tax account has the Tax tag (see draft_rows). {% endcomment %}
                 <tr>
                     <td>{{ entry.date }}</td>
                     <td>{{ entry.reference }}</td>
                     <td>{{ entry.journal }}</td>
-                    <td><span data-code>{{ entry.debit_account.code }}</span>{% for tax in entry.debit_taxes %}<span class="review__tax" data-code>{{ tax.account.code }}</span>{% endfor %}</td>
-                    <td>{{ entry.debit_account.name }}{% for tax in entry.debit_taxes %}<span class="review__tax">{{ tax.account.name }}<span class="review__tag">Tax</span></span>{% endfor %}</td>
-                    <td><span data-code>{{ entry.credit_account.code }}</span>{% for tax in entry.credit_taxes %}<span class="review__tax" data-code>{{ tax.account.code }}</span>{% endfor %}</td>
-                    <td>{{ entry.credit_account.name }}{% for tax in entry.credit_taxes %}<span class="review__tax">{{ tax.account.name }}<span class="review__tag">Tax</span></span>{% endfor %}</td>
-                    {% comment %} The two sides hold the same amount, unless a tax line is on one side. {% endcomment %}
-                    <td class="is-debit">{{ entry.debit_amount|money }}{% for tax in entry.debit_taxes %}<span class="review__tax">{{ tax.debit|money }}</span>{% endfor %}</td>
-                    <td class="is-credit">{{ entry.credit_amount|money }}{% for tax in entry.credit_taxes %}<span class="review__tax">{{ tax.credit|money }}</span>{% endfor %}</td>
+                    <td>{% for line in entry.debit_lines %}<span class="review__line" data-code>{{ line.account.code }}</span>{% endfor %}</td>
+                    <td>{% for line in entry.debit_lines %}<span class="review__line">{{ line.account.name }}{% if line.is_tax %}<span class="review__tag">Tax</span>{% endif %}</span>{% endfor %}</td>
+                    <td>{% for line in entry.credit_lines %}<span class="review__line" data-code>{{ line.account.code }}</span>{% endfor %}</td>
+                    <td>{% for line in entry.credit_lines %}<span class="review__line">{{ line.account.name }}{% if line.is_tax %}<span class="review__tag">Tax</span>{% endif %}</span>{% endfor %}</td>
+                    <td class="is-debit">{% for line in entry.debit_lines %}<span class="review__line">{{ line.debit|money }}</span>{% endfor %}</td>
+                    <td class="is-credit">{% for line in entry.credit_lines %}<span class="review__line">{{ line.credit|money }}</span>{% endfor %}</td>
                     <td>
                         <div class="review__buttons">
                             <form method="post" action="{% url 'accounting:journalentry_post' entry.id %}">
@@ -124,15 +123,9 @@
                                     data-void-url="{% url 'accounting:journalentry_void' entry.id %}"
                                     data-date="{{ entry.date|date:'Y-m-d' }}"
                                     data-entry-type="{{ entry.entry_type }}"
-                                    data-period="{{ entry.period_id }}"
                                     data-reference="{{ entry.reference }}"
-                                    data-debit="{{ entry.debit_id }}"
-                                    data-credit="{{ entry.credit_id }}"
-                                    data-amount="{{ entry.amount|stringformat:'f' }}"
-                                    data-currency="{{ entry.currency_id }}"
-                                    data-tax="{{ entry.tax_id }}"
-                                    data-description="{{ entry.description }}"
-                                    data-narration="{{ entry.narration }}">
+                                    data-narration="{{ entry.narration }}"
+                                    data-lines="{{ entry.lines_json }}">
                                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" stroke-linejoin="round"/><circle cx="12" cy="12" r="3"/></svg>
                                 View
                             </button>
@@ -295,6 +288,8 @@
             </div>
 
             <div class="sheet__body sheet__body--split">
+                {% comment %} The server takes the period from the date, and the
+                     currency of the company (see journalentry_create). {% endcomment %}
                 <div class="field">
                     <label class="field__label" for="entry-date">Date</label>
                     <input class="field__control" type="date" id="entry-date" name="date" required>
@@ -303,15 +298,7 @@
                     <label class="field__label" for="entry-type">Journal</label>
                     <select class="field__control" id="entry-type" name="entry_type" required>
                         {% for value, label in entry_types %}
-                        <option value="{{ value }}">{{ label }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="field">
-                    <label class="field__label" for="entry-period">Period</label>
-                    <select class="field__control" id="entry-period" name="period" required>
-                        {% for period in periods %}
-                        <option value="{{ period.id }}">{{ period.name }}</option>
+                        <option value="{{ value }}"{% if value == "G" %} selected{% endif %}>{{ label }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -320,51 +307,60 @@
                     <input class="field__control" type="text" id="entry-reference" name="reference" required>
                 </div>
                 <div class="field">
-                    <label class="field__label" for="entry-debit">Debit account</label>
-                    <select class="field__control" id="entry-debit" name="debit_account" required>
-                        {% for account in accounts %}
-                        <option value="{{ account.id }}">{{ account }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="field">
-                    <label class="field__label" for="entry-credit">Credit account</label>
-                    <select class="field__control" id="entry-credit" name="credit_account" required>
-                        {% for account in accounts %}
-                        <option value="{{ account.id }}">{{ account }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="field">
-                    {% comment %} With a tax code, make_lines adds the tax line. {% endcomment %}
-                    <label class="field__label" for="entry-amount">Amount before tax</label>
-                    <input class="field__control" type="number" step="0.01" min="0.01"
-                           id="entry-amount" name="amount" required>
-                </div>
-                <div class="field">
-                    <label class="field__label" for="entry-currency">Currency</label>
-                    <select class="field__control" id="entry-currency" name="currency" required>
-                        {% for currency in currencies %}
-                        <option value="{{ currency.pk }}">{{ currency }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="field">
-                    <label class="field__label" for="entry-tax">Tax code</label>
-                    <select class="field__control" id="entry-tax" name="tax_code">
-                        <option value="">None</option>
-                        {% for tax in tax_codes %}
-                        <option value="{{ tax.id }}">{{ tax.code }} — {{ tax.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="field field--wide">
-                    <label class="field__label" for="entry-description">Line description</label>
-                    <input class="field__control" type="text" id="entry-description" name="description">
-                </div>
-                <div class="field field--wide">
                     <label class="field__label" for="entry-narration">Narration</label>
                     <input class="field__control" type="text" id="entry-narration" name="narration">
+                </div>
+
+                {% comment %} Each line has a debit or a credit, before tax. A tax code
+                     adds the tax on the same side (see entry_lines). journals.js
+                     adds and removes the lines, and it shows the tax and the
+                     totals. The Save button works only when the debits equal
+                     the credits, with the tax. The server does the same check.
+                     The amounts are in the base currency of the company. {% endcomment %}
+                <div class="field field--wide">
+                    <span class="field__label">Lines ({{ request.company.base_currency }})</span>
+                    <table class="entry-lines">
+                        <thead>
+                            <tr><th>Account</th><th>Description</th><th>Tax</th><th class="num">Debit</th><th class="num">Credit</th><th><span class="visually-hidden">Remove</span></th></tr>
+                        </thead>
+                        <tbody data-entry-lines>
+                            <tr data-entry-line>
+                                <td>
+                                    <input type="hidden" name="line_id" disabled>
+                                    <select class="field__control" name="line_account" aria-label="Account">
+                                        <option value="">Select</option>
+                                        {% for account in accounts %}<option value="{{ account.id }}"{% if account.id in tax_ids %} data-tax-account{% endif %}>{{ account }}</option>{% endfor %}
+                                    </select>
+                                </td>
+                                <td><input class="field__control" type="text" name="line_description" maxlength="255" aria-label="Description"></td>
+                                <td>
+                                    <select class="field__control" name="line_tax" aria-label="Tax code">
+                                        <option value="" data-rate="0">No tax</option>
+                                        {% for code in tax_codes %}<option value="{{ code.id }}" data-rate="{{ code.rate }}">{{ code.code }} ({{ code.rate|floatformat:"-2" }}%)</option>{% endfor %}
+                                    </select>
+                                </td>
+                                <td><input class="field__control num" type="number" name="line_debit" step="0.01" min="0" aria-label="Debit"></td>
+                                <td><input class="field__control num" type="number" name="line_credit" step="0.01" min="0" aria-label="Credit"></td>
+                                <td><button class="tool tool--sm" type="button" data-entry-line-remove aria-label="Remove the line">&times;</button></td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr data-entry-tax-row>
+                                <td colspan="3" class="num">Tax</td>
+                                <td class="num" data-tax-debit>0.00</td>
+                                <td class="num" data-tax-credit>0.00</td>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <td colspan="2"><button class="tool tool--sm" type="button" data-entry-line-add>Add line</button></td>
+                                <td class="num">Total</td>
+                                <td class="num" data-total-debit>0.00</td>
+                                <td class="num" data-total-credit>0.00</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                    <p class="entry-balance" data-entry-balance aria-live="polite"></p>
                 </div>
             </div>
 

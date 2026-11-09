@@ -8,7 +8,6 @@ The quote uses the shared parts of the sales documents in
 accounting/documents.py.
 """
 
-from decimal import Decimal
 from django import forms
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -27,13 +26,6 @@ class QuoteOptionsForm(SalesDocumentOptionsForm):
     number = forms.CharField(label="Quote number")
     issue_date = _date_field("Issue date")
     valid_until = _date_field("Valid until", days_ahead=14)
-    discount_rate = forms.DecimalField(
-        label="Discount (%)",
-        initial=Decimal("0"),
-        min_value=Decimal("0"),
-        max_value=Decimal("100"),
-        decimal_places=2,
-    )
 
 
 @register

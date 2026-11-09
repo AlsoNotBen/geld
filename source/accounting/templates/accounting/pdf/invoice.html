@@ -55,6 +55,12 @@
         <td>Subtotal</td>
         <td class="num">{{ options.currency }} {{ subtotal|floatformat:2|intcomma }}</td>
     </tr>
+    {% if options.discount_rate %}
+    <tr>
+        <td>Discount ({{ options.discount_rate|floatformat:"-2" }}%)</td>
+        <td class="num">&minus; {{ options.currency }} {{ discount|floatformat:2|intcomma }}</td>
+    </tr>
+    {% endif %}
     <tr>
         <td>Tax ({{ options.tax_rate|floatformat:"-2" }}%)</td>
         <td class="num">{{ options.currency }} {{ tax|floatformat:2|intcomma }}</td>

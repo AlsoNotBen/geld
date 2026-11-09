@@ -13,7 +13,7 @@ from accounting.models import *
 from accounting.date_range import get_range, previous_range
 from accounting.documents import AGEING_LABELS, age_bucket, standard_rate
 from accounting.forms import BankAccountForm, BillForm, CustomerForm, NoteForm, PaymentForm, SupplierForm
-from accounting.posting import (CENT, PAYABLE, RECEIVABLE, VAT, _account, allocate, post_bill, post_opening_document, post_payment, set_bank_opening)
+from accounting.posting import (CENT, PAYABLE, RECEIVABLE, VAT, _account, _open_period, allocate, post_bill, post_opening_document, post_payment, set_bank_opening)
 from datetime import datetime, timedelta
 from filestore.services import save_upload, validate
 
@@ -43,89 +43,82 @@ def tax_account_ids(company):
     return ids
 
 def draft_rows(entries, tax_ids):
-    """One row for each draft entry. The row also holds the data of the
-    edit form, thus the Edit button can fill the overlay. A line on a tax
-    account, other than the debit and the credit of the row, goes into
-    debit_taxes or credit_taxes. Thus the row also shows the tax effect.
-    The lines stay in the order of their creation: the taxed line comes
-    before its tax line (see make_lines)."""
+    """One row for each draft entry, with its debit lines and its credit
+    lines. A line on a tax account gets is_tax, thus the table can tag it.
+    The row also holds the lines as JSON for the View overlay (journals.js)."""
     rows = []
     for entry in entries:
         lines = sorted(entry.lines.all(), key=lambda l: l.id)
-        debit = next((l for l in lines if l.debit > 0), None)
-        credit = next((l for l in lines if l.credit > 0), None)
-        if not (debit and credit):
-            continue
-        taxes = [l for l in lines if l.account_id in tax_ids and l not in (debit, credit)]
-        credit_taxes = [l for l in taxes if l.credit > 0]
+        for line in lines:
+            line.is_tax = line.account_id in tax_ids
         rows.append({
             "id": entry.id,
             "date": entry.date,
             "reference": entry.reference,
             "journal": entry.get_entry_type_display(),
             "entry_type": entry.entry_type,
-            "period_id": entry.period_id,
             "narration": entry.narration,
-            "debit_account": debit.account,
-            "credit_account": credit.account,
-            "debit_amount": debit.debit,
-            "credit_amount": credit.credit,
-            "debit_id": debit.account_id,
-            "credit_id": credit.account_id,
-            "currency_id": debit.currency_id,
-            "tax_id": debit.tax_code_id or "",
-            "description": debit.description,
-            "debit_taxes": [l for l in taxes if l.debit > 0],
-            "credit_taxes": credit_taxes,
-            "amount": credit.credit if credit_taxes else debit.debit,     # The amount before tax
+            "debit_lines": [l for l in lines if l.debit > 0],
+            "credit_lines": [l for l in lines if l.credit > 0],
+            "lines_json": json.dumps([{
+                "id": l.id, "account": l.account_id, "description": l.description, "tax": l.tax_code_id or "",
+                "debit": str(l.debit) if l.debit else "", "credit": str(l.credit) if l.credit else "",
+            } for l in lines]),
         })
     return rows
 
-def make_lines(entry, post):
-    """Make the lines of an entry. The amount is before tax.
-
-    Without a tax code, the debit line and the credit line hold the amount.
-    With a tax code, the tax is the amount times the rate of the tax code.
-    The taxed line is the income or expense line, else the debit line. The
-    tax line goes on the same side, to the output account of the tax code
-    for an income account, else to its input account (or VAT Control). The
-    other line holds the amount plus the tax. A rate of zero, or a debit or
-    credit account that is a tax account, makes no tax line."""
-    company = entry.company
+def parse_amount(text):
+    """An amount of the entry form. An empty field is zero."""
     try:
-        amount = Decimal(post["amount"]).quantize(CENT, ROUND_HALF_UP)
+        value = Decimal(text or "0").quantize(CENT, ROUND_HALF_UP)
     except InvalidOperation:
-        raise ValidationError("The amount must be a number.")
-    if not amount > 0:
-        raise ValidationError("The amount must be more than zero.")
-    debit =get_object_or_404(Account, company=company, pk=post["debit_account"])
-    credit = get_object_or_404(Account, company=company, pk=post["credit_account"])
-    tax_code = TaxCode.objects.filter(company=company, pk=post.get("tax_code") or None).first()
-    common = {
-        "entry": entry,
-        "currency_id": post["currency"],
-        "tax_code": tax_code,
-        "description": post.get("description", ""),
-    }
+        raise ValidationError(f'"{text}" is not a number.')
+    if value < 0:
+        raise ValidationError("An amount cannot be less than zero.")
+    return value
 
-    def add(account, value):
-        """Add one line. A positive value is a debit. A negative value is a credit."""
-        side = "debit" if value > 0 else "credit"
-        JournalLine.objects.create(account=account, **{side: abs(value), f"base_{side}": abs(value)}, **common)
+def entry_lines(post, company):
+    """Read the lines of the New Entry form as (account, debit, credit, description, tax_code).
+    The form sends one value of each field for each row. An empty row is ignored.
+    Each line has a debit or a credit, before tax.
 
-    if credit.type in PROFIT_TYPES and debit.type not in PROFIT_TYPES:
-        taxed, other, sign = credit, debit, -1
-    else:
-        taxed, other, sign = debit, credit, 1
-    tax = ZERO
-    if tax_code and not {debit.pk, credit.pk} & tax_account_ids(company):
-        tax = (amount * tax_code.rate / 100).quantize(CENT, ROUND_HALF_UP)
+    A line with a tax code adds a tax line on the same side: the amount
+    times the rate. The tax goes to the output account of the tax code for
+    an income account, else to its input account (or VAT Control). A line
+    on a tax account gets no tax. The debits must equal the credits, with the tax."""
+    accounts = {str(a.pk): a for a in Account.objects.filter(company=company, is_active=True)}
+    tax_codes = {str(t.pk): t for t in TaxCode.objects.filter(company=company)}
+    tax_ids = tax_account_ids(company)
+    rows = zip(post.getlist("line_account"), post.getlist("line_debit"), post.getlist("line_credit"),
+               post.getlist("line_description"), post.getlist("line_tax"))
+    lines = []
+    for account_id, debit, credit, description, tax_id in rows:
+        debit, credit = parse_amount(debit), parse_amount(credit)
+        if not account_id and not debit and not credit:
+            continue
+        if account_id not in accounts:
+            raise ValidationError("Select an account for each line.")
+        if (debit > 0) == (credit > 0):
+            raise ValidationError("Give each line a debit or a credit, not both.")
+        account, tax_code, description = accounts[account_id], tax_codes.get(tax_id), description.strip()
+        lines.append((account, debit, credit, description, tax_code))
 
-    add(taxed, sign * amount)
-    if tax:
-        tax_account = tax_code.output_account if taxed.type in CATEGORIES["income"] else tax_code.input_account
-        add(tax_account or _account(company, VAT), sign * tax)
-    add(other, -sign * (amount + tax))
+        if tax_code and account.pk not in tax_ids:
+            tax_debit = (debit * tax_code.rate / 100).quantize(CENT, ROUND_HALF_UP)
+            tax_credit = (credit * tax_code.rate / 100).quantize(CENT, ROUND_HALF_UP)
+            if tax_debit or tax_credit:
+                income = account.type in CATEGORIES["income"]
+                tax_account = (tax_code.output_account if income else tax_code.input_account) or _account(company, VAT)
+                lines.append((tax_account, tax_debit, tax_credit, description, None))
+
+    total_debit = sum((l[1] for l in lines), ZERO)
+    total_credit = sum((l[2] for l in lines), ZERO)
+    if not total_debit or not total_credit:
+        raise ValidationError("The entry must have one or more debit lines and one or more credit lines.")
+    if total_debit != total_credit:
+        raise ValidationError(f"The entry is not balanced. With the tax, the debits are {total_debit} "
+                              f"and the credits are {total_credit}.")
+    return lines
 
 def journals(request):
     # The global date range keeps only the entries of the selected period.
@@ -139,22 +132,23 @@ def journals(request):
              .order_by("entry__date", "entry_id", "id"))
 
     posted = list(lines.filter(entry__status=JournalEntry.Status.POSTED))
+    tax_ids = tax_account_ids(company)
     drafts = draft_rows(
         JournalEntry.objects
         .filter(company=company, status=JournalEntry.Status.DRAFT, date__range=(start, end))
         .prefetch_related("lines__account")
         .order_by("date", "id"),
-        tax_account_ids(company),
+        tax_ids,
     )
 
     context = {
         "draft_entries": drafts,
         "pending_count": len(drafts),
         "entry_types": JournalEntry.EntryType.choices,
-        "periods": Period.objects.filter(company=company, is_closed=False),
         "accounts": Account.objects.filter(company=company, is_active=True),
-        "currencies": Currency.objects.all(),
-        "tax_codes": TaxCode.objects.filter(company=company),
+        "tax_codes": TaxCode.objects.filter(company=company).filter(
+            Q(valid_to__isnull=True) | Q(valid_to__gte=timezone.localdate())).order_by("code"),
+        "tax_ids": tax_ids,
     }
     for key, types in JOURNAL_TABS.items():
         context[key] = journal_rows([l for l in posted if l.entry.entry_type in types])
@@ -162,29 +156,32 @@ def journals(request):
     return render(request, "accounting/journals.html", context)
 
 def journalentry_create(request):
-    """The Save button of the New Entry overlay. An error (e.g. no tax
-    account) saves nothing, and the journals page shows the error."""
+    """The Save button of the New Entry overlay. The period is the open period
+    of the date. The currency is the base currency of the company. An error
+    saves nothing, and the journals page shows the error."""
     if request.method == "POST":
+        company = request.company
         try:
             try:
                 day = datetime.fromisoformat(request.POST["date"]).date()
             except ValueError:
                 raise ValidationError("Give a valid date.")
-            period = Period.objects.filter(company=request.company, pk=request.POST["period"], is_closed=False,
-                                           start_date__lte=day, end_date__gte=day).first()
-            if period is None:
-                raise ValidationError("The period must be open and include the date of the entry.")
+            lines = entry_lines(request.POST, company)
             with transaction.atomic():
                 entry = JournalEntry.objects.create(
-                    company=request.company,                    # Add to every function that creates a CompanyOwned record
+                    company=company,                            # Add to every function that creates a CompanyOwned record
                     date=day,
-                    period=period,
+                    period=_open_period(company, day),
                     entry_type=request.POST["entry_type"],
                     status=JournalEntry.Status.DRAFT,
                     reference=request.POST["reference"],
                     narration=request.POST.get("narration", ""),
                 )
-                make_lines(entry, request.POST)
+                JournalLine.objects.bulk_create(
+                    JournalLine(entry=entry, account=account, description=description, tax_code=tax_code,
+                                currency=company.base_currency, debit=debit, credit=credit,
+                                base_debit=debit, base_credit=credit)
+                    for account, debit, credit, description, tax_code in lines)
                 AuditLog.record(request, AuditLog.Action.CREATE, entry)
         except ValidationError as error:
             messages.error(request, " ".join(error.messages))
@@ -192,10 +189,11 @@ def journalentry_create(request):
 
 def journalentry_update(request, pk):
     """The View button sends the overlay here. The user can change the line
-    description only, thus the view ignores the other fields."""
+    descriptions only, thus the view ignores the other fields."""
     if request.method == "POST":
         entry = get_object_or_404(JournalEntry, pk=pk, company=request.company, status=JournalEntry.Status.DRAFT)
-        entry.lines.update(description=request.POST.get("description", ""))
+        for line_id, description in zip(request.POST.getlist("line_id"), request.POST.getlist("line_description")):
+            entry.lines.filter(pk=line_id).update(description=description)
         AuditLog.record(request, AuditLog.Action.UPDATE, entry)
     return redirect("accounting:journals")
 

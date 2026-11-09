@@ -1,5 +1,5 @@
 {% extends "inventory/module_base.html" %}
-{% load static stock %}
+{% load static stock note_tags %}
 
 {% comment %}
   ============================================================================
@@ -44,7 +44,7 @@
 <section class="page">
 
     <div class="page__head">
-        <h1 class="page__title" data-period="{{ kits|length }} kit{{ kits|length|pluralize }}">Bill of Materials</h1>
+        <h1 class="page__title">Bill of Materials{% notes_pill %}</h1>
         <p class="page__note">
             A bill of materials tells you which components one kit needs,
             and how many of each. A component can hold components of its
@@ -70,6 +70,10 @@
                 Disassemble
             </button>
             <span class="tool__sep" aria-hidden="true"></span>
+            <button class="tool" type="button" data-note-new>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 4h9l3 3v13H6V4z" stroke-linejoin="round"/><path d="M15 4v4h4" stroke-linejoin="round"/><path d="M9 13h6M12 10v6" stroke-linecap="round"/></svg>
+                Note
+            </button>
             <button class="tool" type="button" data-print>
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
                 Print
@@ -196,6 +200,7 @@
             </div>
         </div>
     </div>
+    {% notes_section %}
 </section>
 
 {% comment %} The map needs dagre for the layout. The file is in the

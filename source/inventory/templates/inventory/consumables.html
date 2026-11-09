@@ -1,5 +1,5 @@
 {% extends "inventory/module_base.html" %}
-{% load fin stock %}
+{% load fin stock note_tags %}
 
 {% comment %}
   ============================================================================
@@ -26,7 +26,7 @@
 <section class="page">
 
     <div class="page__head">
-        <h1 class="page__title" data-period="Last 30 days">Consumables</h1>
+        <h1 class="page__title">Consumables{% notes_pill %}</h1>
         <p class="page__note">
             A consumable goes away when the work uses it. The list shows the
             quantity on hand and the quantity that the last 30 days used.
@@ -56,6 +56,14 @@
             </button>
         </form>
 
+        <span class="tool__sep" aria-hidden="true"></span>
+
+        <div class="actionbar__group">
+            <button class="tool" type="button" data-note-new>
+                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 4h9l3 3v13H6V4z" stroke-linejoin="round"/><path d="M15 4v4h4" stroke-linejoin="round"/><path d="M9 13h6M12 10v6" stroke-linecap="round"/></svg>
+                Note
+            </button>
+        </div>
         <p class="actionbar__hint">{{ out_count }} consumable{{ out_count|pluralize:" is,s are" }} out of stock.</p>
     </div>
 
@@ -111,5 +119,6 @@
             </tr>
         </tfoot>
     </table>
+    {% notes_section %}
 </section>
 {% endblock %}
