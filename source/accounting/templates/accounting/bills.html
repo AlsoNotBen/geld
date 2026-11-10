@@ -251,7 +251,7 @@
                                 <td>
                                     <select class="field__control" name="line_account" aria-label="Account">
                                         <option value="">Select</option>
-                                        {% for account in accounts %}<option value="{{ account.id }}">{{ account }}</option>{% endfor %}
+                                        {% for account in accounts %}<option value="{{ account.id }}" data-tax="{{ account.tax_code_id|default:'' }}">{{ account }}</option>{% endfor %}
                                     </select>
                                 </td>
                                 <td><input class="field__control" type="number" name="line_quantity" value="1" step="0.01" min="0.01" aria-label="Quantity"></td>

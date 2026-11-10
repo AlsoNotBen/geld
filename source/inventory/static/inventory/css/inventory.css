@@ -839,9 +839,11 @@
     width: var(--field-w);
     min-width: 0;
     height: var(--tool-h);
-    padding: 0 11px;
+    padding: 0 12px;
 
-    background: var(--white);
+    /* The canvas color, as .field__control of the Accounting overlays.
+       Thus a field stands out from the card, the bar or the overlay. */
+    background: var(--cream);
     border: 1px solid var(--line);
     border-radius: var(--radius-sm);
     color: var(--ink);
@@ -860,8 +862,8 @@
     transition: border-color 0.15s ease, background 0.15s ease;
 }
 .field::placeholder { color: var(--ink-soft); }
-.field:hover { border-color: var(--gold-line); }
-.field:focus { border-color: var(--gold); }
+.field:focus { outline: none; border-color: var(--gold-line); }
+.field:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .field--wide { width: 214px; }
 .field--sm   { width: 98px; }
@@ -1348,7 +1350,7 @@
     width: 100%;
     height: auto;
     min-height: 84px;
-    padding: 9px 11px;
+    padding: 8px 12px;
     line-height: 1.5;
     resize: vertical;
 }

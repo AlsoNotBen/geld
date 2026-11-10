@@ -1,9 +1,9 @@
 import json
 from django.contrib import messages
 from django.core.exceptions import ValidationError
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Max, Sum, DecimalField, Q
 from django.db.models.functions import Coalesce
 from django.urls import reverse
@@ -13,7 +13,8 @@ from accounting.models import *
 from accounting.date_range import get_range, previous_range
 from accounting.documents import AGEING_LABELS, age_bucket, standard_rate
 from accounting.forms import BankAccountForm, BillForm, CustomerForm, NoteForm, PaymentForm, SupplierForm
-from accounting.posting import (CENT, PAYABLE, RECEIVABLE, VAT, _account, _open_period, allocate, post_bill, post_opening_document, post_payment, set_bank_opening)
+from accounting.posting import (CENT, PAYABLE, RECEIVABLE, VAT, _account, _open_period, allocate, linked_entry_ids, post_bill,
+                                post_opening_document, post_payment, reverse_entry, run_recurring, set_bank_opening)
 from datetime import datetime, timedelta
 from filestore.services import save_upload, validate
 
@@ -25,15 +26,32 @@ JOURNAL_TABS = {
     "cash_entries":     [JournalEntry.EntryType.RECEIPT, JournalEntry.EntryType.PAYMENT],
 }
 
-def journal_rows(lines):
-    return [{
-        "date": line.entry.date,
-        "reference": line.entry.reference,
-        "journal": line.entry.get_entry_type_display(),
-        "account": line.account,
-        "amount": line.debit or line.credit,
-        "is_debit": line.debit > 0,
-    } for line in lines]
+def journal_rows(lines, reversed_ids, linked_ids):
+    """One group for each posted entry, with its lines. The table shows the group as one
+    row with the badges and the buttons of the entry. The row opens to show the lines
+    (see _journal_table.html). The total is the sum of the debits."""
+    groups = {}
+    for line in lines:
+        entry = line.entry
+        group = groups.get(entry.id)
+        if group is None:
+            group = groups[entry.id] = {
+                "id": entry.id,
+                "date": entry.date,
+                "reference": entry.reference,
+                "narration": entry.narration,
+                "recurring": entry.recurring,
+                "reversal": entry.reverses_id,
+                "reversed": entry.id in reversed_ids,
+                "can_reverse": entry.id not in reversed_ids and entry.id not in linked_ids,
+                "lines": [],
+                "total": ZERO,
+            }
+        group["lines"].append({"account": line.account, "amount": line.debit or line.credit, "is_debit": line.debit > 0})
+        group["total"] += line.debit
+    for group in groups.values():
+        group["lines"].sort(key=lambda l: not l["is_debit"])     # The debits first, as in a journal.
+    return list(groups.values())
 
 def tax_account_ids(company):
     """The tax accounts: VAT Control, and the input and output account of each tax code."""
@@ -58,6 +76,8 @@ def draft_rows(entries, tax_ids):
             "journal": entry.get_entry_type_display(),
             "entry_type": entry.entry_type,
             "narration": entry.narration,
+            "recurring": entry.recurring,
+            "reversal": entry.reverses_id,
             "debit_lines": [l for l in lines if l.debit > 0],
             "credit_lines": [l for l in lines if l.credit > 0],
             "lines_json": json.dumps([{
@@ -66,6 +86,13 @@ def draft_rows(entries, tax_ids):
             } for l in lines]),
         })
     return rows
+
+def parse_date(text):
+    """A date of a form."""
+    try:
+        return datetime.fromisoformat(text or "").date()
+    except ValueError:
+        raise ValidationError("Give a valid date.")
 
 def parse_amount(text):
     """An amount of the entry form. An empty field is zero."""
@@ -125,10 +152,14 @@ def journals(request):
     key, start, end = get_range(request)
 
     company = request.company
+    # The recurring entries that are due become draft entries now. They wait in New Entries.
+    for problem in run_recurring(company):
+        messages.warning(request, problem)
+
     lines = (JournalLine.objects
              .filter(entry__company=company, entry__date__range=(start, end),
                      entry__basis__in=JournalEntry.bases_of(company))
-             .select_related("entry", "account")
+             .select_related("entry__recurring", "account")
              .order_by("entry__date", "entry_id", "id"))
 
     posted = list(lines.filter(entry__status=JournalEntry.Status.POSTED))
@@ -136,36 +167,51 @@ def journals(request):
     drafts = draft_rows(
         JournalEntry.objects
         .filter(company=company, status=JournalEntry.Status.DRAFT, date__range=(start, end))
+        .select_related("recurring")
         .prefetch_related("lines__account")
         .order_by("date", "id"),
         tax_ids,
     )
+    reversed_ids = set(JournalEntry.objects.filter(company=company, reverses__isnull=False)
+                       .exclude(status=JournalEntry.Status.VOID).values_list("reverses_id", flat=True))
+    linked_ids = linked_entry_ids(company)
 
     context = {
         "draft_entries": drafts,
         "pending_count": len(drafts),
         "entry_types": JournalEntry.EntryType.choices,
+        "frequencies": RecurringDocument.Frequency.choices,
         "accounts": Account.objects.filter(company=company, is_active=True),
         "tax_codes": TaxCode.objects.filter(company=company).filter(
             Q(valid_to__isnull=True) | Q(valid_to__gte=timezone.localdate())).order_by("code"),
         "tax_ids": tax_ids,
     }
     for key, types in JOURNAL_TABS.items():
-        context[key] = journal_rows([l for l in posted if l.entry.entry_type in types])
+        context[key] = journal_rows([l for l in posted if l.entry.entry_type in types], reversed_ids, linked_ids)
 
     return render(request, "accounting/journals.html", context)
 
 def journalentry_create(request):
     """The Save button of the New Entry overlay. The period is the open period
     of the date. The currency is the base currency of the company. An error
-    saves nothing, and the journals page shows the error."""
+    saves nothing, and the journals page shows the error.
+
+    A recurring entry is the first entry of its series: its date is the start
+    date. The next entries come on their dates, until the end date (see
+    RecurringEntry and run_recurring)."""
     if request.method == "POST":
         company = request.company
         try:
-            try:
-                day = datetime.fromisoformat(request.POST["date"]).date()
-            except ValueError:
-                raise ValidationError("Give a valid date.")
+            day = parse_date(request.POST.get("date"))
+            if request.POST.get("entry_type") not in JournalEntry.EntryType.values:
+                raise ValidationError("Select a journal.")
+            recurring = bool(request.POST.get("recurring"))
+            if recurring:
+                if request.POST.get("frequency") not in RecurringDocument.Frequency.values:
+                    raise ValidationError("Select the frequency of the recurring entry.")
+                end = parse_date(request.POST["end_date"]) if request.POST.get("end_date") else None
+                if end and end < day:
+                    raise ValidationError("The end date must be on or after the start date.")
             lines = entry_lines(request.POST, company)
             with transaction.atomic():
                 entry = JournalEntry.objects.create(
@@ -182,6 +228,8 @@ def journalentry_create(request):
                                 currency=company.base_currency, debit=debit, credit=credit,
                                 base_debit=debit, base_credit=credit)
                     for account, debit, credit, description, tax_code in lines)
+                if recurring:
+                    RecurringEntry.start(entry, request.POST["frequency"], end, request.user)
                 AuditLog.record(request, AuditLog.Action.CREATE, entry)
         except ValidationError as error:
             messages.error(request, " ".join(error.messages))
@@ -197,34 +245,62 @@ def journalentry_update(request, pk):
         AuditLog.record(request, AuditLog.Action.UPDATE, entry)
     return redirect("accounting:journals")
 
+def post_entries(request, **filters):
+    """Move the draft entries of an open period to the Posted status. An entry must have lines,
+    and its debits must equal its credits. If not, it stays a draft and the page tells the user."""
+    drafts = JournalEntry.objects.filter(company=request.company, status=JournalEntry.Status.DRAFT,
+                                         period__is_closed=False, **filters)
+    totals = (JournalLine.objects.filter(entry__in=drafts).values_list("entry")
+              .annotate(Sum("base_debit"), Sum("base_credit")))
+    ids = [pk for pk, debit, credit in totals if debit == credit]
+    for reference in drafts.exclude(pk__in=ids).values_list("reference", flat=True):
+        messages.error(request, f"{reference} is not posted. It has no lines, or its debits are not equal to its credits.")
+    JournalEntry.objects.filter(pk__in=ids, status=JournalEntry.Status.DRAFT).update(
+        status=JournalEntry.Status.POSTED, posted_at=timezone.now(),
+    )
+    AuditLog.record(request, AuditLog.Action.POST, *(JournalEntry(pk=pk) for pk in ids))
+
 def journalentry_post(request, pk):
     """The Accept button. It moves one draft entry to the Posted status."""
     if request.method == "POST":
-        if JournalEntry.objects.filter(pk=pk, company=request.company, status=JournalEntry.Status.DRAFT,
-                                       period__is_closed=False).update(
-            status=JournalEntry.Status.POSTED, posted_at=timezone.now(),
-        ):
-            AuditLog.record(request, AuditLog.Action.POST, JournalEntry(pk=pk))
+        post_entries(request, pk=pk)
     return redirect("accounting:journals")
 
 def journalentry_post_all(request):
-    """The Accept All button. It moves each draft entry to the Posted status."""
+    """The Accept All button. It moves each draft entry of the date range to the Posted
+    status. These are the entries that the page shows."""
     if request.method == "POST":
-        ids = list(JournalEntry.objects.filter(company=request.company, status=JournalEntry.Status.DRAFT,
-                                               period__is_closed=False).values_list("pk", flat=True))
-        JournalEntry.objects.filter(pk__in=ids, status=JournalEntry.Status.DRAFT).update(
-            status=JournalEntry.Status.POSTED, posted_at=timezone.now(),
-        )
-        AuditLog.record(request, AuditLog.Action.POST, *(JournalEntry(pk=pk) for pk in ids))
+        _, start, end = get_range(request)
+        post_entries(request, date__range=(start, end))
     return redirect("accounting:journals")
 
 def journalentry_void(request, pk):
-    """The Void button of the entry overlay. It stops a draft entry."""
+    """The Void button of the entry overlay. It stops a draft entry. A void template
+    does not recur."""
     if request.method == "POST":
         if JournalEntry.objects.filter(pk=pk, company=request.company, status=JournalEntry.Status.DRAFT).update(
             status=JournalEntry.Status.VOID,
         ):
+            RecurringEntry.objects.filter(template_id=pk).update(is_active=False)
             AuditLog.record(request, AuditLog.Action.VOID, JournalEntry(pk=pk))
+    return redirect("accounting:journals")
+
+def journalentry_reverse(request, pk):
+    """The Reverse button of a posted entry. It writes the draft entry that reverses
+    the entry on the date of the form (see reverse_entry). The draft waits in New Entries."""
+    if request.method == "POST":
+        entry = get_object_or_404(JournalEntry, pk=pk, company=request.company)
+        try:
+            AuditLog.record(request, AuditLog.Action.CREATE, reverse_entry(entry, parse_date(request.POST.get("date"))))
+        except ValidationError as error:
+            messages.error(request, " ".join(error.messages))
+    return redirect("accounting:journals")
+
+def journalentry_stop(request, pk):
+    """The Stop Recurring button. The series of the entry makes no more entries.
+    The entries that exist do not change."""
+    if request.method == "POST":
+        RecurringEntry.objects.filter(company=request.company, entries=pk).update(is_active=False)
     return redirect("accounting:journals")
 
 def payment_create(request):
@@ -355,7 +431,7 @@ def chartaccounts(request):
                  lines__entry__status=JournalEntry.Status.POSTED,
                  lines__entry__basis__in=JournalEntry.bases_of(company))
 
-    accounts = list(Account.objects.filter(company=company).annotate(
+    accounts = list(Account.objects.filter(company=company).select_related("tax_code").annotate(
         debits=Coalesce(Sum("lines__base_debit", filter=in_range), ZERO, output_field=DecimalField()),
         credits=Coalesce(Sum("lines__base_credit", filter=in_range), ZERO, output_field=DecimalField()),
     ).order_by("code"))
@@ -372,6 +448,9 @@ def chartaccounts(request):
     context = {
         "account_types"     : Account.AccountType.choices,
         "currencies"        : Currency.objects.all(),
+        "tax_codes"         : TaxCode.objects.filter(company=company).order_by("code", "valid_from"),
+        "tax_ids"           : tax_account_ids(company),
+        "can_edit_tax"      : is_owner_or_accountant(request),
         "parent_accounts"   : accounts,
         "all_accounts"      : tree_order(accounts),
         "all_total"         : sum((a.signed for a in accounts), ZERO),
@@ -385,19 +464,42 @@ def chartaccounts(request):
  
 def account_create(request):
     if request.method == "POST":
-        account = Account.objects.create(
-            company=request.company,                            # Add to every function that creates a CompanyOwned record
-            code=request.POST["code"],
-            name=request.POST["name"],
-            type=request.POST["type"],
-            normal_side=NORMAL_SIDE[request.POST["type"]],
-            parent=Account.objects.filter(company=request.company, pk=request.POST.get("parent") or None).first(),
-            currency_id=request.POST.get("currency") or None,
-            is_active=bool(request.POST.get("is_active")),
-            description=request.POST.get("description", ""),
-        )
-        AuditLog.record(request, AuditLog.Action.CREATE, account)
+        company = request.company
+        try:
+            with transaction.atomic():
+                account = Account.objects.create(
+                    company=company,                            # Add to every function that creates a CompanyOwned record
+                    code=request.POST["code"],
+                    name=request.POST["name"],
+                    type=request.POST["type"],
+                    normal_side=NORMAL_SIDE[request.POST["type"]],
+                    parent=Account.objects.filter(company=company, pk=request.POST.get("parent") or None).first(),
+                    currency_id=request.POST.get("currency") or None,
+                    is_active=bool(request.POST.get("is_active")),
+                    description=request.POST.get("description", ""),
+                    tax_code=TaxCode.objects.filter(company=company, pk=request.POST.get("tax_code") or None).first(),
+                )
+                AuditLog.record(request, AuditLog.Action.CREATE, account)
+        except IntegrityError:
+            messages.error(request, "The account is not saved. Another account has this code or this name.")
     return redirect("accounting:chartaccounts")
+
+def is_owner_or_accountant(request):
+    """True for an Owner or an Accountant of the current company."""
+    return bool(request.membership and request.membership.can_post)
+
+def account_tax(request, pk):
+    """The Edit Tax Code overlay of an account row. accounts.js sends it with fetch().
+    A new journal line or bill line on the account gets this tax code (see Account.tax_code).
+    Only an Owner or an Accountant can change it."""
+    if not is_owner_or_accountant(request):
+        return HttpResponse(status=403)
+    if request.method == "POST":
+        account = get_object_or_404(Account, pk=pk, company=request.company)
+        account.tax_code = TaxCode.objects.filter(company=request.company, pk=request.POST.get("tax_code") or None).first()
+        account.save(update_fields=["tax_code"])
+        AuditLog.record(request, AuditLog.Action.UPDATE, account)
+    return HttpResponse(status=204)
 
 def child_account(parent, name):
     """Add an account with the name below the parent. It gets the type of the parent. The

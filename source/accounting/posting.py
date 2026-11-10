@@ -1,10 +1,11 @@
-"""accounting/posting.py: the entries of an invoice, a payment and an opening balance."""
+"""accounting/posting.py: the entries of an invoice, a payment and an opening balance,
+and the reversal and the recurring copies of an entry."""
 from decimal import Decimal, ROUND_HALF_UP
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
-from accounting.models import (Account, Document, DocumentLine, JournalEntry, JournalLine, Payment, PaymentAllocation,
-                               Period, customer_entities, supplier_entities)
+from accounting.models import (Account, BankAccount, Document, DocumentLine, JournalEntry, JournalLine, Payment,
+                               PaymentAllocation, Period, RecurringEntry, customer_entities, supplier_entities)
 
 CENT = Decimal("0.01")
 
@@ -25,6 +26,15 @@ def _add(entry, account, amount, entity=None, description=""):
     JournalLine.objects.create(entry=entry, account=account, currency=entry.company.base_currency, entity=entity,
                                description=description, **{side: abs(amount), f"base_{side}": abs(amount)})
     return amount
+
+
+def _add_rolled_up(entry, parts):
+    """Add one line for each account: the sum of its (account, amount) parts. Thus an
+    invoice with many lines on one account makes one journal line. Returns the total."""
+    sums = {}
+    for account, amount in parts:
+        sums[account] = sums.get(account, Decimal(0)) + amount
+    return sum((_add(entry, account, amount) for account, amount in sums.items()), Decimal(0))
 
 
 def _account(company, name):
@@ -59,6 +69,7 @@ def post_cash_entry(payment, period, suspense):
         )
         total = _add(entry, payment.bank_account.account, sign * payment.amount)
 
+        rolled = []
         for allocation in payment.allocations.select_related("document"):
             document = allocation.document
             share = allocation.amount / document.gross
@@ -68,8 +79,8 @@ def post_cash_entry(payment, period, suspense):
             parts = [(account, (amount * share).quantize(CENT, ROUND_HALF_UP)) for account, amount in parts]
             account, last = parts[-1]       # The last part takes the rounding. Thus the parts make the allocation.
             parts[-1] = (account, last + allocation.amount - sum(amount for _, amount in parts))
-            for account, amount in parts:
-                total += _add(entry, account, -sign * amount)
+            rolled += [(account, -sign * amount) for account, amount in parts]
+        total += _add_rolled_up(entry, rolled)
 
         _add(entry, suspense, -total)  # The unallocated part.
         payment.cash_entry = entry
@@ -183,32 +194,36 @@ def post_payment(payment):
         post_cash_entry(payment, period, suspense)
 
 
-def invoice_posted(company, number):
-    """True when the sales invoice with the number has an entry that is not void."""
-    return (JournalEntry.objects.filter(company=company, entry_type=JournalEntry.EntryType.SALES, reference=number)
-            .exclude(status=JournalEntry.Status.VOID).exists())
-
-
 def post_invoice_entry(invoice):
     """Write the draft ACCRUAL entry of a sales invoice from its lines, as post_bill does.
 
-    Dr Accounts Receivable (gross), Cr the account of each line (net) and the output
-    tax account of each tax code (tax). Thus the entry agrees with Document.gross.
+    Dr Accounts Receivable (gross), Cr the accounts of the lines (net) and the output
+    tax account of each tax code (tax). Each account gets one journal line only: the
+    sum of its invoice lines (see _add_rolled_up). Thus the entry agrees with Document.gross.
     The receivable line keeps the entity, thus the statement of the customer finds it.
     A missing account or open period raises a ValidationError that tells the user.
+
+    An invoice that changed keeps its draft entry: the entry gets the new date and all
+    the new lines. The tax is the tax of the invoice only. The default tax code of an
+    account (Account.tax_code) adds no tax here.
     """
     company = invoice.company
+    head = {"date": invoice.date, "period": _open_period(company, invoice.date), "narration": invoice.entity.name}
     with transaction.atomic():
-        entry = JournalEntry.objects.create(
-            company=company, date=invoice.date, period=_open_period(company, invoice.date),
-            entry_type=JournalEntry.EntryType.SALES, basis=JournalEntry.Basis.ACCRUAL,
-            status=JournalEntry.Status.DRAFT, reference=invoice.number, narration=invoice.entity.name,
-        )
-        total = Decimal(0)
-        for line in invoice.lines.select_related("account"):
-            total += _add(entry, line.account, -line.net_amount)
-        for code, tax in invoice.tax_lines():
-            total += _add(entry, code.output_account or _account(company, VAT), -tax)
+        entry = invoice.journal_entry
+        if entry and entry.status == JournalEntry.Status.DRAFT:
+            for name, value in head.items():
+                setattr(entry, name, value)
+            entry.save()
+            entry.lines.all().delete()
+        else:
+            entry = JournalEntry.objects.create(
+                company=company, entry_type=JournalEntry.EntryType.SALES, basis=JournalEntry.Basis.ACCRUAL,
+                status=JournalEntry.Status.DRAFT, reference=invoice.number, **head,
+            )
+        parts = [(line.account, -line.net_amount) for line in invoice.lines.select_related("account")]
+        parts += [(code.output_account or _account(company, VAT), -tax) for code, tax in invoice.tax_lines()]
+        total = _add_rolled_up(entry, parts)
         _add(entry, _account(company, RECEIVABLE), -total, entity=invoice.entity)
     return entry
 
@@ -232,11 +247,9 @@ def post_bill(bill):
             status=JournalEntry.Status.POSTED, posted_at=timezone.now(),
             reference=bill.number, narration=bill.entity.name,
         )
-        total = Decimal(0)
-        for line in bill.lines.select_related("account"):
-            total += _add(entry, line.account, line.net_amount)
-        for code, tax in bill.tax_lines():
-            total += _add(entry, code.input_account or _account(company, VAT), tax)
+        parts = [(line.account, line.net_amount) for line in bill.lines.select_related("account")]
+        parts += [(code.input_account or _account(company, VAT), tax) for code, tax in bill.tax_lines()]
+        total = _add_rolled_up(entry, parts)
         _add(entry, payable, -total, entity=bill.entity)
         bill.journal_entry = entry
         bill.status = Document.Status.APPROVED
@@ -297,3 +310,70 @@ def set_bank_opening(bank, amount, date):
         bank.opening_entry = post_opening_balance(bank.company, bank.account, amount, date, f"OB-{bank.account.code}",
                                                   bank.name) if amount else None
         bank.save(update_fields=["opening_entry"])
+
+
+def copy_entry(source, date, reverse=False, **fields):
+    """Write a draft copy of the entry on the date, with the same lines. reverse moves each
+    amount to the other side. fields replace fields of the entry. Returns the copy."""
+    with transaction.atomic():
+        entry = JournalEntry.objects.create(**{
+            "company": source.company, "date": date, "period": _open_period(source.company, date),
+            "entry_type": source.entry_type, "basis": source.basis, "status": JournalEntry.Status.DRAFT,
+            "reference": source.reference, "narration": source.narration, **fields,
+        })
+        JournalLine.objects.bulk_create(
+            JournalLine(entry=entry, account_id=line.account_id, description=line.description,
+                        currency_id=line.currency_id, exchange_rate=line.exchange_rate,
+                        debit=line.credit if reverse else line.debit, credit=line.debit if reverse else line.credit,
+                        base_debit=line.base_credit if reverse else line.base_debit,
+                        base_credit=line.base_debit if reverse else line.base_credit,
+                        tax_code_id=line.tax_code_id, entity_id=line.entity_id, project_id=line.project_id)
+            for line in source.lines.order_by("id"))
+    return entry
+
+
+def linked_entry_ids(company):
+    """The entries that a document, a payment or a bank account made. Such an entry is not
+    reversed in the journal, because the record (e.g. the open invoice) must change with it."""
+    ids = set(Document.objects.filter(company=company).values_list("journal_entry_id", flat=True))
+    for pair in Payment.objects.filter(company=company).values_list("journal_entry_id", "cash_entry_id"):
+        ids.update(pair)
+    ids.update(BankAccount.objects.filter(company=company).values_list("opening_entry_id", flat=True))
+    return ids
+
+
+def reverse_entry(entry, date):
+    """Write the draft entry that reverses a posted entry: the same lines on the other side,
+    on the date. The entry itself does not change, thus the ledger keeps its history. The
+    reversal links to the entry (JournalEntry.reverses). An entry has one reversal only,
+    but a void reversal does not count. Returns the reversal."""
+    if entry.status != JournalEntry.Status.POSTED:
+        raise ValidationError("Only a posted entry can be reversed. Mark a draft entry as void.")
+    if entry.pk in linked_entry_ids(entry.company):
+        raise ValidationError(f"{entry.reference} is the entry of a document, a payment or a bank account. "
+                              "It cannot be reversed in the journal.")
+    if entry.reversed_by.exclude(status=JournalEntry.Status.VOID).exists():
+        raise ValidationError(f"{entry.reference} already has a reversal.")
+    if date < entry.date:
+        raise ValidationError("The date of the reversal cannot be before the date of the entry.")
+    return copy_entry(entry, date, reverse=True, reverses=entry, reference=f"REV-{entry.reference}"[:255],
+                      narration=f"Reversal of {entry.reference} of {entry.date:%d %b %Y}")
+
+
+def run_recurring(company):
+    """Write the draft entries of the recurring entries that are due: one copy of the template
+    for each date up to today (see RecurringEntry). A date without an open period makes no
+    entry: the series waits for the period. Returns the problems as text, for the user."""
+    today = timezone.localdate()
+    problems = []
+    with transaction.atomic():
+        due = RecurringEntry.objects.select_for_update().filter(company=company, is_active=True, next_run__lte=today)
+        for recurring in due:
+            template = recurring.template
+            try:
+                while recurring.is_active and recurring.next_run <= today:
+                    copy_entry(template, recurring.next_run, recurring=recurring)
+                    recurring.advance()
+            except ValidationError as error:
+                problems.append(f"The recurring entry {template.reference} waits. {' '.join(error.messages)}")
+    return problems

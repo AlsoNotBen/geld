@@ -60,7 +60,7 @@
 
     <div class="actionbar" role="group" aria-label="Statement controls">
         <div class="actionbar__group">
-            {% comment %} base.js must call window.print() for a button with
+            {% comment %} documents.js opens the PDF report for a button with
                  the data-print attribute. {% endcomment %}
             <button class="tool" type="button" data-note-new>
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 4h9l3 3v13H6V4z" stroke-linejoin="round"/><path d="M15 4v4h4" stroke-linejoin="round"/><path d="M9 13h6M12 10v6" stroke-linecap="round"/>
@@ -102,7 +102,7 @@
         <tfoot>
             <tr>
                 <td colspan="2">Profit for the period</td>
-                <td class="{% if profit_this >= 0 %}is-credit{% else %}is-debit{% endif %}">{{ profit_this|money }}</td>
+                <td>{{ profit_this|money }}</td>
                 <td>{{ profit_last|money }}</td>
             </tr>
         </tfoot>

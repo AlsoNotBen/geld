@@ -1,0 +1,73 @@
+{% comment %}
+  accounting/templates/accounting/_journal_table.html
+  The table of one journal tab: the posted entries.
+  Give it: rows (see journal_rows in views.py). Each entry is one tbody:
+    the head row    the date, the reference with the badges, the narration,
+                    the total and the buttons of the entry. The reference
+                    button opens and closes the lines (journals.js).
+    the line rows   one row for each line of the entry. They show when the
+                    entry is open. A credit line is indented.
+  The buttons:
+    Reverse   opens the Reverse overlay (journals.js). Not for an entry of a
+              document, a payment or a bank account, and not for an entry
+              that has a reversal.
+    Stop      stops the recurring series of the entry.
+  data-filter-group gives the text of all lines to each row, thus the filter
+  keeps or removes the entry as one (table_filter.js).
+{% endcomment %}
+{% load fin %}
+<table class="table table--journal" data-num>
+    <thead>
+        <tr><th>Date</th><th>Reference</th><th>Account</th><th>Amount</th><th><span class="visually-hidden">Actions</span></th></tr>
+    </thead>
+    {% for entry in rows %}
+    <tbody class="journal-group" data-journal-group
+           data-filter-group="{{ entry.reference }} {{ entry.narration }}{% for line in entry.lines %} {{ line.account }} {{ line.amount }}{% endfor %}">
+        <tr class="journal-group__head">
+            <td>{{ entry.date }}</td>
+            <td>
+                <button class="journal-toggle" type="button" aria-expanded="false" data-journal-toggle
+                        aria-label="Show the lines of {{ entry.reference }}">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    {{ entry.reference }}
+                </button>{% include "accounting/_entry_badges.html" %}
+            </td>
+            <td>{{ entry.narration|default:"" }} <span class="journal-group__count">{{ entry.lines|length }} line{{ entry.lines|length|pluralize }}</span></td>
+            <td class="is-count">{{ entry.total|money }}</td>
+            <td>
+                <div class="review__buttons">
+                    {% if entry.recurring.is_active %}
+                    <form method="post" action="{% url 'accounting:journalentry_stop' entry.id %}">
+                        {% csrf_token %}
+                        <button class="tool tool--sm" type="submit" aria-label="Stop the recurring entry {{ entry.reference }}">Stop</button>
+                    </form>
+                    {% endif %}
+                    {% if entry.can_reverse %}
+                    <button class="row-icon" type="button" title="Reverse the entry" aria-label="Reverse {{ entry.reference }}"
+                            data-entry-reverse
+                            data-url="{% url 'accounting:journalentry_reverse' entry.id %}"
+                            data-reference="{{ entry.reference }}"
+                            data-date="{{ entry.date|date:'Y-m-d' }}">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 14L4 9l5-5" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 9h10.5a5.5 5.5 0 010 11H11" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
+                    {% endif %}
+                </div>
+            </td>
+        </tr>
+        {% for line in entry.lines %}
+        <tr class="journal-group__line{% if not line.is_debit %} is-credit-line{% endif %}">
+            <td></td>
+            <td></td>
+            <td data-code>{{ line.account }}</td>
+            {% comment %} is_debit is true for money that goes out. {% endcomment %}
+            <td class="{% if line.is_debit %}is-debit{% else %}is-credit{% endif %}">{{ line.amount|money }}</td>
+            <td></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+    {% empty %}
+    <tbody>
+        <tr><td colspan="5">There are no entries for this period.</td></tr>
+    </tbody>
+    {% endfor %}
+</table>

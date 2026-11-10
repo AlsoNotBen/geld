@@ -476,14 +476,13 @@ def items(request):
     listed = with_status(with_stock(listed.select_related("model__thumbnail"), stock_levels(request.company)))
     for item in listed:
         item.open_checkout = open_checkouts.get(item.pk)
-    # ?new=1 opens an empty editor. ?new=item also opens the Item tab fields.
+    # ?new=1 or ?new=item opens an empty editor.
     new = request.GET.get("new", "")
     return render(request, "inventory/items.html", {
         "page_title": "Items",
         "form": form,
         "selected": selected,
         "show_editor": bool(selected or form.is_bound or new),
-        "item_open": bool(selected or form.is_bound or new == "item"),
         "items": listed,
         "posted_serials": request.POST.getlist("serials"),
         "countries": Country.objects.order_by("name"),

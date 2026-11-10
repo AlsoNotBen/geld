@@ -81,6 +81,9 @@ class TaxCode(CompanyOwned):
     class Meta:
         unique_together = [("company", "code", "valid_from")]
 
+    def __str__(self):
+        return self.code
+
 class Account(CompanyOwned):
     class AccountType(models.TextChoices):
         SALES                   = "SALES", "Sales"
@@ -107,6 +110,7 @@ class Account(CompanyOwned):
     currency    = models.ForeignKey(Currency, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
     is_active   = models.BooleanField(default=True)
     description = models.TextField(max_length=500, null=True, blank=True)
+    tax_code    = models.ForeignKey(TaxCode, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
 
     class Meta:
         unique_together = [("company", "code"), ("company", "name")]
@@ -142,7 +146,8 @@ class JournalEntry(CompanyOwned, TimeStamped):
     basis      = models.CharField(max_length=1, choices=Basis.choices, default=Basis.BOTH)
     reference  = models.CharField(max_length=255)
     narration  = models.TextField(blank=True)
-    reverses   = models.ForeignKey("self", on_delete=models.PROTECT, null=True, blank=True, related_name="reversed_by")
+    reverses   = models.ForeignKey("self", on_delete=models.PROTECT, null=True, blank=True, related_name="reversed_by")     # See posting.reverse_entry
+    recurring  = models.ForeignKey("RecurringEntry", on_delete=models.SET_NULL, null=True, blank=True, related_name="entries")  # Each entry of the series
     posted_at  = models.DateTimeField(null=True, blank=True)
 
     class Meta:
@@ -443,11 +448,12 @@ class RecurringDocument(CompanyOwned, TimeStamped):
         QUARTERLY = "Q", "Quarterly"
         YEARLY    = "Y", "Yearly"
 
-        def after(self, day):
+        def after(self, day, count=1):
+            """The date that is count times the frequency after the day."""
             if self == self.WEEKLY:
-                return day + datetime.timedelta(days=7)
+                return day + datetime.timedelta(days=7 * count)
             
-            months      = {self.MONTHLY: 1, self.QUARTERLY: 3, self.YEARLY: 12}[self]
+            months      = {self.MONTHLY: 1, self.QUARTERLY: 3, self.YEARLY: 12}[self] * count
             year, month = divmod(day.year * 12 + day.month - 1 + months, 12)
             month       += 1
 
@@ -471,6 +477,34 @@ class RecurringDocument(CompanyOwned, TimeStamped):
             next_run    = frequency.after(document.date),
             name        = f"{document.get_doc_type_display()} {document.number}"
             )
+
+class RecurringEntry(CompanyOwned, TimeStamped):
+    """A journal entry that repeats, e.g. the depreciation of each month. The template is the
+    first entry: its date is the start date. posting.run_recurring writes a draft copy of the
+    template on each next date, until the end date. No end date: until the user stops it."""
+    template    = models.OneToOneField(JournalEntry, on_delete=models.PROTECT, related_name="+")
+    frequency   = models.CharField(max_length=1, choices=RecurringDocument.Frequency.choices)
+    start_date  = models.DateField()
+    end_date    = models.DateField(null=True, blank=True)
+    next_run    = models.DateField()
+    is_active   = models.BooleanField(default=True)
+
+    @classmethod
+    def start(cls, entry, frequency, end_date=None, user=None):
+        recurring = cls.objects.create(company=entry.company, created_by=user, template=entry, frequency=frequency,
+                                       start_date=entry.date, end_date=end_date, next_run=entry.date)
+        entry.recurring = recurring
+        entry.save(update_fields=["recurring"])
+        recurring.advance()
+        return recurring
+
+    def advance(self):
+        """Set the date of the next entry. Each date counts from the start date, thus the day
+        of the month stays (e.g. the 31st). The series stops after the end date."""
+        frequency = RecurringDocument.Frequency(self.frequency)
+        self.next_run = frequency.after(self.start_date, self.entries.count())
+        self.is_active = self.is_active and (self.end_date is None or self.next_run <= self.end_date)
+        self.save()
 
 
 class AuditLog(CompanyOwned):
@@ -604,7 +638,7 @@ class Snapshot(CompanyOwned):
         """Take the snapshots again from start to today."""
         day = start
         while day <= timezone.localdate():
-            cls.take(company, day)
+            cls.snap(company, day)
             day += datetime.timedelta(days=1)
 
 

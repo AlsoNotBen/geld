@@ -161,7 +161,7 @@ def daily_balances(company: str, opening: dict, days: list):
 
             i += 1
 
-        snapshots.append(balance)
+        snapshots.append(balance.copy())    # A copy: the next day changes balance.
 
     return snapshots
 

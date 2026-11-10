@@ -22,7 +22,9 @@
         expenses. A floating nominal account, e.g. VAT control, goes to
         assets when it has a debit balance, and to liabilities when it
         has a credit balance. Every journal entry must go to one of these
-        accounts. All balances in ZAR.
+        accounts. The tax code of an account is the tax that a new journal
+        line or bill line on the account gets. An invoice keeps its own tax
+        rate. All balances in {{ request.company.base_currency }}.
     </p>
 </div>
 
@@ -64,6 +66,12 @@
 
     <p class="actionbar__hint">Select a row to edit or archive an account.</p>
 </div>
+
+{% for message in messages %}
+<div class="sheet__errors{% if message.level_tag == 'success' %} sheet__errors--ok{% endif %}" role="alert">
+    <p>{{ message }}</p>
+</div>
+{% endfor %}
 
 <div class="tabset" data-tabset data-tabset-param="category" data-num>
 
@@ -222,7 +230,16 @@
                     <span class="switch__text">Active</span>
                 </label>
             </div>
-            <div class="field field--wide">
+            <div class="field">
+                <label class="field__label" for="ac-tax">Tax code</label>
+                <select class="field__control" id="ac-tax" name="tax_code">
+                    <option value="">None</option>
+                    {% for code in tax_codes %}
+                    <option value="{{ code.pk }}">{{ code.code }} ({{ code.rate|floatformat:"-2" }}%)</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="field">
                 <label class="field__label" for="ac-description">Description</label>
                 <input class="field__control" id="ac-description" name="description" type="text" maxlength="500">
             </div>
@@ -233,6 +250,40 @@
         </div>
     </form>
 </dialog>
+
+{# ---------------------- EDIT TAX CODE OVERLAY ---------------------- #}
+{% comment %} The Edit button of a Tax code cell opens it (accounts.js). Only an Owner
+     or an Accountant sees the button. {% endcomment %}
+{% if can_edit_tax %}
+<dialog class="sheet" id="account-tax-dialog" aria-labelledby="account-tax-dialog-title">
+    <form method="post">
+        {% csrf_token %}
+        <div class="sheet__head">
+            <h2 class="sheet__title" id="account-tax-dialog-title">Edit Tax Code</h2>
+        </div>
+        <div class="sheet__body">
+            <div class="sheet__errors" role="alert" data-account-tax-errors hidden></div>
+            <div class="field">
+                <span class="field__label">Account</span>
+                <p class="lead__read" data-account-tax-name></p>
+            </div>
+            <div class="field">
+                <label class="field__label" for="account-tax-code">Tax code</label>
+                <select class="field__control" id="account-tax-code" name="tax_code">
+                    <option value="">None</option>
+                    {% for code in tax_codes %}
+                    <option value="{{ code.pk }}">{{ code.code }} ({{ code.rate|floatformat:"-2" }}%)</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="sheet__foot">
+            <button class="tool" type="button" data-dialog-cancel>Cancel</button>
+            <button class="tool tool--primary" type="submit">Save</button>
+        </div>
+    </form>
+</dialog>
+{% endif %}
 
     {% notes_section %}
 </section>

@@ -2,7 +2,8 @@
    bills.js  —  the New Bill overlay (#bill-dialog) of the Bills page
 
    The New Bill button opens the overlay. Add line copies the first line
-   with empty fields. The Recurring switch shows the frequency. The form
+   with empty fields. A line gets the tax code of its account (data-tax, see
+   Account.tax_code). The user can change it. The Recurring switch shows the frequency. The form
    goes to the server with fetch(), thus the overlay stays open and shows
    the errors. After a save, the page loads again and the new draft bill
    shows in the Review part.
@@ -43,6 +44,13 @@
     dialog.querySelector("[data-bill-line-add]").onclick = function () {
         lines.appendChild(template.cloneNode(true));
     };
+
+    lines.addEventListener("change", function (e) {
+        if (e.target.name !== "line_account") return;
+        const taxCode = e.target.closest("tr").querySelector("[name=line_tax]");
+        taxCode.value = e.target.selectedOptions[0].dataset.tax || "";
+        if (taxCode.selectedIndex < 0) taxCode.value = "";
+    });
 
     // Remove a line. The last line stays, thus the form always has one.
     lines.addEventListener("click", function (e) {

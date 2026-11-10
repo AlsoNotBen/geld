@@ -36,7 +36,7 @@
             </form>
 
             <span class="tool__sep" aria-hidden="true"></span>
-            {% comment %} base.js must call window.print() for a button with
+            {% comment %} documents.js opens the PDF report for a button with
                  the data-print attribute. {% endcomment %}
             <button class="tool" type="button" data-note-new>
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 4h9l3 3v13H6V4z" stroke-linejoin="round"/><path d="M15 4v4h4" stroke-linejoin="round"/><path d="M9 13h6M12 10v6" stroke-linecap="round"/>
@@ -96,7 +96,7 @@
                      A line on a tax account has the Tax tag (see draft_rows). {% endcomment %}
                 <tr>
                     <td>{{ entry.date }}</td>
-                    <td>{{ entry.reference }}</td>
+                    <td>{{ entry.reference }}{% if entry.recurring or entry.reversal %}<span class="review__line">{% include "accounting/_entry_badges.html" %}</span>{% endif %}</td>
                     <td>{{ entry.journal }}</td>
                     <td>{% for line in entry.debit_lines %}<span class="review__line" data-code>{{ line.account.code }}</span>{% endfor %}</td>
                     <td>{% for line in entry.debit_lines %}<span class="review__line">{{ line.account.name }}{% if line.is_tax %}<span class="review__tag">Tax</span>{% endif %}</span>{% endfor %}</td>
@@ -121,6 +121,7 @@
                                     data-url="{% url 'accounting:journalentry_update' entry.id %}"
                                     data-post-url="{% url 'accounting:journalentry_post' entry.id %}"
                                     data-void-url="{% url 'accounting:journalentry_void' entry.id %}"
+                                    data-stop-url="{% if entry.recurring.is_active %}{% url 'accounting:journalentry_stop' entry.id %}{% endif %}"
                                     data-date="{{ entry.date|date:'Y-m-d' }}"
                                     data-entry-type="{{ entry.entry_type }}"
                                     data-reference="{{ entry.reference }}"
@@ -168,93 +169,28 @@
         <div class="tabset__panel" role="tabpanel" data-panel="general"
              id="panel-general" aria-labelledby="tab-general" tabindex="0">
             <h2 class="tabset__print-title">General Journal</h2>
-            <table class="table" data-num>
-                <thead>
-                    <tr><th>Date</th><th>Reference</th><th>Account</th><th>Amount</th></tr>
-                </thead>
-                <tbody>
-                    {% for entry in general_entries %}
-                    <tr>
-                        <td>{{ entry.date }}</td>
-                        <td>{{ entry.reference }}</td>
-                        <td data-code>{{ entry.account }}</td>
-                        {% comment %} The view sets entry.is_debit for money that goes out. {% endcomment %}
-                        <td class="{% if entry.is_debit %}is-debit{% else %}is-credit{% endif %}">{{ entry.amount|money }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="4">There are no entries for this period.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            {% include "accounting/_journal_table.html" with rows=general_entries %}
         </div>
 
         {# ----------------------------- SALES ----------------------------- #}
         <div class="tabset__panel" role="tabpanel" data-panel="sales"
              id="panel-sales" aria-labelledby="tab-sales" tabindex="0" hidden>
             <h2 class="tabset__print-title">Sales Journal</h2>
-            <table class="table" data-num>
-                <thead>
-                    <tr><th>Date</th><th>Reference</th><th>Account</th><th>Amount</th></tr>
-                </thead>
-                <tbody>
-                    {% for entry in sales_entries %}
-                    <tr>
-                        <td>{{ entry.date }}</td>
-                        <td>{{ entry.reference }}</td>
-                        <td data-code>{{ entry.account }}</td>
-                        <td class="{% if entry.is_debit %}is-debit{% else %}is-credit{% endif %}">{{ entry.amount|money }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="4">There are no entries for this period.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            {% include "accounting/_journal_table.html" with rows=sales_entries %}
         </div>
 
         {# --------------------------- PURCHASES --------------------------- #}
         <div class="tabset__panel" role="tabpanel" data-panel="purchases"
              id="panel-purchases" aria-labelledby="tab-purchases" tabindex="0" hidden>
             <h2 class="tabset__print-title">Purchases Journal</h2>
-            <table class="table" data-num>
-                <thead>
-                    <tr><th>Date</th><th>Reference</th><th>Account</th><th>Amount</th></tr>
-                </thead>
-                <tbody>
-                    {% for entry in purchase_entries %}
-                    <tr>
-                        <td>{{ entry.date }}</td>
-                        <td>{{ entry.reference }}</td>
-                        <td data-code>{{ entry.account }}</td>
-                        <td class="{% if entry.is_debit %}is-debit{% else %}is-credit{% endif %}">{{ entry.amount|money }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="4">There are no entries for this period.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            {% include "accounting/_journal_table.html" with rows=purchase_entries %}
         </div>
 
         {# ----------------------------- CASH ------------------------------ #}
         <div class="tabset__panel" role="tabpanel" data-panel="cash"
              id="panel-cash" aria-labelledby="tab-cash" tabindex="0" hidden>
             <h2 class="tabset__print-title">Cash Journal</h2>
-            <table class="table" data-num>
-                <thead>
-                    <tr><th>Date</th><th>Reference</th><th>Account</th><th>Amount</th></tr>
-                </thead>
-                <tbody>
-                    {% for entry in cash_entries %}
-                    <tr>
-                        <td>{{ entry.date }}</td>
-                        <td>{{ entry.reference }}</td>
-                        <td data-code>{{ entry.account }}</td>
-                        <td class="{% if entry.is_debit %}is-debit{% else %}is-credit{% endif %}">{{ entry.amount|money }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="4">There are no entries for this period.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            {% include "accounting/_journal_table.html" with rows=cash_entries %}
         </div>
 
     </div>
@@ -288,12 +224,44 @@
             </div>
 
             <div class="sheet__body sheet__body--split">
-                {% comment %} The server takes the period from the date, and the
-                     currency of the company (see journalentry_create). {% endcomment %}
-                <div class="field">
-                    <label class="field__label" for="entry-date">Date</label>
-                    <input class="field__control" type="date" id="entry-date" name="date" required>
+                {% comment %} The schedule: the date, and for a recurring entry (e.g. the
+                     depreciation of each month) the frequency and the end date, on
+                     one row. The date of a recurring entry is its start date.
+                     journals.js shows the frequency and the end date for a
+                     recurring entry only, and it hides the switch and these two
+                     fields in a view. The server takes the period from the date,
+                     and the currency of the company (see journalentry_create). It
+                     writes the next entries as drafts when they are due (see
+                     run_recurring). {% endcomment %}
+                <div class="field field--wide entry-schedule">
+                    <div class="entry-schedule__head" data-entry-recurring>
+                        <span class="field__label">Schedule</span>
+                        <label class="switch">
+                            <input type="checkbox" name="recurring">
+                            <span class="switch__track" aria-hidden="true"></span>
+                            <span class="switch__text">Recurring entry</span>
+                        </label>
+                    </div>
+                    <div class="entry-schedule__row">
+                        <div class="field">
+                            <label class="field__label" for="entry-date" data-entry-date-label>Date</label>
+                            <input class="field__control" type="date" id="entry-date" name="date" required>
+                        </div>
+                        <div class="field" data-entry-recurring>
+                            <label class="field__label" for="entry-frequency">Frequency</label>
+                            <select class="field__control" id="entry-frequency" name="frequency">
+                                {% for value, label in frequencies %}
+                                <option value="{{ value }}"{% if value == "M" %} selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="field" data-entry-recurring>
+                            <label class="field__label" for="entry-end-date">End date (optional)</label>
+                            <input class="field__control" type="date" id="entry-end-date" name="end_date">
+                        </div>
+                    </div>
                 </div>
+
                 <div class="field">
                     <label class="field__label" for="entry-type">Journal</label>
                     <select class="field__control" id="entry-type" name="entry_type" required>
@@ -306,13 +274,14 @@
                     <label class="field__label" for="entry-reference">Reference</label>
                     <input class="field__control" type="text" id="entry-reference" name="reference" required>
                 </div>
-                <div class="field">
+                <div class="field field--wide">
                     <label class="field__label" for="entry-narration">Narration</label>
                     <input class="field__control" type="text" id="entry-narration" name="narration">
                 </div>
 
                 {% comment %} Each line has a debit or a credit, before tax. A tax code
-                     adds the tax on the same side (see entry_lines). journals.js
+                     adds the tax on the same side (see entry_lines). An account
+                     gives its own tax code to its line (data-tax). journals.js
                      adds and removes the lines, and it shows the tax and the
                      totals. The Save button works only when the debits equal
                      the credits, with the tax. The server does the same check.
@@ -329,7 +298,7 @@
                                     <input type="hidden" name="line_id" disabled>
                                     <select class="field__control" name="line_account" aria-label="Account">
                                         <option value="">Select</option>
-                                        {% for account in accounts %}<option value="{{ account.id }}"{% if account.id in tax_ids %} data-tax-account{% endif %}>{{ account }}</option>{% endfor %}
+                                        {% for account in accounts %}<option value="{{ account.id }}" data-tax="{{ account.tax_code_id|default:'' }}"{% if account.id in tax_ids %} data-tax-account{% endif %}>{{ account }}</option>{% endfor %}
                                     </select>
                                 </td>
                                 <td><input class="field__control" type="text" name="line_description" maxlength="255" aria-label="Description"></td>
@@ -366,12 +335,35 @@
 
             <div class="sheet__foot">
                 <button class="tool" type="button" data-dialog-cancel>Cancel</button>
-                {% comment %} journals.js opens these two buttons for a view
+                {% comment %} journals.js opens these three buttons for a view
                      only, and it gives each one its formaction. The attribute
                      formnovalidate lets them send an empty form, because the
                      views read the entry from the URL. {% endcomment %}
+                <button class="tool" type="submit" formnovalidate data-entry-stop hidden>Stop Recurring</button>
                 <button class="tool tool--danger" type="submit" formnovalidate data-entry-void hidden>Mark as Void</button>
                 <button class="tool tool--accept" type="submit" formnovalidate data-entry-post hidden>Post Entry</button>
+                <button class="tool tool--primary" type="submit">Save Draft</button>
+            </div>
+        </form>
+    </dialog>
+
+    {% comment %} The Reverse button of a posted entry opens this overlay (journals.js).
+         The reversal is a draft entry on the date, with the lines on the other side. {% endcomment %}
+    <dialog class="sheet" id="reverse-dialog" aria-labelledby="reverse-dialog-title">
+        <form method="post">
+            {% csrf_token %}
+            <div class="sheet__head">
+                <h2 class="sheet__title" id="reverse-dialog-title">Reverse Journal Entry</h2>
+            </div>
+            <div class="sheet__body">
+                <div class="field">
+                    <label class="field__label" for="reverse-date">Date of the reversal</label>
+                    <input class="field__control" type="date" id="reverse-date" name="date" required>
+                </div>
+                <p class="review__hint">The reversal is a new draft entry with each amount on the other side. The entry itself does not change.</p>
+            </div>
+            <div class="sheet__foot">
+                <button class="tool" type="button" data-dialog-cancel>Cancel</button>
                 <button class="tool tool--primary" type="submit">Save Draft</button>
             </div>
         </form>

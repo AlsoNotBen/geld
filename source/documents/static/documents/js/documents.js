@@ -368,3 +368,21 @@
         }));
     });
 })();
+/* ==========================================================================
+   Print button
+   A button with the attribute data-print opens the printer-friendly PDF
+   of the current page in a new tab (see print_page in documents/views.py).
+   The server renders the page again, thus the PDF shows the tables of
+   the page for the current date range.
+   ========================================================================== */
+(function () {
+    "use strict";
+
+    var PRINT_URL = "/documents/print/";
+
+    document.addEventListener("click", function (e) {
+        if (!e.target.closest("[data-print]")) return;
+        var page = window.location.pathname + window.location.search;
+        window.open(PRINT_URL + "?url=" + encodeURIComponent(page), "_blank", "noopener");
+    });
+})();

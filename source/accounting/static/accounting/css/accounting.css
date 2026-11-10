@@ -1009,6 +1009,58 @@ textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
 
 .table--coa tfoot td:last-child { font-size: 13px; }
 
+/* Column 4 = Tax code: the text and the Edit button (accounts.js). The cell
+   keeps a smaller top and bottom space, because a button is higher than a line of text. */
+.table--coa tbody td:nth-child(4) { padding-top: 6px; padding-bottom: 6px; white-space: nowrap; }
+.coa-tax { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 150px; }
+
+/* ================================================================== */
+/*  JOURNAL TABLE  (the posted entries, see _journal_table.html)       */
+/*  Columns: Date · Reference · Account · Amount · Buttons             */
+/* ================================================================== */
+.table--journal th:nth-child(4),
+.table--journal td:nth-child(4) { text-align: right; }
+.table--journal td:nth-child(4) {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+}
+.table--journal th:last-child,
+.table--journal td:last-child { width: 1%; }
+.table--journal tbody td:last-child { padding-top: 8px; padding-bottom: 8px; }
+
+/* Each entry is one tbody. The lines show when the entry is open
+   (journals.js), and always on paper. A credit line is indented. */
+.journal-group__line { display: none; }
+.journal-group.is-open .journal-group__line { display: table-row; }
+.journal-group__line td { padding-top: 6px; padding-bottom: 6px; font-size: 12px; background: rgba(0, 0, 0, 0.12); }
+.journal-group__line.is-credit-line td:nth-child(3) { padding-left: 32px; }
+.journal-group__line td:nth-child(4) { font-weight: 400; }
+.journal-group__count { margin-left: 6px; font-size: 11px; color: var(--ink-dim); white-space: nowrap; }
+.journal-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+}
+.journal-toggle:hover { color: var(--gold); }
+.journal-toggle .icon { width: 14px; height: 14px; stroke: currentColor; transition: transform 0.15s ease; }
+.journal-toggle[aria-expanded="true"] .icon { transform: rotate(90deg); }
+@media print {
+    .journal-group__line { display: table-row; }
+    .journal-toggle .icon { display: none; }
+}
+
+/* The badge of a journal entry, after its reference: Recurring, Reversal
+   or Reversed (see _entry_badges.html). It uses the colors of .status. */
+.entry-badge { margin-left: 8px; font-size: 10px; }
+.review__line .entry-badge { margin-left: 0; }      /* In New Entries, the badge is below the reference. */
+
 /* ================================================================== */
 /*  REVIEW TABLE                                                      */
 /*  Columns: Date · Reference · Journal · Account · Amount · Review    */
@@ -1067,6 +1119,27 @@ textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
     text-transform: uppercase;
     color: var(--gold-deep);
 }
+
+/* An icon button of a table row, e.g. Edit (pencil) in the Chart of
+   Accounts and Reverse (arrow back) in the journal. The title gives the
+   tooltip, the aria-label gives the name for a screen reader. */
+.row-icon {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.row-icon:hover { background: var(--gold-soft); border-color: var(--gold-line); color: var(--gold); }
+.row-icon:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.row-icon .icon { width: 16px; height: 16px; stroke: currentColor; }
 
 /* The two buttons of a row stay together at the right edge. */
 .review__buttons {
@@ -1288,10 +1361,7 @@ textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
     color: var(--ink);
 }
 
-/* These two classes come after the column rules. A cell that needs the
-   direction of the money thus keeps its color. */
-.table--fin td.is-debit  { color: var(--debit); }
-.table--fin td.is-credit { color: var(--credit); }
+/* The statements show no debit or credit color (see view_mode.js). */
 
 /* ================================================================== */
 /*  EQUITY TABLE                                                      */
@@ -1334,9 +1404,6 @@ textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
     font-weight: 600;
 }
 
-.table--soce td.is-debit  { color: var(--debit); }
-.table--soce td.is-credit { color: var(--credit); }
-
 /* ================================================================== */
 /*  THE LAST PERIOD                                                   */
 /*  These rules come after all column rules. Thus they win.           */
@@ -1347,8 +1414,6 @@ textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
    direction class does not bring the color back. */
 .table--fin th:last-child,
 .table--fin td:last-child,
-.table--fin td:last-child.is-debit,
-.table--fin td:last-child.is-credit,
 .table--fin tbody tr.is-sum td:last-child,
 .table--fin tfoot td:last-child {
     color: var(--ink-dim);
@@ -1776,6 +1841,7 @@ textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
 @media print {
     .ribbon, .context, .sidebar, .footer, .scrim, .drawer-toggle,
     .actionbar, .review, .tbar-menu__panel, .page__info { display: none !important; }
+    .table--journal th:last-child, .table--journal td:last-child { display: none; }   /* The buttons of an entry */
     .shell { display: block; }
     .main { padding: 0; overflow: visible; }
     body { background: #FFFFFF; color: #000000; }
@@ -2534,6 +2600,34 @@ textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
 .shell[data-view="easy"] .main .is-debit   { color: var(--debit) !important; }
 .shell[data-view="easy"] .main .is-credit  { color: var(--credit) !important; }
 .shell[data-view="easy"] .main .is-overdue { color: var(--overdue) !important; }
+
+/* ---- Schedule of the entry overlay (see journals.html) ------------- */
+/* The date, the frequency and the end date are one row of three equal
+   columns in a box. The Recurring switch is the head of the box. */
+.entry-schedule {
+    gap: 12px;
+    padding: 12px 14px 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+}
+.entry-schedule__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.entry-schedule__head[hidden] { display: none; }
+.entry-schedule__head .switch { height: auto; }
+.entry-schedule__row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    align-items: end;
+}
+.entry-schedule__row .field__control { width: 100%; min-width: 0; }
+@media (max-width: 640px) {
+    .entry-schedule__row { grid-template-columns: minmax(0, 1fr); }
+}
 
 /* ---- Lines of the New Bill overlay (see bills.html) ---------------- */
 .bill-lines { width: 100%; border-collapse: collapse; }

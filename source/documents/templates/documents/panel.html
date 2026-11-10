@@ -8,6 +8,7 @@ base template.
 
 documents.js reads these data attributes:
     data-doc-panel           the root of the panel
+    data-doc-key             the key of the document type, e.g. "invoice" or "quote"
     data-preview-url         the PDF preview endpoint
     data-download-url        the PDF download endpoint
     data-save-url            the save endpoint (issues the document)
@@ -20,7 +21,7 @@ documents.js reads these data attributes:
     data-doc-close           each element that closes the overlay
 ============================================================================
 {% endcomment %}
-<section class="doc-panel" data-doc-panel
+<section class="doc-panel" data-doc-panel data-doc-key="{{ document.key }}"
          data-preview-url="{% url 'documents:preview' document.module document.key %}"
          data-download-url="{% url 'documents:download' document.module document.key %}"
          data-save-url="{% url 'documents:save' document.module document.key %}"

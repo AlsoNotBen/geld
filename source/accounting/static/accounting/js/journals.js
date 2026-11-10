@@ -129,11 +129,17 @@
    adds the tax on the same side, as the server does (see entry_lines). The
    tax and the totals show below the lines. The Save button works only when
    the debits equal the credits, with the tax. The server does the same check.
+   A line gets the tax code of its account (data-tax, see Account.tax_code).
+   The user can change it.
+
+   The Recurring switch shows the frequency and the end date. The date of a
+   recurring entry is its start date.
 
    The View button opens the same form with the lines of its row (the
    data-lines JSON, see draft_rows), and it sends the form to the update
    URL of that entry. In the view, the user can change the line
-   descriptions only. The other fields are disabled.
+   descriptions only. The other fields are disabled. Stop Recurring shows
+   for an entry of a recurring series that still makes entries.
    ========================================================================== */
 (function () {
     const dialog = document.getElementById("entry-dialog");
@@ -144,6 +150,9 @@
     const submit = dialog.querySelector(".tool--primary[type=submit]");
     const voidBtn = dialog.querySelector("[data-entry-void]");
     const postBtn = dialog.querySelector("[data-entry-post]");
+    const stopBtn = dialog.querySelector("[data-entry-stop]");
+    const dateLabel = dialog.querySelector("[data-entry-date-label]");
+    const recurringFields = dialog.querySelectorAll("[data-entry-recurring]");
     const addBtn = dialog.querySelector("[data-entry-line-add]");
     const lines = dialog.querySelector("[data-entry-lines]");
     const template = lines.querySelector("[data-entry-line]").cloneNode(true);
@@ -221,9 +230,22 @@
         submit.disabled = !viewing && problem !== "";
     }
 
+    // The frequency and the end date apply only to a recurring entry. A view shows none of the three fields.
+    function showRecurring() {
+        const on = field.recurring.checked;
+        recurringFields.forEach(function (box, index) { box.hidden = viewing || (index > 0 && !on); });
+        dateLabel.textContent = on && !viewing ? "Start date" : "Date";
+    }
+    field.recurring.onchange = showRecurring;
+
     // A line has a debit or a credit. A value on one side clears the other side.
     lines.addEventListener("input", function (e) {
         const row = e.target.closest("tr");
+        if (e.target.name === "line_account") {
+            const taxCode = row.querySelector("[name=line_tax]");
+            taxCode.value = e.target.selectedOptions[0].dataset.tax || "";
+            if (taxCode.selectedIndex < 0) taxCode.value = "";      // The tax code of the account is not valid now.
+        }
         if (e.target.name === "line_debit" && e.target.value) row.querySelector("[name=line_credit]").value = "";
         if (e.target.name === "line_credit" && e.target.value) row.querySelector("[name=line_debit]").value = "";
         update();
@@ -261,6 +283,8 @@
         submit.textContent = "Save Draft";
         voidBtn.hidden = true;
         postBtn.hidden = true;
+        stopBtn.hidden = true;
+        showRecurring();
         update();
         dialog.showModal();
     };
@@ -282,8 +306,11 @@
                entry from the URL, thus it ignores the fields. */
             voidBtn.setAttribute("formaction", data.voidUrl);
             postBtn.setAttribute("formaction", data.postUrl);
+            stopBtn.setAttribute("formaction", data.stopUrl);
             voidBtn.hidden = false;
             postBtn.hidden = false;
+            stopBtn.hidden = !data.stopUrl;
+            showRecurring();
             update();
             dialog.showModal();
         };
@@ -292,6 +319,48 @@
     const cancelBtn = dialog.querySelector("[data-dialog-cancel]");
     if (cancelBtn) cancelBtn.onclick = () => dialog.close();
 
+    // Close the dialog when the user clicks the backdrop.
+    dialog.onclick = (e) => {
+        if (e.target === dialog) dialog.close();
+    };
+})();
+
+/* ==========================================================================
+   The posted entries (see _journal_table.html). The reference button of an
+   entry opens and closes its lines.
+   ========================================================================== */
+document.addEventListener("click", function (e) {
+    const toggle = e.target.closest("[data-journal-toggle]");
+    if (!toggle) return;
+    const open = toggle.closest("[data-journal-group]").classList.toggle("is-open");
+    toggle.setAttribute("aria-expanded", String(open));
+});
+
+/* ==========================================================================
+   The Reverse overlay (#reverse-dialog). The Reverse button of a posted
+   entry opens it. The form goes to the reverse URL of that entry. The date
+   is today, but not before the date of the entry.
+   ========================================================================== */
+(function () {
+    const dialog = document.getElementById("reverse-dialog");
+    if (!dialog) return;
+
+    const form = dialog.querySelector("form");
+    const date = form.elements.date;
+
+    document.querySelectorAll("[data-entry-reverse]").forEach(function (btn) {
+        btn.onclick = function () {
+            const now = new Date();                   // Today in the time zone of the user
+            const today = new Date(now - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+            form.setAttribute("action", btn.dataset.url);
+            dialog.querySelector(".sheet__title").textContent = "Reverse " + btn.dataset.reference;
+            date.min = btn.dataset.date;
+            date.value = today > btn.dataset.date ? today : btn.dataset.date;
+            dialog.showModal();
+        };
+    });
+
+    dialog.querySelector("[data-dialog-cancel]").onclick = () => dialog.close();
     // Close the dialog when the user clicks the backdrop.
     dialog.onclick = (e) => {
         if (e.target === dialog) dialog.close();

@@ -6,9 +6,10 @@
    1. window.openLeadForm(title, action, values, onSaved, customer) opens
       the form. leads.js uses it for New Lead and Edit Lead. customer
       shows the opening balance fields.
-   2. The "+" of the customer field in the Quote and Invoice overlays
-      opens the form. When the user saves, the form sends JSON, and the
-      new customer becomes the selected option.
+   2. The "+" of the customer field in the document overlays opens the
+      New Lead form for a Quote, and the New Customer form for an Invoice.
+      When the user saves, the form sends JSON, and the new customer
+      becomes the selected option.
 
    MARKUP CONTRACT
        #lead-dialog                  the lead form
@@ -153,15 +154,19 @@
             .catch(() => showErrors(["The form was not saved. Try again."]));
     };
 
-    /* The "+" of the customer field in the Quote and Invoice overlays.
-       documents.js sends the click as a "doc:action" event. */
+    /* The "+" of the customer field in the document overlays. documents.js
+       sends the click as a "doc:action" event. A Quote opens New Lead.
+       The other documents (e.g. an Invoice) open New Customer. */
     document.addEventListener("doc:action", function (e) {
         if (e.detail.action !== "new-customer") return;
-        const select = e.detail.trigger.closest("[data-doc-form]").elements.customer;
-        window.openLeadForm("Create New Lead", null, null, function (lead) {
+        const trigger = e.detail.trigger;
+        const select = trigger.closest("[data-doc-form]").elements.customer;
+        const panel = trigger.closest("[data-doc-panel]");
+        const isQuote = !!panel && panel.dataset.docKey === "quote";
+        window.openLeadForm(isQuote ? "Create New Lead" : "Create New Customer", null, null, function (lead) {
             select.add(new Option(lead.name, lead.id, true, true));
             select.dispatchEvent(new Event("change", { bubbles: true }));
-        });
+        }, !isQuote);
     });
 
     /* The New Customer buttons (the Customers page and menu). A customer

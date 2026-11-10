@@ -1,0 +1,11 @@
+{% comment %}
+  accounting/templates/accounting/_entry_badges.html
+  The badges of a journal entry, after its reference. Give it: entry (a row
+  of draft_rows or journal_rows, see views.py).
+    Recurring   an entry of a recurring series (see RecurringEntry)
+    Reversal    an entry that reverses another entry (see reverse_entry)
+    Reversed    a posted entry that has a reversal
+{% endcomment %}
+{% if entry.recurring %}<span class="status status--busy entry-badge" title="{{ entry.recurring.get_frequency_display }} from {{ entry.recurring.start_date|date:'d M Y' }}{% if entry.recurring.end_date %} to {{ entry.recurring.end_date|date:'d M Y' }}{% endif %}{% if not entry.recurring.is_active %}. No more entries come.{% endif %}">Recurring</span>{% endif %}
+{% if entry.reversal %}<span class="status status--low entry-badge">Reversal</span>{% endif %}
+{% if entry.reversed %}<span class="status status--idle entry-badge">Reversed</span>{% endif %}

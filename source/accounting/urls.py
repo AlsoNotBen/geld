@@ -14,11 +14,14 @@ urlpatterns = [
     path("journals/entry/<int:pk>/edit/", views.journalentry_update, name="journalentry_update"),
     path("journals/entry/<int:pk>/post/", views.journalentry_post, name="journalentry_post"),
     path("journals/entry/<int:pk>/void/", views.journalentry_void, name="journalentry_void"),
+    path("journals/entry/<int:pk>/reverse/", views.journalentry_reverse, name="journalentry_reverse"),
+    path("journals/entry/<int:pk>/stop/", views.journalentry_stop, name="journalentry_stop"),
     path("journals/entries/post-all/", views.journalentry_post_all, name="journalentry_post_all"),
 
     # Accounts
     path("chartaccounts/", views.chartaccounts, name="chartaccounts"),
     path("chartaccounts/new/", views.account_create, name="account_create"),
+    path("chartaccounts/<int:pk>/tax/", views.account_tax, name="account_tax"),
     path("ledger/",views.ledger,name="ledger"),
     path("balancesheet/",views.balancesheet,name="balancesheet"),
     path("incomestatement/",views.incomestatement,name="incomestatement"),

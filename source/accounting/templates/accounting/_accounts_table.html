@@ -5,11 +5,14 @@
   depth indents the name of a child account (see tree_order in views.py).
   A code can look like a number (1000.1), thus it is in a [data-code]
   span: base.js and view_mode.js do not format it.
+  The page gives tax_ids and can_edit_tax. The Edit button of the Tax code
+  opens the Edit Tax Code overlay (accounts.js, see account_tax in views.py).
+  Only an Owner or an Accountant sees it. A tax account has no tax code.
 {% endcomment %}
 {% load fin %}
 <table class="table table--coa">
     <thead>
-        <tr><th>Code</th><th>Account</th><th>Type</th><th>Balance</th></tr>
+        <tr><th>Code</th><th>Account</th><th>Type</th><th>Tax code</th><th>Balance</th></tr>
     </thead>
     <tbody>
         {% for account, depth in rows %}
@@ -17,13 +20,29 @@
             <td><span data-code>{{ account.code }}</span></td>
             <td style="--depth: {{ depth }}">{{ account.name }}</td>
             <td>{{ account.get_type_display }}</td>
+            <td>
+                {% if account.pk not in tax_ids %}
+                <div class="coa-tax">
+                    <span>{% if account.tax_code %}{{ account.tax_code.code }} ({{ account.tax_code.rate|floatformat:"-2" }}%){% else %}None{% endif %}</span>
+                    {% if can_edit_tax %}
+                    <button class="row-icon" type="button" title="Edit the tax code" aria-label="Edit the tax code of {{ account.name }}"
+                            data-account-tax-edit
+                            data-url="{% url 'accounting:account_tax' account.pk %}"
+                            data-name="{{ account.code }} {{ account.name }}"
+                            data-tax="{{ account.tax_code_id|default:'' }}">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4L18 10l-4-4L4 16v4z" stroke-linejoin="round"/><path d="M14 6l4 4" stroke-linecap="round"/></svg>
+                    </button>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </td>
             <td class="{% if account.is_debit %}is-debit{% else %}is-credit{% endif %}">{{ account.balance|money }}</td>
         </tr>
         {% empty %}
-        <tr><td colspan="4">This category has no accounts. Use the New Account button above.</td></tr>
+        <tr><td colspan="5">This category has no accounts. Use the New Account button above.</td></tr>
         {% endfor %}
     </tbody>
     <tfoot>
-        <tr><td colspan="3">{{ total_label }}</td><td>{{ total|money }}</td></tr>
+        <tr><td colspan="4">{{ total_label }}</td><td>{{ total|money }}</td></tr>
     </tfoot>
 </table>

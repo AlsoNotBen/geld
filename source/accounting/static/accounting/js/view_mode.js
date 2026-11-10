@@ -30,7 +30,8 @@
     var NUM = /(\(?)([-\u2212]?)(\d{1,3}(?:[,\u00a0\u202f]\d{3})+(?:\.\d+)?|\d+\.\d+)(\)?)/g;
     var ONLY = /^\s*\(?-?(?:\d{1,3}(?:[,\u00a0\u202f]\d{3})+(?:\.\d+)?|\d+\.\d+)\)?\s*$/;
     var TAGGED = ".is-debit, .is-credit, .is-overdue, .is-count";
-    var SKIP = ".table--ledger td:nth-child(4), .table--ledger td:nth-child(5)";
+    // The ledger columns and the financial statements get no color.
+    var SKIP = ".table--ledger td:nth-child(4), .table--ledger td:nth-child(5), .table--fin td, .table--soce td";
 
     function format(match, open, sign, digits, close, offset, all) {
         var end = offset + match.length;

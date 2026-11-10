@@ -7,7 +7,7 @@
 {% for acct in accounts %}
 <section class="ledger-acct" aria-labelledby="acct-{{ acct.account.code }}"
          data-filter-group="{{ acct.account.code }} {{ acct.account.name }}">
-    <div class="ledger-acct__head">
+    <div class="ledger-acct__head" data-print-heading>
         <span class="ledger-acct__code" data-code>{{ acct.account.code }}</span>
         <h3 class="ledger-acct__name" id="acct-{{ acct.account.code }}">{{ acct.account.name }}</h3>
         <span class="ledger-acct__type">{{ acct.account.get_type_display }}</span>

@@ -27,7 +27,7 @@ from django.db.models import Q
 from documents.forms import (DocumentOptionsForm, LineItemsField, SelectWithAddButton, SelectWithDetails)
 from documents.registry import DocumentType, register
 from accounting.models import *
-from accounting.posting import RECEIVABLE, _account, invoice_posted, post_invoice_entry
+from accounting.posting import RECEIVABLE, _account, post_invoice_entry
 from inventory.models import Item, ItemType
 
 
@@ -382,23 +382,36 @@ class InvoiceDocument(SalesDocument):
                 "terms": _terms_label(options), "bank_details": self.bank_details(request, options), **money}
 
     def issue(self, request, options):
-        """Keep the invoice as a Document, then post its entry from the Document (see
-        post_invoice_entry). An invoice that has an entry does not change."""
+        """Keep the invoice as a Document, then write its draft entry from the Document (see
+        post_invoice_entry). The same number again (e.g. Download, then one more line, then
+        Save) changes the invoice and its draft entry. Thus the entry always has all the
+        lines of the invoice. An invoice with a posted entry or a payment cannot change."""
         if options["pro_forma"]:
             return
-        entity = _customer(options, request.company).get("entity")
+        company = request.company
+        entity = _customer(options, company).get("entity")
         if not entity:
             raise ValidationError("Select a customer.")
+        if not options["line_items"]:
+            raise ValidationError("Add one line or more. Each line must have a description.")
         with transaction.atomic():
             super().issue(request, options)
-            if invoice_posted(request.company, options["number"]):
-                return
-            document, _ = _sales_record(request.company, options, entity, Document.DocType.INVOICE, _due(options),
-                                        Document.Status.SENT, discount=options["discount_rate"])
+            old = (Document.objects.select_related("journal_entry")
+                   .filter(company=company, direction=Document.Direction.SALE, doc_type=Document.DocType.INVOICE,
+                           number=options["number"]).first())
+            entry = old and old.journal_entry
+            if old and (old.allocations.exists() or (entry and entry.status == JournalEntry.Status.POSTED)):
+                total = _build_lines(options["line_items"], options["tax_rate"], options["discount_rate"])["total"]
+                if (old.entity, old.date, old.gross) == (entity, options["issue_date"], total):
+                    return      # The same invoice again, e.g. a second download
+                raise ValidationError(f"Invoice {old.number} is posted or paid, thus it cannot change. "
+                                      "Use a new invoice number.")
+            document, created = _sales_record(company, options, entity, Document.DocType.INVOICE, _due(options),
+                                              Document.Status.SENT, discount=options["discount_rate"])
             document.journal_entry = post_invoice_entry(document)
             document.save(update_fields=["journal_entry"])
-            AuditLog.record(request, AuditLog.Action.CREATE, document)
-            if options["recurring"]:
+            AuditLog.record(request, AuditLog.Action.CREATE if created else AuditLog.Action.UPDATE, document)
+            if options["recurring"] and not RecurringDocument.objects.filter(template=document).exists():
                 RecurringDocument.start(document, options["frequency"], request.user)
 
 

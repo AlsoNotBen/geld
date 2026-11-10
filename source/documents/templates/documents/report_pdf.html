@@ -1,0 +1,148 @@
+{% comment %}
+============================================================================
+documents/templates/documents/report_pdf.html
+----------------------------------------------------------------------------
+The printer-friendly report of a page (the Print button). WeasyPrint
+renders it. The text is black and grey. The lines and the tints have the
+gold of the app, and stay readable in a greyscale print (see <style>).
+
+The context (see views.print_page and printing.build_report):
+    company     the name of the company
+    title       the title of the page
+    period      the date range of the page, or ""
+    printed     the date of the print
+    sections    HTML parts. Each part after the first starts on a new page.
+============================================================================
+{% endcomment %}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ title }}</title>
+<style>
+    /* The accent is the gold of the app. The text stays black and grey.
+       Only the lines and the tints are gold. Each gold has the same
+       grey value as a grey that reads well, thus a greyscale print
+       loses no line:
+           #F0BE72   gold         thick lines only (2pt or more)
+           #C79A4E   deep gold    the 1pt lines of a table
+           #E8C68E   light gold   the hairlines between rows
+           #FBF1E1   gold tint    the background of a journal entry */
+    @page {
+        size: A4;
+        margin: 16mm 14mm 22mm 14mm;
+
+        @bottom-left {
+            content: element(footer-left);
+        }
+        @bottom-right {
+            content: "Page " counter(page) " of " counter(pages);
+            font-family: "IBM Plex Mono", "DejaVu Sans Mono", monospace;
+            font-size: 7.5pt;
+            color: #666666;
+        }
+    }
+
+    .running-footer {
+        position: running(footer-left);
+        font-size: 7.5pt;
+        color: #666666;
+    }
+
+    body {
+        margin: 0;
+        font-family: "IBM Plex Sans", "DejaVu Sans", "Helvetica", sans-serif;
+        font-size: 8.5pt;
+        line-height: 1.35;
+        color: #000000;
+    }
+
+    .report-head {
+        border-bottom: 2.5pt solid #F0BE72;
+        padding-bottom: 3mm;
+        margin-bottom: 5mm;
+    }
+    .report-head__company { font-size: 9pt; color: #444444; }
+    .report-head__meta { font-size: 8pt; color: #444444; }
+
+    h1 { font-size: 16pt; margin: 1mm 0; }
+    h2 {
+        font-size: 12pt;
+        margin: 0 0 3mm;
+        padding-left: 2.5mm;
+        border-left: 3pt solid #F0BE72;
+    }
+    h3 { font-size: 9.5pt; margin: 5mm 0 2mm; }
+    h4 { font-size: 9pt; margin: 4mm 0 2mm; }
+    h2, h3, h4 { break-after: avoid; }
+
+    /* Each tab of the page starts on a new page. */
+    .section + .section { break-before: page; }
+
+    .report-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 5mm;
+    }
+    /* The head of a table repeats on each page. The totals show once, at the end. */
+    .report-table thead { display: table-header-group; }
+    .report-table tfoot { display: table-row-group; }
+    .report-table tr { break-inside: avoid; }
+
+    .report-table th {
+        font-size: 7pt;
+        font-weight: 700;
+        letter-spacing: 0.5pt;
+        text-transform: uppercase;
+        text-align: left;
+        color: #333333;
+        border-bottom: 1pt solid #C79A4E;
+        padding: 1.5mm 2mm;
+    }
+    .report-table td {
+        padding: 1.2mm 2mm;
+        border-bottom: 0.5pt solid #E8C68E;
+        vertical-align: top;
+    }
+    .report-table [data-num] { text-align: right; white-space: nowrap; }
+    .report-table tfoot td {
+        font-weight: 700;
+        border-top: 1pt solid #C79A4E;
+        border-bottom: 0;
+    }
+
+    /* Rows that the pages mark */
+    .report-table tr.is-group td, .report-table tr.is-sum td { font-weight: 700; }
+    .report-table tr.is-sum td { border-top: 1pt solid #C79A4E; }
+    .report-table tr.is-prior td { color: #666666; }
+
+    /* Journal entries: the head row of each entry, then its lines. */
+    .report-table tbody.journal-group { break-inside: avoid; }
+    .report-table tr.journal-group__head td {
+        font-weight: 700;
+        background: #FBF1E1;
+        border-top: 1pt solid #C79A4E;
+    }
+    .report-table tr.journal-group__line td { border-bottom: 0; color: #333333; }
+    .report-table tr.is-credit-line td:nth-child(3) { padding-left: 8mm; }
+
+    .empty { color: #666666; font-style: italic; }
+</style>
+</head>
+<body>
+    <div class="running-footer">{{ company }} · {{ title }}</div>
+
+    <div class="report-head">
+        <div class="report-head__company">{{ company }}</div>
+        <h1>{{ title }}</h1>
+        <div class="report-head__meta">
+            {% if period %}Period: {{ period }} · {% endif %}Printed on {{ printed|date:"j F Y" }}
+        </div>
+    </div>
+
+    {% for section in sections %}
+    <div class="section">{{ section|safe }}</div>
+    {% empty %}
+    <p class="empty">This page has no tables to print.</p>
+    {% endfor %}
+</body>
+</html>

@@ -93,8 +93,9 @@
              select. A closed fieldset is disabled, thus it sends nothing.
              Next, Previous and Save Item first save each open entry of
              the tab with item_entry in views.py (fetch), then select it.
-             The Item fieldset is the exception: closed, it still sends
-             its defaults, thus a user can save an item with a model only.
+             The Item tab is the exception: it has no "+" for a new item,
+             its fields always show, thus a user can save an item with a
+             model only.
              The progress bar at the bottom shows which steps have a value.
              ItemForm in forms.py reads the fields. {% endcomment %}
         <div class="card">
@@ -287,14 +288,16 @@
                 </div>
 
                 {# ---------------------------------- ITEM ---------------------------------- #}
-                {% comment %} The select of this tab opens an item to edit. It sends
-                     nothing, because it has no name. {% endcomment %}
+                {% comment %} An item to edit: the select of this tab opens another item.
+                     It sends nothing, because it has no name. The "+" opens an
+                     empty editor (?new=item). A new item: no select, only the
+                     fields of the new item. {% endcomment %}
                 <div class="tabset__panel" id="it-panel-item" role="tabpanel" aria-labelledby="it-tab-item"
                      data-saves=""{% if not selected %} hidden{% endif %}>
+                    {% if selected %}
                     <label class="field-row__label field-row__label--first" for="item-pick">Item</label>
                     <div class="doc-inline item-pick">
                         <select class="field field--select" id="item-pick" data-item-jump>
-                            <option value="">Select an item</option>
                             {% for item in all_items %}
                             <option value="{{ item.pk }}"{% if item.pk == selected.pk %} selected{% endif %}>{{ item.name }}{% if item.sku %} · {{ item.sku }}{% endif %}</option>
                             {% endfor %}
@@ -302,16 +305,12 @@
                         <button type="button" class="doc-inline__search" data-doc-search="item" title="Search the items" aria-label="Search the items">
                             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4" stroke-linecap="round"/></svg>
                         </button>
-                        {% if selected %}
                         <a class="doc-inline__add" href="?new=item" title="Add an item" aria-label="Add an item">+</a>
-                        {% else %}
-                        <button type="button" class="doc-inline__add" data-new-toggle="new-item" title="Add an item" aria-label="Add an item"
-                                aria-expanded="{% if item_open %}true{% else %}false{% endif %}">+</button>
-                        {% endif %}
                     </div>
+                    {% endif %}
 
-                    <fieldset class="item-new" id="new-item" data-send-hidden{% if not item_open %} hidden{% endif %}>
-                        {% if not selected %}<legend class="field-row__label">New item</legend>{% endif %}
+                    <fieldset class="item-new" id="new-item">
+                        {% if not selected %}<legend class="field-row__label field-row__label--first">New item</legend>{% endif %}
 
                         <div class="field-row"{% if not selected %} style="margin-top: 0;"{% endif %}>
                             <label class="visually-hidden" for="item-code">Code</label>
@@ -907,10 +906,9 @@
         renderSerials();
     }
 
-    // The select of the Item tab opens the selected item.
-    document.querySelector("[data-item-jump]").addEventListener("change", function () {
-        location.search = this.value ? "?item=" + this.value : "?new=1";
-    });
+    // The select of the Item tab opens the selected item. A new item has no select.
+    var jump = document.querySelector("[data-item-jump]");
+    if (jump) jump.addEventListener("change", function () { location.search = "?item=" + this.value; });
 })();
 </script>
 {% endblock %}
