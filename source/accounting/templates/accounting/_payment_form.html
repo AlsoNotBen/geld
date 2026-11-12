@@ -11,8 +11,8 @@
         <div class="sheet__head">
             <h2 class="sheet__title" id="payment-dialog-title">Record Payment</h2>
         </div>
+        <div class="warn-ribbons" role="alert" data-payment-errors hidden></div>
         <div class="sheet__body sheet__body--split">
-            <div class="sheet__errors field--wide" role="alert" data-payment-errors hidden></div>
             {% for field in form %}
             <div class="field{% if field.name == 'reference' %} field--wide{% endif %}">
                 <label class="field__label" for="{{ field.id_for_label }}">{{ field.label }}</label>

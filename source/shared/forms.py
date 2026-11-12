@@ -4,7 +4,7 @@ from django import forms
 from django.utils import timezone
 from django.utils.text import slugify
 
-from filestore.services import validate_image
+from filestore.services import validate_image, validate_logo
 
 from .models import Company, Currency
 
@@ -25,6 +25,23 @@ class AvatarField(forms.FileField):
         return upload
 
 
+class LogoField(forms.FileField):
+    """An optional company logo: a PNG or an SVG image."""
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("label", "Logo")
+        kwargs.setdefault("required", False)
+        kwargs.setdefault("help_text", "A PNG or SVG image. It shows on the documents (invoices, quotes, statements).")
+        kwargs.setdefault("widget", forms.FileInput(attrs={"accept": ".png,.svg,image/png,image/svg+xml", "class": "file-input"}))
+        super().__init__(**kwargs)
+
+    def clean(self, data, initial=None):
+        upload = super().clean(data, initial)
+        if upload:
+            validate_logo(upload)
+        return upload
+
+
 def current_year_start():
     """1 March of the financial year that includes today, as in seed.sql."""
     today = timezone.localdate()
@@ -41,6 +58,7 @@ class CompanyForm(forms.ModelForm):
         help_text="The financial year runs for one year from this date, in 12 periods of one month.",
         widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
     )
+    logo = LogoField()  # The view stores the file (see shared.views.company_create).
 
     class Meta:
         model = Company

@@ -1,0 +1,174 @@
+/* ==========================================================================
+   base-light.css  —  the light theme (beige and warm greys)
+   base.html loads this file after the module stylesheets.
+
+   The theme is on when <html> has data-theme="light". The toggle in the
+   profile menu sets the attribute (base.js), and an inline script in the
+   head of base.html sets it before the page paints.
+
+   Most of the colours come from the tokens of base.css. Thus this file
+   gives new values to the tokens first. The rules after that replace only
+   the colours that are written directly in a stylesheet.
+
+   Note: in this theme --gold is a caramel gold (buttons, active state), and
+   --navy is the text colour on it (a pale beige). The ribbon, the footer
+   and the company menu use --chrome, a dark warm grey with cream text.
+   ========================================================================== */
+
+/* ---- Tokens -------------------------------------------------------- */
+html[data-theme="light"] {
+    color-scheme: light;
+
+    --cream:   #D9CFC0;   /* app canvas — beige */
+    --white:   #E3DACD;   /* panels, cards, fields — a lighter beige */
+    --navy:    #EEE7DC;   /* text on the gold buttons */
+    --chrome:  #54514D;   /* ribbon, footer — dark warm grey, cream text */
+    --gold:    #8A6230;   /* buttons, accent, active state — caramel gold */
+    --gold-deep: #7A5528; /* card labels, field labels */
+
+    --ink:        #33302B;
+    --ink-soft:   #5E5950;
+    --line:       rgba(51, 48, 43, 0.14);
+    --line-strong:rgba(51, 48, 43, 0.24);
+    --rule:       rgba(51, 48, 43, 0.09);
+    --gold-soft:  rgba(138, 98, 48, 0.13);
+    --gold-line:  rgba(138, 98, 48, 0.42);
+    --on-navy:    rgba(51, 48, 43, 0.80);   /* muted text on the chrome */
+    --on-navy-dim:rgba(51, 48, 43, 0.16);
+
+    --shadow-sm:  0 1px 2px rgba(51, 48, 43, 0.08);
+    --shadow-md:  0 8px 24px rgba(51, 48, 43, 0.16);
+
+    --credit:      #33694A;
+    --debit:       #9A4430;
+    --overdue:     #725C00;
+    --credit-soft: rgba(51, 105, 74, 0.13);
+    --debit-soft:  rgba(154, 68, 48, 0.13);
+    --tool-action: #77716A;
+
+    /* accounting.css */
+    --ink-dim:     rgba(51, 48, 43, 0.45);
+    --card-line:   rgba(138, 98, 48, 0.30);
+    --viz-gray:    #8A847A;
+
+    /* Tints used by the rules below */
+    --tint-1: rgba(51, 48, 43, 0.04);
+    --tint-2: rgba(51, 48, 43, 0.07);
+    --tint-3: rgba(51, 48, 43, 0.12);
+    --backdrop: rgba(51, 48, 43, 0.38);
+}
+
+/* ---- Chrome: ribbon, footer, company switch ------------------------ */
+/* The chrome is dark, thus its text is cream. The tokens below apply only
+   in the ribbon and the footer. The gold is lighter, thus the hover and
+   active states stay easy to read on the dark grey. */
+[data-theme="light"] .ribbon,
+[data-theme="light"] .footer {
+    --on-navy:     rgba(245, 239, 228, 0.82);   /* muted cream text */
+    --on-navy-dim: rgba(245, 239, 228, 0.18);
+    --line-strong: rgba(245, 239, 228, 0.24);
+    --gold:        #E3B873;
+    --gold-soft:   rgba(227, 184, 115, 0.16);
+    --gold-line:   rgba(227, 184, 115, 0.50);
+    color: #F5EFE4;                             /* cream text */
+}
+/* The profile menu and the avatar sit on a beige panel: keep the page gold. */
+[data-theme="light"] .ribbon .profile {
+    --gold:        #8A6230;
+    --gold-soft:   rgba(138, 98, 48, 0.13);
+    --gold-line:   rgba(138, 98, 48, 0.42);
+    --line-strong: rgba(51, 48, 43, 0.24);
+}
+[data-theme="light"] .ribbon,
+[data-theme="light"] .footer,
+[data-theme="light"] .company-switch__menu { background: var(--chrome); }
+[data-theme="light"] .company-switch__menu { border-color: var(--line-strong); }
+[data-theme="light"] .dot { box-shadow: 0 0 0 2px var(--chrome); }
+[data-theme="light"] .footer__version { color: rgba(245, 239, 228, 0.55); }
+[data-theme="light"] .ribbon .profile__btn:hover { background: rgba(245, 239, 228, 0.12); }
+
+[data-theme="light"] .modules .module.is-active,
+[data-theme="light"] .company-switch__btn,
+[data-theme="light"] .company-switch__item,
+[data-theme="light"] .search input { color: #F5EFE4; }
+
+[data-theme="light"] .search__field,
+[data-theme="light"] .company-switch__btn,
+[data-theme="light"] .company-switch__item {
+    background: rgba(245, 239, 228, 0.08);
+    border-color: var(--line-strong);
+}
+[data-theme="light"] .search__field:focus-within { background: var(--white); border-color: var(--gold); }
+[data-theme="light"] .search__field:focus-within input { color: var(--ink); }
+[data-theme="light"] .kbd { border-color: var(--line-strong); }
+[data-theme="light"] .avatar { box-shadow: 0 0 0 2px var(--gold-line); }
+[data-theme="light"] .avatar:has(img) { box-shadow: none; }
+
+[data-theme="light"] .menu a.is-danger,
+[data-theme="light"] .menu button.is-danger,
+[data-theme="light"] .menu a.is-danger:hover,
+[data-theme="light"] .menu button.is-danger:hover { color: var(--debit); }
+[data-theme="light"] .menu .is-danger .icon { stroke: var(--debit); }
+[data-theme="light"] .menu .is-danger:hover { background: var(--debit-soft); }
+
+/* ---- Shared module styles (base.css) ------------------------------- */
+[data-theme="light"] .nav__item:hover { background: var(--tint-2); }
+
+[data-theme="light"] .tool--primary:hover,
+[data-theme="light"] .tool.is-primary:hover { background: #9A7038; border-color: #9A7038; }
+[data-theme="light"] .doc-panel__foot .tool--primary:hover,
+[data-theme="light"] .msg-overlay .tool--primary:hover { border-color: #9A7038; }
+
+[data-theme="light"] .sheet::backdrop,
+[data-theme="light"] .doc-overlay::backdrop,
+[data-theme="light"] .scrim { background: var(--backdrop); }
+
+[data-theme="light"] .table tfoot td { background: var(--tint-1); }
+[data-theme="light"] .table tbody tr.is-group td,
+[data-theme="light"] .table tbody tr.is-group:hover td { background: var(--tint-2); }
+
+[data-theme="light"] .status--low {
+    border-color: rgba(114, 92, 0, 0.40);
+    background: rgba(114, 92, 0, 0.12);
+}
+
+/* ---- Accounting ---------------------------------------------------- */
+[data-theme="light"] .sheet__errors { background: var(--debit-soft); color: var(--debit); }
+[data-theme="light"] .sheet__errors--ok { background: var(--credit-soft); color: var(--credit); }
+
+[data-theme="light"] .table tbody tr.is-sum td,
+[data-theme="light"] .table tbody tr.is-open td,
+[data-theme="light"] .board__col,
+[data-theme="light"] .table--closed { background: var(--tint-1); }
+[data-theme="light"] .board__head,
+[data-theme="light"] .table--closed thead th { background-image: linear-gradient(var(--tint-1), var(--tint-1)); }
+
+[data-theme="light"] .journal-group__line td,
+[data-theme="light"] .item-group__line td { background: var(--tint-2); }
+[data-theme="light"] .table tbody tr.is-prior.is-group td { color: rgba(122, 85, 40, 0.55); }
+[data-theme="light"] .status--busy { background: var(--gold-soft); }
+
+[data-theme="light"] .gauge:not(.gauge--temp) .gauge__track,
+[data-theme="light"] .stack__bar { background: var(--tint-3); }
+[data-theme="light"] .gauge--temp .gauge__track::after { background-image: linear-gradient(var(--tint-3), var(--tint-3)); }
+
+[data-theme="light"] .dash-map.leaflet-container .leaflet-control-attribution { background: rgba(227, 218, 205, 0.85); }
+
+/* ---- Inventory ----------------------------------------------------- */
+[data-theme="light"] .chart-line--low .chart-line__area { fill: rgba(114, 92, 0, 0.12); }
+[data-theme="light"] .chart-rank__track { background: var(--tint-3); }
+[data-theme="light"] .chart-donut__ring { stroke: var(--tint-3); }
+[data-theme="light"] .graph__view { background-color: var(--tint-2); }
+[data-theme="light"] .gedge.is-limit { stroke: rgba(114, 92, 0, 0.45); }
+
+/* ---- Documents and messaging -------------------------------------- */
+[data-theme="light"] .msg-field .msg-field__error,
+[data-theme="light"] .msg-panel__status.is-error,
+[data-theme="light"] .doc-lines__remove:hover { color: var(--debit); }
+
+/* ---- The theme toggle in the profile menu -------------------------- */
+/* The toggle shows the moon in the dark theme and the sun in the light
+   theme. Each icon tells the theme that a click gives. */
+.theme-toggle .icon--sun { display: none; }
+[data-theme="light"] .theme-toggle .icon--sun { display: block; }
+[data-theme="light"] .theme-toggle .icon--moon { display: none; }

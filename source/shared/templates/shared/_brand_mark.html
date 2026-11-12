@@ -1,0 +1,6 @@
+{% comment %}
+  The brand mark of the ribbon. The logo of the current company replaces
+  the text mark when the company has one. The ?v= part changes with a new
+  logo, thus the browser does not show an old copy.
+  Parameter: text (the text mark without a logo).
+{% endcomment %}{% if request.company.logo_id %}<img class="brand__mark brand__mark--logo" src="{% url 'company_logo' request.company.pk %}?v={{ request.company.logo_id }}" alt="{{ request.company.name }}">{% else %}<span class="brand__mark">{{ text }}</span>{% endif %}

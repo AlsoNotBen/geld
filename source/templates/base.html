@@ -17,7 +17,14 @@
     <link rel="stylesheet" href="{% static 'messaging/css/messaging.css' %}">
 
     {% block module_css %}{% endblock %}
+    <link rel="stylesheet" href="{% static 'css/base-light.css' %}">
     {% block extra_head %}{% endblock %}
+
+    <!-- Set the theme before the page paints, thus the page does not flash.
+         base.js holds the toggle. -->
+    <script>
+        try { if (localStorage.getItem("theme") === "light") document.documentElement.dataset.theme = "light"; } catch (e) {}
+    </script>
 </head>
 
 <!-- The two data attributes identify the current module and the current page.
@@ -47,10 +54,9 @@
     <header class="ribbon">
         {% block ribbon_lead %}{% endblock %}
 
-        <!-- LOGO PLACEHOLDER — replace .brand__mark with
-             <img src="{% static 'img/logo.svg' %}" alt="Console" height="30">. -->
+        <!-- The fixed logo of the application. Company logos show only on documents. -->
         <a class="brand" href="/" aria-label="Home">
-            <span class="brand__mark">PT</span>
+            <img class="brand__mark brand__mark--logo" src="{% static 'img/icons/pothos.png' %}" alt="">
             <span class="brand__text">POTHOS<small>Enterprise</small></span>
         </a>
 
@@ -148,6 +154,11 @@
                         <svg class="icon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1l2-1.5-2-3.5-2.3 1a7 7 0 00-1.7-1l-.3-2.5h-4l-.3 2.5a7 7 0 00-1.7 1l-2.3-1-2 3.5 2 1.5a7 7 0 000 2l-2 1.5 2 3.5 2.3-1a7 7 0 001.7 1l.3 2.5h4l.3-2.5a7 7 0 001.7-1l2.3 1 2-3.5-2-1.5a7 7 0 00.1-1z"/></svg>
                         Settings
                     </a>
+                    <button type="button" role="menuitem" class="theme-toggle" data-theme-toggle>
+                        <svg class="icon icon--moon" viewBox="0 0 24 24" fill="none"><path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z" stroke-linejoin="round"/></svg>
+                        <svg class="icon icon--sun" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke-linecap="round"/></svg>
+                        <span data-theme-label>Light mode</span>
+                    </button>
                     <div class="menu__sep"></div>
                     <form method="post" action="{% url 'logout' %}">
                         {% csrf_token %}

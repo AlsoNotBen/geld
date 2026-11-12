@@ -35,6 +35,28 @@
         });
     }
 
+    // --- Theme toggle (light or dark) --------------------------------
+    // The inline script in the head of base.html sets the theme on load.
+    var themeBtn = document.querySelector("[data-theme-toggle]");
+    var themeLabel = document.querySelector("[data-theme-label]");
+
+    function isLight() { return document.documentElement.dataset.theme === "light"; }
+    function showThemeLabel() {
+        if (themeLabel) themeLabel.textContent = isLight() ? "Dark mode" : "Light mode";
+    }
+
+    if (themeBtn) {
+        showThemeLabel();
+        themeBtn.addEventListener("click", function (e) {
+            e.stopPropagation();        // The menu stays open.
+            var light = !isLight();
+            if (light) document.documentElement.dataset.theme = "light";
+            else delete document.documentElement.dataset.theme;
+            try { localStorage.setItem("theme", light ? "light" : "dark"); } catch (err) {}
+            showThemeLabel();
+        });
+    }
+
     // --- Mobile drawer ------------------------------------------------
     var drawerToggle = document.querySelector("[data-drawer-toggle]");
     var drawerClose = document.querySelector("[data-drawer-close]");

@@ -110,15 +110,13 @@
                         <div class="review__buttons">
                             <form method="post" action="{% url 'accounting:bill_approve' bill.id %}">
                                 {% csrf_token %}
-                                <button class="tool tool--sm tool--accept" type="submit" aria-label="Approve {{ bill.number }}">
-                                    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-10" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                    Approve
+                                <button class="row-icon row-icon--accept" type="submit" title="Approve" aria-label="Approve {{ bill.number }}">
+                                    <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4 10-10" stroke-linecap="round" stroke-linejoin="round"/></svg>
                                 </button>
                             </form>
-                            <button class="tool tool--sm tool--neutral" type="button" aria-label="View {{ bill.number }}"
+                            <button class="row-icon" type="button" title="View" aria-label="View {{ bill.number }}"
                                     data-bill-view="bill-view-{{ bill.id }}">
-                                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" stroke-linejoin="round"/><circle cx="12" cy="12" r="3"/></svg>
-                                View
+                                <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" stroke-linejoin="round"/><circle cx="12" cy="12" r="3"/></svg>
                             </button>
                         </div>
                     </td>
@@ -220,8 +218,8 @@
             <div class="sheet__head">
                 <h2 class="sheet__title" id="bill-dialog-title">New Bill</h2>
             </div>
+            <div class="warn-ribbons" role="alert" data-bill-errors hidden></div>
             <div class="sheet__body sheet__body--split">
-                <div class="sheet__errors field--wide" role="alert" data-bill-errors hidden></div>
                 {% comment %} A checkbox shows as a switch, as on record_form.html.
                      bills.js shows the frequency for a recurring bill only. {% endcomment %}
                 {% for field in bill_form %}
@@ -262,7 +260,7 @@
                                         {% for tax in tax_codes %}<option value="{{ tax.id }}">{{ tax.code }}</option>{% endfor %}
                                     </select>
                                 </td>
-                                <td><button class="tool tool--sm" type="button" data-bill-line-remove aria-label="Remove the line">&times;</button></td>
+                                <td><button class="row-icon" type="button" data-bill-line-remove title="Remove" aria-label="Remove the line"><svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg></button></td>
                             </tr>
                         </tbody>
                     </table>

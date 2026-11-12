@@ -223,7 +223,7 @@ def lead_stage(request, pk):
     return JsonResponse({"stage": stage})
 
 # ___________________________________DOCUMENTS_______________________________________#
-# The tone of the status pill of a document (see .status--* in accounting.css).
+# The tone of the status pill of a document (see .status--* in base.css and accounting.css).
 
 def sales_documents(company, limit=None, **filters):
     """The sales documents of the company, the newest first. Each gets the tone of its status."""

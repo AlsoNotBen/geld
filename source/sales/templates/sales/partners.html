@@ -67,7 +67,7 @@
                 <td>{% if partner.is_active %}<span class="status status--ok">Active</span>{% else %}<span class="status status--idle">Inactive</span>{% endif %}</td>
                 <td>{{ partner.contact|default:"—" }}</td>
                 <td>{{ partner.balance|money }}</td>
-                <td><a class="tool tool--sm" href="{% url 'accounting:customer_edit' partner.id %}" aria-label="Open {{ partner.name }}">Open</a></td>
+                <td><a class="row-icon" href="{% url 'accounting:customer_edit' partner.id %}" title="Open" aria-label="Open {{ partner.name }}"><svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" stroke-linecap="round" stroke-linejoin="round"/></svg></a></td>
             </tr>
             {% empty %}
             <tr><td colspan="6">There are no partners.</td></tr>

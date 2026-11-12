@@ -32,7 +32,7 @@
 
 {% block branding %}
 <a class="brand" href="{% url 'admin:index' %}" aria-label="Administration home">
-    <span class="brand__mark">PT</span>
+    <img class="brand__mark brand__mark--logo" src="{% static 'img/icons/pothos.png' %}" alt="">
     <span class="brand__text">POTHOS<small>Administration</small></span>
 </a>
 {% endblock %}

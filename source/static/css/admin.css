@@ -13,8 +13,6 @@
 /*  1. THE VARIABLES OF THE ADMIN                                     */
 /* ================================================================== */
 :root {
-    --gold-deep: #C79A4E;       /* the labels, the same as accounting.css */
-
     --primary: var(--gold-soft);
     --secondary: var(--navy);
     --accent: var(--gold);
@@ -80,6 +78,16 @@
 /* base.css gives each element the border-box model. Some parts of the
    admin need the model of the browser, e.g. the Delete button. */
 *, *::before, *::after { box-sizing: revert; }
+
+/* base.css also holds the shared module styles. The admin has its own
+   .main (the box of the side panel and the content). This rule removes
+   the padding and the scroll of the .main of a module page. */
+#container > .main { min-width: auto; overflow: visible; padding: 0; }
+/* The print rules of a module page make the body white. The admin keeps
+   its dark colors on paper. */
+@media print {
+    body { background: var(--cream); color: var(--ink); }
+}
 
 /* ---- The ribbon ---------------------------------------------------- */
 #header {

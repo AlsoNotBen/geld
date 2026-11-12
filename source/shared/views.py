@@ -12,7 +12,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods, require_POST
 
 from accounting.setup import seed_company
-from filestore.services import update_avatar
+from filestore.services import LOGO_EXTENSIONS, save_upload, update_avatar
 
 from .forms import AvatarField, CompanyForm
 from .middleware import SESSION_KEY
@@ -59,12 +59,16 @@ def company_create(request):
     POST makes the company, makes the user its owner, seeds its first-use
     data (see accounting.setup) and selects it. The answer is the form with
     the errors, or JSON with the page to go to."""
-    form = CompanyForm(request.POST or None)
+    form = CompanyForm(request.POST or None, request.FILES or None)
     if form.is_valid():
         with transaction.atomic():
             company = form.save()
             Membership.objects.create(user=request.user, company=company, role=Membership.Role.OWNER)
             seed_company(company, form.cleaned_data["fiscal_year_start"])
+            logo = form.cleaned_data["logo"]
+            if logo:
+                company.logo = save_upload(logo, request.user, company, LOGO_EXTENSIONS)
+                company.save(update_fields=["logo"])
         request.session[SESSION_KEY] = company.pk
         return JsonResponse({"redirect": reverse("index")})
     return render(request, "shared/company_form.html", {"form": form})

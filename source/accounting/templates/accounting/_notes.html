@@ -87,8 +87,8 @@
         <div class="sheet__head">
             <h2 class="sheet__title" id="note-new-title">New Note</h2>
         </div>
+        <div class="warn-ribbons" role="alert" data-note-errors hidden></div>
         <div class="sheet__body sheet__body--split">
-            <div class="sheet__errors field--wide" role="alert" data-note-errors hidden></div>
             <p class="note-hint field--wide">
                 The note is for this page and the period {{ range_start|date:"j F Y" }} to {{ range_end|date:"j F Y" }}.
                 A comment shows on this page only. A footnote also goes into the annual financial statements.

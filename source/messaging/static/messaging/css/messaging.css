@@ -43,15 +43,6 @@
 .msg-panel__body { padding: 16px 20px 4px; }
 .msg-panel__text { margin: 0 0 12px; }
 
-.msg-panel__error {
-    margin: 0 0 12px;
-    padding: 8px 12px;
-    border: 1px solid rgba(229, 119, 107, 0.45);
-    border-radius: var(--radius-sm);
-    background: rgba(229, 119, 107, 0.12);
-    color: #E5776B;
-}
-
 .msg-field { margin-bottom: 12px; }
 .msg-field label {
     display: block;
@@ -107,7 +98,9 @@
 .msg-panel__status { font-size: 12px; color: var(--ink-soft); }
 .msg-panel__actions { display: flex; align-items: center; gap: 10px; }
 
-/* The same buttons as the footer of the document overlay. */
+/* The same buttons as the footer of the document overlay. base.css loads
+   before this file, thus these rules win a tie against the .tool rules
+   of base.css. The hover rules thus give all the hover values. */
 .msg-overlay .tool {
     display: inline-flex;
     align-items: center;
@@ -117,19 +110,20 @@
     border: 1px solid var(--line-strong);
     font-weight: 500;
 }
-.msg-overlay .tool:hover { background: var(--gold-line); color: var(--navy); }
+.msg-overlay .tool:hover { background: var(--gold-line); border-color: var(--gold-line); color: var(--navy); }
 .msg-overlay .tool--primary {
     background: var(--gold);
     border-color: var(--gold);
     color: var(--navy);
 }
-.msg-overlay .tool--primary:hover { filter: brightness(1.06); }
+.msg-overlay .tool--primary:hover { border-color: #F5CB8C; filter: brightness(1.06); }
 .msg-overlay .tool:disabled { opacity: 0.6; cursor: wait; }
+.msg-overlay .tool[disabled]:hover { background: var(--white); border-color: var(--line); color: var(--ink-soft); }
 .msg-overlay .tool .icon { width: 16px; height: 16px; }
 
 /* ---- Send result -------------------------------------------------------
    sent.html shows .msg-result--ok as the full panel. compose.html shows
-   .msg-result--fail as a banner above the fields after a failed send.
+   a failed send as a warning ribbon (.warn-ribbons of base.css).
    The colors are literal, because the viewing mode of the Accounting
    module changes --credit and --debit. */
 .msg-result {
@@ -144,11 +138,6 @@
     background: linear-gradient(180deg, var(--tone-soft), transparent 70%);
     border-top: 3px solid var(--tone);
     border-radius: var(--radius) var(--radius) 0 0;
-}
-.msg-result--fail {
-    --tone: #E5776B;
-    --tone-soft: rgba(229, 119, 107, 0.12);
-    --tone-line: rgba(229, 119, 107, 0.45);
 }
 
 .msg-result__icon {
@@ -189,24 +178,6 @@
 }
 .msg-result__facts dt { color: var(--ink-soft); }
 .msg-result__facts dd { margin: 0; color: var(--ink); word-break: break-word; }
-
-/* The banner form: icon left, text right, inside the form body. */
-.msg-result--banner {
-    grid-template-columns: auto 1fr;
-    justify-items: start;
-    align-items: start;
-    gap: 12px;
-    margin: 0 0 14px;
-    padding: 12px 14px;
-    text-align: left;
-    background: var(--tone-soft);
-    border: 1px solid var(--tone-line);
-    border-left: 4px solid var(--tone);
-    border-radius: var(--radius-sm);
-}
-.msg-result--banner .msg-result__icon { width: 32px; height: 32px; margin: 0; }
-.msg-result--banner .msg-result__icon .icon { width: 18px; height: 18px; }
-.msg-result--banner .msg-result__title { font-size: 15px; }
 
 /* The status text after a network failure (messaging.js). */
 .msg-panel__status.is-error { color: #E5776B; font-weight: 500; }

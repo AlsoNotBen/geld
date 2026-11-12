@@ -3,24 +3,21 @@
    Place this file at: inventory/static/inventory/css/inventory.css
 
    module_base.html loads this file in the module_css block of base.html,
-   thus it always comes after base.css. The file stands alone: the module
-   loads no other stylesheet.
+   thus it always comes after base.css. The module does not load
+   accounting.css.
 
-   base.css holds the chrome only: the tokens, the ribbon, the module bar
-   and the footer. This file holds everything else of the module:
-     1. the layout    (.shell, .sidebar, .main, the drawer)
-     2. the tools     (.tool, .tool__sep, .tbar-menu)
-     3. the page      (.page, .page__head, .actionbar, .cards, .card)
-     4. the tables    (.table, .table--inv)
-     5. the forms     (.field)
-     6. the states    (.status)
-     7. the charts    (.chart-*)
-     8. the notes     (.notes)
+   base.css holds the chrome and the shared module styles: the layout,
+   the side panel, the tools, the sheet, the page, the cards, the base
+   table, the status pill, the notes and the print rules. These keep the
+   names, the sizes and the colors of the Accounting module, because the
+   two modules are one application. Change them in base.css.
 
-   Groups 1 to 4 and 8 keep the names, the sizes and the colors of the
-   Accounting module, because the two modules are one application. Do not
-   change a value of these groups here alone. A change must go into both
-   stylesheets, or into a shared file that base.html loads.
+   This file holds the parts that only Inventory has:
+     1. the tools     (.tool--accept, .tool--save, .tool--danger)
+     2. the forms     (.field, the input of an action bar)
+     3. the tables    (.table--inv)
+     4. the charts    (.chart-*)
+     5. the workbench, the item form, the tabs and the code builder
 
    ONE PAGE PATTERN
    Every page of the module has the same top part, in this order:
@@ -30,254 +27,19 @@
    All pages use the full width of the content area. All tables use the
    full width of the page.
 
-   All colors come from the tokens of base.css. The file adds the money
-   tokens that a quantity needs, and two sizes of its own.
+   All colors come from the tokens of base.css. The file adds two sizes
+   of its own.
    ========================================================================== */
 
 /* ---- Module tokens ------------------------------------------------- */
 :root {
-    --credit:      #7FBF9A;                    /* stock that comes in */
-    --debit:       #E0785E;                    /* stock that goes out */
-    --overdue:     #fff38c;                    /* stock that asks for an order */
-    --credit-soft: rgba(127, 191, 154, 0.14);
-    --debit-soft:  rgba(224, 120, 94, 0.14);
-
-    --rule:        rgba(232, 230, 222, 0.07);  /* table hairline */
-    --gold-deep:   #C79A4E;                    /* card labels */
-    --tool-h:      36px;
-    --tool-action: #808080;                    /* the Info button of the title */
-    --sidebar-w:   244px;
-
     --field-w:     158px;                      /* one field of an action bar */
     --chart-h:     152px;                      /* the plot of a chart */
 }
 
 /* ================================================================== */
-/*  LAYOUT  (base.css no longer supplies a shell)                     */
-/* ================================================================== */
-.shell { display: flex; min-height: 0; }
-
-.main {
-    flex: 1;
-    min-width: 0;
-    overflow-y: auto;
-    padding: 26px 30px 44px;
-}
-.page__empty { color: var(--ink-soft); }
-/* ================================================================== */
-/*  SIDE PANEL                                                        */
-/* ================================================================== */
-/* The panel stays on the canvas color. Only a hairline divides it from
-   the content, thus the figures on the right hold the attention. */
-.sidebar {
-    width: var(--sidebar-w);
-    flex: none;
-    background: var(--cream);
-    border-right: 1px solid var(--line);
-    padding: 18px 10px 28px;
-    overflow-y: auto;
-}
-
-.sidebar__title {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 1.6px;
-    text-transform: uppercase;
-    color: var(--gold-deep);
-    padding: 2px 12px 16px;
-}
-
-.nav { display: flex; flex-direction: column; gap: 1px; }
-
-/* The group label carries a rule to the right edge. The rule separates
-   the parts of the ledger without a heading that shouts. */
-.nav__group {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin: 16px 0 6px;
-    padding: 0 12px;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 1.2px;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-    white-space: nowrap;
-}
-.nav__group::after {
-    content: "";
-    flex: 1 1 auto;
-    height: 1px;
-    background: var(--line);
-}
-.nav__group:first-child { margin-top: 0; }
-
-.nav__item {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    border-radius: var(--radius-sm);
-    color: var(--ink-soft);
-    font-weight: 500;
-    transition: color 0.12s ease, background 0.12s ease;
-}
-.nav__item:hover { color: var(--ink); background: rgba(232, 230, 222, 0.05); }
-
-/* The script of base.html adds is-active to the item that matches the
-   data-page attribute of the body. */
-.nav__item.is-active {
-    color: var(--gold);
-    font-weight: 600;
-    background: transparent;
-}
-.nav__item.is-active::before {
-    content: "";
-    position: absolute;
-    left: 2px;
-    top: 9px;
-    bottom: 9px;
-    width: 2px;
-    border-radius: 2px;
-    background: var(--gold);
-}
-
-.nav__count {
-    margin-left: auto;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--ink-soft);
-    background: var(--white);
-    border: 1px solid var(--line);
-    padding: 0 7px;
-    border-radius: 20px;
-}
-.nav__item.is-active .nav__count {
-    color: var(--gold);
-    background: var(--gold-soft);
-    border-color: var(--gold-line);
-}
-
-/* The drawer button in the ribbon. It appears on a small screen only.
-   Refer to the media query at 900px. */
-.drawer-toggle { display: none; }
-.scrim { display: none; }
-/* ================================================================== */
 /*  TOOLBAR  (module_base.html fills .toolbar with .tool buttons)     */
 /* ================================================================== */
-
-/* The toolbar itself should center its controls vertically. */
-.toolbar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-height: var(--tool-h);
-}
-
-/* Every tool is a self-contained, vertically and horizontally centered
-   control. Explicit line-height prevents font metrics from making the
-   label appear a few pixels too high or low. */
-.tool {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    align-self: center;
-    gap: 7px;
-
-    flex: 0 0 auto;
-    min-width: 34px;
-    height: var(--tool-h);
-    box-sizing: border-box;
-
-    padding: 0 13px;
-    margin: 0;
-
-    border: 1px solid var(--line);
-    border-radius: var(--radius-sm);
-    background: var(--white);
-    color: var(--ink-soft);
-
-    font-family: var(--font-sans);
-    font-size: 13px;
-    font-weight: 600;
-    line-height: 1;
-
-    text-align: center;
-    vertical-align: middle;
-    white-space: nowrap;
-
-    appearance: none;
-    -webkit-appearance: none;
-
-    transition:
-        background 0.15s ease,
-        border-color 0.15s ease,
-        color 0.15s ease;
-}
-
-/* SVGs/icons don't participate in the text baseline. */
-.tool .icon {
-    display: block;
-    flex: 0 0 16px;
-    width: 16px;
-    height: 16px;
-    margin: 0;
-    stroke: currentColor;
-    stroke-width: 1.8;
-}
-
-/* If the icon is the only content, it remains exactly centered. */
-.tool:has(.icon:only-child) {
-    padding-left: 8px;
-    padding-right: 12px;
-}
-
-/* Text inside a tool is centered independently of font rendering. */
-.tool > span,
-.tool > label {
-    display: block;
-    margin: 0;
-    padding: 0;
-    line-height: 1;
-    text-align: center;
-}
-
-/* Hover ------------------------------------------------------------- */
-.tool:hover {
-    background: var(--gold-soft);
-    border-color: var(--gold-line);
-    color: var(--gold);
-}
-
-/* Primary. One button of a bar, at most. It starts the main task of
-   the page: a new entry, a new account, or the acceptance of a list. */
-.tool--primary,
-.tool.is-primary {
-    background: var(--gold);
-    border-color: var(--gold);
-    color: var(--navy);
-}
-.tool--primary:hover,
-.tool.is-primary:hover {
-    background: #F5CB8C;
-    border-color: #F5CB8C;
-    color: var(--navy);
-}
-.tool--primary .icon,
-.tool.is-primary .icon { stroke: var(--navy); }
-
-/* Ghost ------------------------------------------------------------- */
-.tool--ghost { background: transparent; }
-.tool--ghost:hover { background: var(--gold-soft); }
-
-.tool--neutral {
-    color: var(--ink);
-    border-color: var(--ink);
-    background: transparent;
-}
-.tool--neutral:hover { background: var(--gold-soft); }
 
 /* Accept. The green comes on hover only, thus a list of ten rows does
    not shout. */
@@ -318,513 +80,6 @@
 }
 .tool--danger .icon { stroke: currentColor; }
 
-/* Small. For a button inside a table row. */
-.tool--sm {
-    min-width: 28px;
-    height: 28px;
-    padding: 0 10px;
-    gap: 6px;
-    font-size: 12px;
-}
-.tool--sm .icon {
-    flex: 0 0 14px;
-    width: 14px;
-    height: 14px;
-}
-
-/* Disabled ---------------------------------------------------------- */
-.tool[disabled] {
-    opacity: 0.45;
-    cursor: not-allowed;
-}
-.tool[disabled]:hover {
-    background: var(--white);
-    border-color: var(--line);
-    color: var(--ink-soft);
-}
-
-/* Divider ----------------------------------------------------------- */
-.tool__sep {
-    flex: 0 0 1px;
-    width: 1px;
-    height: 20px;
-    margin: 0 4px;
-    padding: 0;
-    background: var(--line-strong);
-    align-self: center;
-}
-
-/* If the toolbar contains native buttons alongside .tool elements,
-   normalize their box model so they line up identically. */
-.toolbar > button,
-.toolbar > a {
-    box-sizing: border-box;
-    vertical-align: middle;
-}
-/* ------------------------------------------------------------------ */
-/*  TOOLBAR MENUS                                                     */
-/*                                                                    */
-/*  The prefix tbar- keeps these rules away from the .menu rules of   */
-/*  base.css, which belong to the profile drop-down of the ribbon.    */
-/* ------------------------------------------------------------------ */
-
-/* base.css makes .toolbar a scroll container. A scroll container
-   clips a panel that hangs below the bar. The module thus removes
-   the scroll. The media queries below keep the bar inside the
-   screen instead. */
-.context { overflow: visible; }
-.toolbar {
-    overflow: visible;
-    flex-wrap: nowrap;
-}
-
-.tbar-menu {
-    position: relative;
-    display: inline-flex;
-    flex: 0 0 auto;
-    align-self: center;
-}
-
-/* The caret is smaller than a tool icon. */
-.tbar-menu__btn .icon--caret {
-    flex: 0 0 12px;
-    width: 12px;
-    height: 12px;
-    opacity: 0.75;
-}
-
-.tbar-menu__panel {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    z-index: 70;
-    min-width: 196px;
-    margin-top: 6px;
-    padding: 6px;
-
-    background: var(--white);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-md);
-
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(-4px);
-    transition:
-        opacity 0.12s ease,
-        transform 0.12s ease,
-        visibility 0.12s;
-}
-
-/* A gap of 6px is between the button and the panel. This bridge
-   fills the gap, thus the pointer does not lose the menu. */
-.tbar-menu::after {
-    content: "";
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    height: 8px;
-}
-
-.tbar-menu:hover .tbar-menu__panel,
-.tbar-menu:focus-within .tbar-menu__panel {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0);
-}
-
-/* The button keeps the hover tone while the panel is open. */
-.tbar-menu:hover .tbar-menu__btn,
-.tbar-menu:focus-within .tbar-menu__btn {
-    background: var(--gold-soft);
-    border-color: var(--gold-line);
-    color: var(--gold);
-}
-
-.tbar-menu__item {
-    display: block;
-    padding: 8px 12px;
-    border-radius: var(--radius-sm);
-    color: var(--ink-soft);
-    font-family: var(--font-sans);
-    font-size: 13px;
-    font-weight: 500;
-    line-height: 1.2;
-    white-space: nowrap;
-    text-decoration: none;
-    transition: background 0.12s ease, color 0.12s ease;
-}
-.tbar-menu__item:hover,
-.tbar-menu__item:focus-visible {
-    background: var(--gold-soft);
-    color: var(--gold);
-    outline: none;
-}
-
-.tbar-menu__sep {
-    display: block;
-    height: 1px;
-    margin: 6px 8px;
-    background: var(--line);
-}
-
-/* The last menu is near the right edge. Its panel opens to the left. */
-.tbar-menu__panel--right { left: auto; right: 0; }
-
-/* A device without a pointer has no hover. A touch gives focus, thus
-   focus-within opens the panel. */
-@media (hover: none) {
-    .tbar-menu:hover .tbar-menu__panel {
-        opacity: 0;
-        visibility: hidden;
-    }
-    .tbar-menu:focus-within .tbar-menu__panel {
-        opacity: 1;
-        visibility: visible;
-    }
-}
-
-/* The toolbar has no scroll. The menus therefore go away before the
-   bar becomes too wide. The side panel holds the same links. */
-@media (max-width: 1100px) {
-    .toolbar .tbar-menu { display: none; }
-    .toolbar .tool__sep:first-of-type { display: none; }
-}
-/* ================================================================== */
-/*  PAGE                                                              */
-/* ================================================================== */
-/* Every page takes the full width of the content area. A statement
-   thus has the same width as the ledger and the chart of accounts. */
-.page,
-.page--statement {
-    width: 100%;
-    max-width: none;
-    margin: 0;
-}
-
-.page__title {
-    display: flex;
-    align-items: baseline;
-    gap: 12px;
-    margin: 0;
-    font-size: 22px;
-    font-weight: 600;
-    color: var(--ink);
-}
-
-.page__subtitle {
-    margin: 34px 0 14px;
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--ink);
-}
-
-/* ---- The page head ------------------------------------------------- */
-/* The head is the same on every page: the title, and one paragraph
-   below it. The paragraph tells the reader what the page is, what the
-   figures are for, and which period and currency they hold. */
-.page__head { margin: 0 0 20px; }
-
-/* The paragraph stays hidden until the user clicks the Info button of
-   the title. page_note.js (of the Accounting module) adds the button,
-   and the button sets the class is-open on the head. */
-.page__head > .page__note {
-    display: none;
-    margin: 8px 0 0;
-    width: 100%;
-    max-width: none;
-    color: var(--ink-soft);
-    font-size: 13px;
-    line-height: 1.55;
-}
-.page__head.is-open > .page__note { display: block; }
-
-/* The Info button. It is small and grey, thus it does not pull the eye. */
-.page__info {
-    align-self: center;
-    display: grid;
-    place-items: center;
-    width: 22px;
-    height: 22px;
-    margin-left: -4px;
-    border-radius: 50%;
-    color: var(--tool-action);
-    transition: color 0.12s ease;
-}
-.page__info:hover,
-.page__info[aria-expanded="true"] { color: var(--ink-soft); }
-.page__info .icon { width: 16px; height: 16px; stroke: currentColor; }
-
-.page__note {
-    margin: 0;
-    max-width: 78ch;
-    color: var(--ink-soft);
-    font-size: 13px;
-    line-height: 1.55;
-}
-
-/* ---- The action bar ------------------------------------------------ */
-/* One bar on every page. It goes below the page head and above the
-   content, and it moves away when the user scrolls down. Its buttons
-   are in this order:
-       the primary task of the page, if the page has one
-       a separator
-       Print and Export, as plain tools
-       more tools of the page
-   The hint at the right end explains the state of the bar. */
-.actionbar {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    flex-wrap: wrap;
-    min-height: 62px;
-    margin: 0 0 22px;
-    padding: 13px 16px;
-    background: var(--white);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-}
-/* The old name of the bar above the content. It changes nothing now,
-   because every bar is at the top. It stays for a template that still
-   uses it. */
-.actionbar--top { position: static; }
-
-.actionbar__group {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-
-.actionbar__hint {
-    margin: 0 0 0 auto;
-    color: var(--ink-soft);
-    font-size: 12px;
-}
-/* ================================================================== */
-/*  BALANCE CARDS                                                     */
-/* ================================================================== */
-/* Five cards fill the full width of the content area. The tracks stay
-   equal, thus the row reads as one band of figures. */
-.cards {
-    display: grid;
-    width: 100%;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 14px;
-}
-
-.card {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    padding: 16px 18px 18px;
-    background: var(--white);
-    border: 1px solid var(--line-strong);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-sm);
-}
-
-/* The label of the 5th card is long. The value keeps to the bottom
-   edge, thus all five figures stay on one line. */
-.card__label {
-    display: block;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: bold;
-    letter-spacing: 1.2px;
-    text-transform: uppercase;
-    line-height: 1.4;
-    color: var(--gold-deep);
-}
-
-/* Money must align on the decimal point. Tabular figures do this. */
-.card__value {
-    margin-top: auto;
-    padding-top: 10px;
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    font-size: 24px;
-    font-weight: 500;
-    letter-spacing: -0.4px;
-    white-space: nowrap;
-    color: var(--ink);
-}
-/* Set the currency in the template: <div class="card__value" data-unit="ZAR"> */
-.card__value[data-unit]::after {
-    content: attr(data-unit);
-    margin-left: 6px;
-    font-size: 11px;
-    letter-spacing: 1px;
-    color: var(--ink-soft);
-    vertical-align: 2px;
-}
-
-/* Direction of the money. It touches the figure only. */
-.card__value.is-debit,
-.card--debit  .card__value { color: var(--debit); }
-
-.card__value.is-credit,
-.card--credit .card__value { color: var(--credit); }
-
-/* Money at risk. It is receivable, thus it is not a debit. */
-.card__value.is-overdue { color: var(--overdue); }
-
-/* A count is not money. The figure then loses the currency spacing. */
-.card__value.is-count,
-.card--count .card__value { font-size: 26px; letter-spacing: 0; }
-/* ================================================================== */
-/*  TABLE  (the base of every table of the module)                    */
-/*  Columns: Date · Reference · Account · Amount                      */
-/* ================================================================== */
-/* Every table takes the full width of the page. The variants below
-   change the columns only, not the frame. */
-.table {
-    width: 100%;
-    font-size: 13px;
-    background: var(--white);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-sm);
-    border-collapse: separate;
-    border-spacing: 0;
-    overflow: hidden;
-    table-layout: auto;
-}
-.table th,
-.table td { text-align: left; white-space: nowrap; }
-
-.table thead th {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    padding: 13px 16px;
-    background: var(--white);
-    border-bottom: 1px solid var(--line-strong);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 1.2px;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-}
-
-.table tbody td {
-    border-bottom: 1px solid var(--rule);
-    padding: 12px 16px;
-}
-.table tbody tr:last-child td { border-bottom: none; }
-.table tbody tr { transition: background 0.12s ease; }
-.table tbody tr:hover { background: var(--gold-soft); }
-
-/* Column 1 = Date, column 2 = Reference. Both are machine data. */
-.table td:first-child,
-.table td:nth-child(2) {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--ink-soft);
-}
-.table td:nth-child(2) { color: var(--ink); }
-
-/* Column 3 = Account. It takes the free space. */
-.table th:nth-child(3),
-.table td:nth-child(3) { width: 100%; white-space: normal; }
-
-/* Column 4 = Amount. It stays on the right edge of the row. */
-.table th:last-child,
-.table td:last-child { text-align: right; }
-.table td:last-child {
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    font-weight: 500;
-    color: var(--ink);
-}
-/* Add is-debit or is-credit to the amount cell to show the direction. */
-.table td.is-debit  { color: var(--debit); }
-.table td.is-credit { color: var(--credit); }
-
-/* The empty state. It tells the user what the period holds. */
-.table td[colspan] {
-    padding: 34px 16px;
-    text-align: center;
-    color: var(--ink-soft);
-}
-.table tbody tr:hover td[colspan] { background: transparent; }
-
-/* ---- The foot of a table ------------------------------------------- */
-/* The foot holds the figure that the reader looks for first. All
-   variants use the same foot. */
-.table tfoot td {
-    border-top: 1px solid var(--line-strong);
-    padding: 13px 16px;
-    background: rgba(232, 230, 222, 0.03);
-    font-weight: 600;
-    color: var(--ink);
-}
-.table tfoot td[colspan] {
-    padding: 13px 16px;
-    text-align: left;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 1.2px;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-}
-/* ---- Shared row states --------------------------------------------- */
-/*  is-group  a heading row inside the table: Kits, Components          */
-/*  is-nest   a line that belongs to the group above it                 */
-
-/* The group row uses the label of the side panel, thus all lists of
-   the module read the same. */
-.table tbody tr.is-group td {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 1.2px;
-    text-transform: uppercase;
-    color: var(--gold-deep);
-    background: rgba(232, 230, 222, 0.04);
-}
-.table tbody tr.is-group:hover td { background: rgba(232, 230, 222, 0.04); }
-
-/* A group row spans the full width. The rule below removes the large
-   space of the empty state, which uses the same colspan attribute. */
-.table tbody tr.is-group td[colspan] {
-    padding: 11px 16px;
-    text-align: left;
-}
-
-/* The space shows that the line belongs to the group above it. */
-.table tbody tr.is-nest td:first-child { padding-left: 34px; }
-/* ================================================================== */
-/*  NOTES                                                             */
-/* ================================================================== */
-/* Each note is a card of the module. The list gives the cards one
-   column, because a person reads a note as text. */
-.notes {
-    display: grid;
-    gap: 12px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-.notes .card { padding: 14px 16px 16px; }
-.notes .card__label { margin: 0 0 8px; }
-
-.notes__text {
-    margin: 0;
-    max-width: 74ch;
-    color: var(--ink-soft);
-    font-size: 13px;
-}
-.notes__text + .notes__text { margin-top: 8px; }
-
-/* A wide screen gets two columns. A note is short, thus two columns
-   keep the page in one screen. */
-@media (min-width: 1240px) {
-    .notes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
 /* ================================================================== */
 /*  /*  FORM CONTROL                                                      */
 /* ================================================================== */
@@ -890,35 +145,8 @@
        red     the item stops the work
        gold    the item is in an operation
        grey    the item is out of use
-   The dot carries the color a second time, for a reader who does not
-   see the difference between green and red. */
-.status {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 2px 9px;
-    border: 1px solid var(--line-strong);
-    border-radius: 20px;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 500;
-    line-height: 1.6;
-    white-space: nowrap;
-    color: var(--ink-soft);
-}
-.status::before {
-    content: "";
-    flex: none;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: currentColor;
-}
-.status--ok   { color: var(--credit);  border-color: rgba(127, 191, 154, 0.45); background: var(--credit-soft); }
-.status--low  { color: var(--overdue); border-color: rgba(255, 243, 140, 0.40); background: rgba(255, 243, 140, 0.12); }
-.status--out  { color: var(--debit);   border-color: rgba(224, 120, 94, 0.45);  background: var(--debit-soft); }
+   The pill holds only text: it has no dot. */
 .status--busy { color: var(--gold);    border-color: var(--gold-line);          background: var(--gold-soft); }
-.status--idle { color: var(--ink-soft); }
 
 /* ================================================================== */
 /*  ITEM TABLE                                                        */
@@ -990,20 +218,6 @@
     font-size: 11px;
     font-weight: 400;
     color: var(--ink-soft);
-}
-
-/* A label that a screen reader gets, but the screen does not show. The
-   action bars use it for the name of a field. */
-.visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    padding: 0;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-    border: 0;
 }
 
 /* ================================================================== */
@@ -1171,6 +385,7 @@
 .chart-c4 { stroke: var(--overdue);   background: var(--overdue); }
 .chart-c5 { stroke: var(--gold-deep); background: var(--gold-deep); }
 .chart-c6 { stroke: var(--ink-soft);  background: var(--ink-soft); }
+
 /* ================================================================== */
 /*  WORKBENCH  (three columns that browse, edit and relate one record) */
 /* ================================================================== */
@@ -1200,10 +415,6 @@
 
 .bom__list { flex: 1 1 auto; margin-top: 14px; }
 
-/* The pill of this column gives a count, not a state that needs a
-   color. The dot of .status thus goes away here: the number is the
-   whole message. */
-.bom .status::before { content: none; }
 
 /* A kit that the stock can build now stands out in the text color of
    the page. A kit that the stock cannot build keeps the muted color of
@@ -1434,21 +645,8 @@ form:has(input[name="new_model-depreciate"]:checked) .useful-life-hint { display
     font-weight: 600;
     white-space: nowrap;
 }
-.tabset__tab:hover { color: var(--gold); background: var(--gold-soft); }
-.tabset__tab[aria-selected="true"] { color: var(--ink); }
-.tabset__tab[aria-selected="true"]::after {
-    content: "";
-    position: absolute;
-    left: 10px;
-    right: 10px;
-    bottom: -1px;
-    height: 2px;
-    border-radius: 2px 2px 0 0;
-    background: var(--gold);
-}
 .tabset__tab .icon { width: 16px; height: 16px; stroke: currentColor; }
 .tabset__tab[aria-selected="true"] .icon { stroke: var(--gold); }
-.tabset__panel[hidden] { display: none; }
 
 /* The select, the search button and the "+" button on one line. The
    select takes the free width. The "+" can be a link (Item tab). */
@@ -1481,6 +679,8 @@ form:has(input[name="new_model-depreciate"]:checked) .useful-life-hint { display
 }
 .item-flash.is-error { border-color: rgba(224, 120, 94, 0.45); background: var(--debit-soft); color: var(--debit); }
 .item-flash[hidden] { display: none; }
+.item-flash { transition: opacity 0.4s ease; }
+.item-flash.is-gone { opacity: 0; }
 
 /* The tabs of the item editor share the full width. */
 .item-tabs .tabset__tab { flex: 1 1 0; justify-content: center; }
@@ -1507,6 +707,34 @@ form:has(input[name="new_model-depreciate"]:checked) .useful-life-hint { display
 
 /* The image of a model: in the All items table and in the View overlay. */
 .item-cell { display: inline-flex; align-items: center; gap: 10px; }
+
+/* The All items table. Each group of items is one tbody, as the journal
+   entries of Accounting. The item rows of a group show when the group is
+   open (items.html), and always on paper. A line divides two groups. */
+.table--items tbody + tbody tr:first-child td { border-top: 1px solid var(--rule); }
+.item-group__line { display: none; }
+.item-group.is-open .item-group__line { display: table-row; }
+.item-group__line td { background: rgba(0, 0, 0, 0.12); }
+.item-group__line td.is-name { padding-left: 34px; }
+.item-group__count { margin-left: 6px; font-size: 11px; font-weight: 400; color: var(--ink-soft); white-space: nowrap; }
+.item-group__toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+}
+.item-group__toggle:hover { color: var(--gold); }
+.item-group__toggle .icon { width: 14px; height: 14px; stroke: currentColor; transition: transform 0.15s ease; }
+.item-group__toggle[aria-expanded="true"] .icon { transform: rotate(90deg); }
+@media print {
+    .item-group__line { display: table-row; }
+    .item-group__toggle .icon { display: none; }
+}
 .item-thumb {
     flex: none;
     width: 32px;
@@ -1523,7 +751,6 @@ form:has(input[name="new_model-depreciate"]:checked) .useful-life-hint { display
 /* The View, Edit and Checkout buttons of a row. */
 .row-actions { display: flex; gap: 6px; justify-content: flex-end; }
 .row-actions form { margin: 0; }
-.row-actions .tool:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* The View overlay: the facts of the item as two columns. */
 .item-view__head { display: flex; align-items: center; gap: 14px; }
@@ -1635,8 +862,8 @@ form:has(input[name="new_model-depreciate"]:checked) .useful-life-hint { display
 .seg-list .tree__row { cursor: default; }
 .seg-list .tree__row + .tree__row { border-top: 1px solid var(--line); }
 
-/* The dot of .status names a state. A segment order is a position, not
-   a state, thus the dot goes away here, as it does inside .bom. */
+/* A segment order is a position, not a state. It uses the shape of
+   .status, but it is a small circle with no border. */
 .seg-row__order {
     flex: none;
     width: 22px;
@@ -1646,7 +873,6 @@ form:has(input[name="new_model-depreciate"]:checked) .useful-life-hint { display
     border-color: transparent;
     font-family: var(--font-mono);
 }
-.seg-row__order::before { content: none; }
 .seg-row__len { flex: none; width: 74px; }
 .seg-row__cat { flex: 1 1 auto; min-width: 0; width: auto; }
 
@@ -1709,43 +935,16 @@ form:has(input[name="new_model-depreciate"]:checked) .useful-life-hint { display
 /*  accounting/_notes.html and accounting/templatetags/note_tags.py)  */
 /*  The Notes pill · the cards · the overlays                         */
 /*                                                                    */
-/*  These rules are a copy of the rules of accounting.css. The module */
-/*  loads no other stylesheet, thus the copy is necessary.            */
+/*  base.css has the shared rules. These are the changes of Inventory. */
 /* ================================================================== */
 
 /* ---- Sheet: a dialog that holds a form ---------------------------- */
-.sheet {
-    width: min(440px, calc(100vw - 32px));
-    padding: 0;
-    border: 1px solid var(--line-strong);
-    border-radius: var(--radius);
-    background: var(--white);
-    color: var(--ink);
-    box-shadow: var(--shadow-md);
-}
-.sheet::backdrop {
-    background: rgba(24, 26, 31, 0.55);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-}
-.sheet--wide { width: min(60vw, calc(100vw - 32px)); }
-
-.sheet__head { padding: 16px 18px; border-bottom: 1px solid var(--line); }
-.sheet__title { margin: 0; font-size: 15px; font-weight: 600; color: var(--ink); }
-.sheet__body { display: grid; gap: 14px; padding: 18px; }
-.sheet__body--split {
-    grid-template-columns: 1fr 1fr;
-    column-gap: 18px;
-    align-items: start;
-}
 .sheet__foot {
     display: flex;
     gap: 8px;
     padding: 14px 18px;
     border-top: 1px solid var(--line);
 }
-.sheet__foot [data-dialog-cancel] { order: 1; }
-.sheet__foot .tool--primary       { order: 2; }
 
 .sheet__errors {
     display: grid;
@@ -1756,8 +955,6 @@ form:has(input[name="new_model-depreciate"]:checked) .useful-life-hint { display
     color: var(--debit);
     font-size: 12.5px;
 }
-.sheet__errors[hidden] { display: none; }
-.sheet__errors p { margin: 0; }
 
 /* ---- A field of a sheet ------------------------------------------- */
 /* In this module, .field is the input of an action bar. In a note
@@ -1774,15 +971,6 @@ form:has(input[name="new_model-depreciate"]:checked) .useful-life-hint { display
 }
 .note-sheet .field--wide,
 .sheet__body--split .field--wide { width: auto; grid-column: 1 / -1; }
-
-.field__label {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: bold;
-    letter-spacing: 1.2px;
-    text-transform: uppercase;
-    color: var(--gold-deep);
-}
 .field__control {
     height: var(--tool-h);
     padding: 0 12px;
@@ -1794,115 +982,8 @@ form:has(input[name="new_model-depreciate"]:checked) .useful-life-hint { display
     font-family: var(--font-sans);
     font-size: 13px;
 }
-.field__control:focus { outline: none; border-color: var(--gold-line); }
-.field__control:disabled { opacity: 0.55; cursor: not-allowed; }
-textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
-
-/* ---- Switch: one option that is on or off -------------------------- */
-.switch {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    height: var(--tool-h);
-    cursor: pointer;
-}
-.switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-.switch__track {
-    position: relative;
-    flex: none;
-    width: 38px;
-    height: 20px;
-    border-radius: 999px;
-    background: var(--cream);
-    border: 1px solid var(--line-strong);
-    transition: background 0.15s ease, border-color 0.15s ease;
-}
-.switch__track::after {
-    content: "";
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: var(--ink-soft);
-    transition: transform 0.15s ease, background 0.15s ease;
-}
-.switch input:checked + .switch__track { background: var(--gold-soft); border-color: var(--gold-line); }
-.switch input:checked + .switch__track::after { transform: translateX(18px); background: var(--gold); }
-.switch input:focus-visible + .switch__track { outline: 2px solid var(--gold); outline-offset: 2px; }
-.switch__text { font-size: 13px; color: var(--ink-soft); }
-.switch input:checked ~ .switch__text { color: var(--ink); }
-
-/* ---- Toggle: one option of two or more is on, e.g. Internal | Public --- */
-.toggle {
-    display: flex;
-    gap: 2px;
-    width: fit-content;
-    height: var(--tool-h);
-    padding: 3px;
-    border: 1px solid var(--line);
-    border-radius: var(--radius-sm);
-    background: var(--cream);
-}
-.toggle__option {
-    position: relative;
-    display: flex;
-    align-items: center;
-    padding: 0 14px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--ink-soft);
-    cursor: pointer;
-    transition: background 0.12s ease, color 0.12s ease;
-}
-.toggle__option input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-.toggle__option:hover { color: var(--gold); }
-.toggle__option:has(input:checked) { background: var(--gold-soft); color: var(--gold); }
-.toggle__option:has(input:focus-visible) { outline: 2px solid var(--gold); outline-offset: 2px; }
-
-/* ---- The Notes pill at the right end of the page title ------------- */
-.notes-pill {
-    margin-left: auto;
-    align-self: center;
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 3px 4px 3px 11px;
-    background: var(--white);
-    border: 1px solid var(--line);
-    border-radius: 20px;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 1.2px;
-    line-height: 1.5;
-    text-transform: uppercase;
-    white-space: nowrap;
-    color: var(--ink-soft);
-}
-.notes-pill__count {
-    min-width: 20px;
-    padding: 0 6px;
-    border-radius: 20px;
-    background: var(--line);
-    color: var(--ink);
-    text-align: center;
-    letter-spacing: 0;
-}
-.notes-pill[href]:hover { border-color: var(--line-strong); color: var(--ink); }
 
 /* ---- The two groups below the content of the page ------------------ */
-.page-notes { display: grid; gap: 22px; margin-top: 34px; }
-
-.note-group__head {
-    cursor: pointer;
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--ink);
-}
-.note-group__head::marker { color: var(--ink-soft); }
 .tabset__count {
     margin-left: 6px;
     padding: 0 7px;
@@ -1915,131 +996,15 @@ textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
     color: var(--ink-soft);
 }
 
-.note-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 12px;
-    margin-top: 12px;
-}
-.note-card {
-    gap: 8px;
-    min-width: 0;
-    padding: 12px 14px;
-    cursor: pointer;
-    transition: background 0.12s ease, border-color 0.12s ease;
-}
-.note-card:hover { background: var(--gold-soft); border-color: var(--gold-line); }
-
-.note-card__title { margin: 0; min-width: 0; font-size: 13px; font-weight: 600; }
-.note-card__title button {
-    display: block;
-    max-width: 100%;
-    padding: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    text-align: left;
-    font-weight: inherit;
-    color: var(--ink);
-}
-.note-card__meta {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 2px 10px;
-    margin: auto 0 0;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--ink-soft);
-}
-
-/* The rich text of a note: the description in a card and in the overlay. */
-.note-text { font-size: 13px; line-height: 1.55; color: var(--ink); overflow-wrap: anywhere; }
-.note-text :is(p, ol, ul) { margin: 0 0 6px; }
-.note-text :is(ol, ul) { padding-left: 20px; }
-.note-text > :last-child { margin-bottom: 0; }
-.note-text a[href] { color: var(--gold); text-decoration: underline; }
-
-/* In a card, the description shows three lines at most. */
-.note-card__text {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-    max-height: 4.65em;
-    overflow: hidden;
-    font-size: 12px;
-    color: var(--ink-soft);
-}
-.note-card__text :is(p, ol, ul) { margin: 0; }
-
-.note-file {
-    display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 12px;
-    color: var(--gold);
-}
-.note-file:hover { text-decoration: underline; }
-
-.note-read { margin: 0; font-size: 13px; color: var(--ink); }
-.note-hint { margin: 0; font-size: 12px; line-height: 1.5; color: var(--ink-soft); }
-
-/* The Quill editor. quill.snow.css has a light theme. These rules give
-   it the colors of the module. */
-#note-new .ql-toolbar.ql-snow,
-#note-new .ql-container.ql-snow { border-color: var(--line); background: var(--cream); }
-#note-new .ql-toolbar.ql-snow { border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
-#note-new .ql-container.ql-snow {
-    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-    font-family: var(--font-sans);
-    font-size: 13px;
-    color: var(--ink);
-}
-#note-new .ql-container.ql-snow:focus-within { border-color: var(--gold-line); }
-#note-new .ql-editor { min-height: 140px; }
-#note-new .ql-editor:focus-visible { outline: none; }
-#note-new .ql-editor.ql-blank::before { color: var(--ink-soft); font-style: normal; }
-#note-new .ql-snow .ql-stroke { stroke: var(--ink-soft); }
-#note-new .ql-snow .ql-fill { fill: var(--ink-soft); }
-#note-new .ql-snow button:hover .ql-stroke,
-#note-new .ql-snow button.ql-active .ql-stroke { stroke: var(--gold); }
-#note-new .ql-snow button:hover .ql-fill,
-#note-new .ql-snow button.ql-active .ql-fill { fill: var(--gold); }
-#note-new .ql-snow .ql-tooltip {
-    background: var(--white);
-    border-color: var(--line-strong);
-    box-shadow: var(--shadow-md);
-    color: var(--ink);
-}
-#note-new .ql-snow .ql-tooltip input[type=text] {
-    background: var(--cream);
-    border-color: var(--line);
-    color: var(--ink);
-}
-#note-new .ql-snow .ql-tooltip a { color: var(--gold); }
-
-@media (max-width: 900px) {
-    .sheet--wide { width: calc(100vw - 32px); }
-    .sheet__body--split { grid-template-columns: minmax(0, 1fr); }
-    .sheet__body--split .field__control { min-width: 0; }
-}
-
 /* Paper gets the footnotes only. A comment is for the screen. */
 @media print {
     .notes-pill, .note-group--comments, .page__info { display: none !important; }
-    .page__head > .page__note { display: block; }   /* Paper always shows the paragraph. */
-    .note-card { break-inside: avoid; }
-    .note-group__head, .note-card__title button, .note-text { color: #000000; }
-    .note-card__meta { color: #333333; }
 }
 
 /* ================================================================== */
 /*  RESPONSIVE                                                        */
 /* ================================================================== */
 @media (max-width: 1240px) {
-    .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-
     /* The stock column goes below the two columns that work together. */
     .bom { grid-template-columns: 240px minmax(0, 1fr); }
     .bom__col--stock { grid-column: 1 / -1; }
@@ -2047,87 +1012,14 @@ textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
 }
 
 @media (max-width: 900px) {
-    /* The side panel becomes a drawer. base.js sets data-drawer on the
-       body when the user operates the button or the scrim. */
-    .drawer-toggle { display: grid; }
-
-    .sidebar {
-        position: fixed;
-        top: 0; bottom: 0; left: 0;
-        z-index: 60;
-        width: 272px;
-        background: var(--white);
-        transform: translateX(-100%);
-        transition: transform 0.2s ease;
-        box-shadow: var(--shadow-md);
-    }
-    body[data-drawer="true"] .sidebar { transform: translateX(0); }
-
-    .scrim {
-        display: block;
-        position: fixed;
-        inset: 0;
-        z-index: 50;
-        background: rgba(24, 26, 31, 0.55);
-        backdrop-filter: blur(4px);
-        -webkit-backdrop-filter: blur(4px);
-        opacity: 0;
-        visibility: hidden;
-        transition: opacity 0.2s ease, visibility 0.2s;
-    }
-    body[data-drawer="true"] .scrim { opacity: 1; visibility: visible; }
-
-    /* The full page scrolls on a small screen. Refer to base.css. */
-    .main { padding: 20px; overflow: visible; }
-    .page__subtitle { margin-top: 28px; }
-    .card__value { font-size: 22px; }
-
-    .actionbar { gap: 10px; }
-    .actionbar__hint { margin-left: 0; }
+    /* Every table scrolls sideways (base.css), thus no column is 1%. */
+    .table--inv th, .table--inv td { width: auto; }
 
     .bom { grid-template-columns: minmax(0, 1fr); }
     .bom__col--stock { grid-column: auto; }
-
-    /* Every table scrolls sideways. Thus each column keeps its content,
-       and no column takes the free width. The block display removes the
-       corner clip, thus the radius moves to a scroll frame that the
-       border makes. The relative position keeps a visually-hidden label
-       inside the scroll frame. */
-    .table {
-        display: block;
-        position: relative;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-    .table thead th { position: static; }
-    .table th, .table td { width: auto; white-space: nowrap; }
 }
 
 @media (max-width: 560px) {
-    .toolbar { gap: 6px; }
-    .tool { padding-left: 10px; padding-right: 10px; }
-    .tool:has(.icon:only-child) { padding-left: 7px; padding-right: 7px; }
-    .tool__sep { margin-left: 2px; margin-right: 2px; }
-
-    .actionbar { padding: 11px 12px; }
-    .actionbar__group { gap: 6px; }
-
-    .table tbody tr.is-nest td:first-child { padding-left: 26px; }
-
-    .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-    .card { padding: 13px 14px 15px; }
-    /* A large amount pushes the unit to a second line. The amount
-       itself stays on one line. */
-    .card__value {
-        font-size: 19px;
-        padding-top: 8px;
-        display: flex;
-        flex-wrap: wrap;
-        align-items: baseline;
-        column-gap: 6px;
-    }
-    .card__value[data-unit]::after { margin-left: 0; }
-
     /* Each form of an action bar takes the full width. The fields then
        share the line and they stay operable with a thumb. */
     .actionbar__group { width: 100%; }
@@ -2163,39 +1055,23 @@ textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
     .tbar-menu__panel,
     .tbar-menu__item { transition: none !important; }
 }
+
 /* ================================================================== */
 /*  PRINT  (an accounting page goes into a file or to an auditor)     */
 /* ================================================================== */
 @media print {
     .ribbon, .context, .sidebar, .footer, .scrim, .drawer-toggle,
     .actionbar, .tbar-menu__panel { display: none !important; }
-    .shell { display: block; }
-    .main { padding: 0; overflow: visible; }
-    body { background: #FFFFFF; color: #000000; }
-
-    .page__title, .page__subtitle, .card__value { color: #000000; }
-    .page__note { color: #333333; }
-    .card__label { color: #7A5B22; }
-    .card, .table {
-        background: #FFFFFF;
-        border: 1px solid #999999;
-        box-shadow: none;
-    }
-    .table thead { display: table-header-group; }
-    .table tfoot { display: table-footer-group; }
-    .table tbody tr { page-break-inside: avoid; }
-
-    .table td { color: #000000; }
-    .table tbody tr.is-group td { color: #7A5B22; background: #FFFFFF; }
     .table tfoot td {
         border-top: 1px solid #999999;
         background: #FFFFFF;
         color: #000000;
     }
 
-
-    .notes .card { break-inside: avoid; }
-    .notes__text { color: #000000; }
+    /* base.css loads first, thus these parts repeat the print values of
+       .table and .status of base.css. */
+    .table--inv td { color: #000000; }
+    .status--busy, .status--build { color: #000000; border-color: #999999; background: #FFFFFF; }
 
     .field, .field-check, .bom__foot { display: none !important; }
     .bom { display: block; }
@@ -2205,7 +1081,6 @@ textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
 
     .seg-row__remove { display: none; }
     .code-output__part { border-bottom-color: #999999; }
-    .status { color: #000000; border-color: #999999; background: #FFFFFF; }
     .table--inv td.is-name, .table--inv td.is-qty { color: #000000; }
     .cell-sub, .chart-note, .chart-key__item { color: #333333; }
 }

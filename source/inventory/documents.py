@@ -161,6 +161,8 @@ class StockDocument(DocumentType):
             fields["line_items"].widget.catalog = catalog(company, PURCHASED, purchase=True)
             fields["currency"].initial = currency_symbol(company)
             fields["tax_rate"].initial = standard_rate(company)
+            # Not tax registered: the form ignores a sent rate and uses the initial rate, zero.
+            fields["tax_rate"].disabled = not company.is_tax_registered
             if "deliver_to" in fields:
                 fields["deliver_to"].initial = "\n".join(filter(None, [company.name, company.address]))
             if "received_at" in fields:

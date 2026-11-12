@@ -39,7 +39,7 @@
                     {% if entry.recurring.is_active %}
                     <form method="post" action="{% url 'accounting:journalentry_stop' entry.id %}">
                         {% csrf_token %}
-                        <button class="tool tool--sm" type="submit" aria-label="Stop the recurring entry {{ entry.reference }}">Stop</button>
+                        <button class="row-icon" type="submit" title="Stop" aria-label="Stop the recurring entry {{ entry.reference }}"><svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg></button>
                     </form>
                     {% endif %}
                     {% if entry.can_reverse %}

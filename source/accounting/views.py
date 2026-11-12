@@ -114,7 +114,7 @@ def entry_lines(post, company):
     an income account, else to its input account (or VAT Control). A line
     on a tax account gets no tax. The debits must equal the credits, with the tax."""
     accounts = {str(a.pk): a for a in Account.objects.filter(company=company, is_active=True)}
-    tax_codes = {str(t.pk): t for t in TaxCode.objects.filter(company=company)}
+    tax_codes = {str(t.pk): t for t in TaxCode.usable(company)}
     tax_ids = tax_account_ids(company)
     rows = zip(post.getlist("line_account"), post.getlist("line_debit"), post.getlist("line_credit"),
                post.getlist("line_description"), post.getlist("line_tax"))
@@ -182,7 +182,7 @@ def journals(request):
         "entry_types": JournalEntry.EntryType.choices,
         "frequencies": RecurringDocument.Frequency.choices,
         "accounts": Account.objects.filter(company=company, is_active=True),
-        "tax_codes": TaxCode.objects.filter(company=company).filter(
+        "tax_codes": TaxCode.usable(company).filter(
             Q(valid_to__isnull=True) | Q(valid_to__gte=timezone.localdate())).order_by("code"),
         "tax_ids": tax_ids,
     }
@@ -448,7 +448,7 @@ def chartaccounts(request):
     context = {
         "account_types"     : Account.AccountType.choices,
         "currencies"        : Currency.objects.all(),
-        "tax_codes"         : TaxCode.objects.filter(company=company).order_by("code", "valid_from"),
+        "tax_codes"         : TaxCode.usable(company).order_by("code", "valid_from"),
         "tax_ids"           : tax_account_ids(company),
         "can_edit_tax"      : is_owner_or_accountant(request),
         "parent_accounts"   : accounts,
@@ -477,7 +477,7 @@ def account_create(request):
                     currency_id=request.POST.get("currency") or None,
                     is_active=bool(request.POST.get("is_active")),
                     description=request.POST.get("description", ""),
-                    tax_code=TaxCode.objects.filter(company=company, pk=request.POST.get("tax_code") or None).first(),
+                    tax_code=TaxCode.usable(company).filter(pk=request.POST.get("tax_code") or None).first(),
                 )
                 AuditLog.record(request, AuditLog.Action.CREATE, account)
         except IntegrityError:
@@ -496,7 +496,7 @@ def account_tax(request, pk):
         return HttpResponse(status=403)
     if request.method == "POST":
         account = get_object_or_404(Account, pk=pk, company=request.company)
-        account.tax_code = TaxCode.objects.filter(company=request.company, pk=request.POST.get("tax_code") or None).first()
+        account.tax_code = TaxCode.usable(request.company).filter(pk=request.POST.get("tax_code") or None).first()
         account.save(update_fields=["tax_code"])
         AuditLog.record(request, AuditLog.Action.UPDATE, account)
     return HttpResponse(status=204)
@@ -886,14 +886,14 @@ def bills(request):
         "today": timezone.localdate(),
         "bill_form": BillForm(company=request.company),
         "accounts": Account.objects.filter(company=request.company, is_active=True),
-        "tax_codes": TaxCode.objects.filter(company=request.company),
+        "tax_codes": TaxCode.usable(request.company),
     })
 
 def bill_lines(post, company):
     """The lines of the New Bill overlay, as unsaved DocumentLine objects.
     An empty row is ignored."""
     accounts = {str(a.id): a for a in Account.objects.filter(company=company, is_active=True)}
-    taxes = {str(t.id): t for t in TaxCode.objects.filter(company=company)}
+    taxes = {str(t.id): t for t in TaxCode.usable(company)}
     rows = zip(post.getlist("line_description"), post.getlist("line_account"), post.getlist("line_quantity"),
                post.getlist("line_price"), post.getlist("line_tax"))
     lines = []

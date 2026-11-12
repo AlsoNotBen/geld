@@ -38,8 +38,9 @@
 
 {% comment %}
   The module loads one stylesheet, as the Accounting module does. The
-  file holds the furniture of the module and the parts that only
-  Inventory has. It comes after base.css, thus the module wins a tie.
+  shared furniture of the modules is in base.css. The file holds only
+  the parts that Inventory has. It comes after base.css, thus the module
+  wins a tie.
 {% endcomment %}
 {% block module_css %}
 <link rel="stylesheet" href="{% static 'inventory/css/inventory.css' %}">

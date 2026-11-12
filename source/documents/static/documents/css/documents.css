@@ -44,6 +44,8 @@
 .doc-panel__sub { margin: 2px 0 0; font-size: 12.5px; color: var(--ink-soft); }
 .doc-panel__head-actions { display: flex; gap: 6px; flex: none; }
 
+/* The warning ribbons below the head use .warn-ribbon of base.css. */
+
 .doc-panel__body {
     flex: 1 1 auto;
     min-height: 0;
@@ -298,9 +300,11 @@
     border-top: 1px solid var(--line);
 }
 .doc-panel__hint { font-size: 12px; color: var(--ink-soft); }
-.doc-panel__hint.is-error { color: #E0785E; }   /* A Save error (see documents.js) */
 .doc-panel__actions { display: flex; align-items: center; gap: 10px; }
 
+/* base.css loads before this file, thus these rules win a tie against
+   the .tool rules of base.css. The hover rules thus give all the hover
+   values. */
 .doc-panel__foot .tool {
     display: inline-flex;
     align-items: center;
@@ -310,16 +314,18 @@
     border: 1px solid var(--line-strong);
     font-weight: 500;
 }
-.doc-panel__foot .tool:hover { 
-    background: var(--gold-line); 
-    color: var(--navy)
+.doc-panel__foot .tool:hover {
+    background: var(--gold-line);
+    border-color: var(--gold-line);
+    color: var(--navy);
 }
 .doc-panel__foot .tool--primary {
     background: var(--gold);
     border-color: var(--gold);
     color: var(--navy);
 }
-.doc-panel__foot .tool--primary:hover { filter: brightness(1.06); }
+.doc-panel__foot .tool--primary:hover { border-color: #F5CB8C; filter: brightness(1.06); }
+.doc-panel__foot .tool[disabled]:hover { background: var(--white); border-color: var(--line); color: var(--ink-soft); }
 .doc-panel__foot .tool .icon { width: 16px; height: 16px; }
 
 @media (max-width: 820px) {

@@ -90,9 +90,10 @@ def currency_symbol(company):
 
 
 def standard_rate(company):
-    """The rate of the standard tax code of the company that applies today, else zero."""
+    """The rate of the standard tax code of the company that applies today, else zero.
+    A company that is not tax registered has no tax codes to apply (see TaxCode.usable)."""
     today = datetime.date.today()
-    code = (TaxCode.objects.filter(company=company, kind=TaxCode.Kind.STANDARD, valid_from__lte=today)
+    code = (TaxCode.usable(company).filter(kind=TaxCode.Kind.STANDARD, valid_from__lte=today)
             .filter(Q(valid_to__isnull=True) | Q(valid_to__gte=today)).order_by("-valid_from").first())
     return code.rate if code else ZERO
 
@@ -106,7 +107,7 @@ def tax_rate_choices(company):
     """The rates of the tax codes of the company that apply today, for the Tax rate select.
     Codes with the same rate give one choice. Zero is always a choice."""
     today = datetime.date.today()
-    codes = (TaxCode.objects.filter(company=company, valid_from__lte=today)
+    codes = (TaxCode.usable(company).filter(valid_from__lte=today)
              .filter(Q(valid_to__isnull=True) | Q(valid_to__gte=today)).order_by("-rate", "code"))
     choices = {}
     for code in codes:
@@ -121,7 +122,10 @@ def _bank_field():
 
 
 def _bank_details(bank, reference):
-    """The details of a bank account, for a payment."""
+    """The details of a bank account, for a payment. An account without an account number
+    and without an IBAN has no details."""
+    if not (bank.account_number):
+        return ""
     return "\n".join(filter(None, [
         bank.bank or bank.name,
         bank.account_number and f"Account {bank.account_number}",
@@ -372,13 +376,16 @@ class InvoiceDocument(SalesDocument):
     key = "invoice"
     prefix = "INV-"
     label = "New Invoice"
-    description = "A tax invoice with line items, totals and payment details."
+    description = "An invoice with line items, totals and payment details."
     template_name = "accounting/pdf/invoice.html"
     options_form_class = InvoiceOptionsForm
 
     def get_context(self, request, options):
         money = _build_lines(options["line_items"], options["tax_rate"], options["discount_rate"])
-        return {"options": options, "customer": _customer(options, request.company), "due": _due(options),
+        # Only a tax registered company issues a tax invoice.
+        kind = ("Pro-forma invoice" if options["pro_forma"]
+                else "Tax Invoice" if request.company.is_tax_registered else "Invoice")
+        return {"options": options, "customer": _customer(options, request.company), "due": _due(options), "kind": kind,
                 "terms": _terms_label(options), "bank_details": self.bank_details(request, options), **money}
 
     def issue(self, request, options):
@@ -422,8 +429,10 @@ def _sales_record(company, options, entity, doc_type, due, status=None, discount
     A tax rate must have a tax code that is valid on the issue date. Returns (document, created)."""
     sales = _account(company, "Sales")
     day, rate = options["issue_date"], options["tax_rate"]
-    tax_code = (TaxCode.objects.filter(company=company, rate=rate, valid_from__lte=day)
+    tax_code = (TaxCode.usable(company).filter(rate=rate, valid_from__lte=day)
                 .filter(Q(valid_to__isnull=True) | Q(valid_to__gte=day)).order_by("-valid_from").first())
+    if rate and not company.is_tax_registered:
+        raise ValidationError("The Company has no tax number, thus the tax rate must be 0%.")
     if rate and not tax_code:
         raise ValidationError(f"No tax code has the rate {rate}% on {day:%d %b %Y}. Add it first.")
     fields = {"date": day, "due": due, "terms": options["terms"], "entity": entity,

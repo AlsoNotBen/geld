@@ -13,6 +13,9 @@ The context must hold "options" with at least:
     company_name    text for the header and the running footer
     company_details address lines, one per line
 
+The context can hold "company_logo", a data: URI of the logo of the
+company (see documents.renderers.logo_data_uri). It replaces the text mark.
+
 Blocks that a child template overrides:
     doc_title    the document title in the PDF metadata
     styles       extra CSS for the document
@@ -79,6 +82,7 @@ Blocks that a child template overrides:
         text-align: center;
         line-height: 11mm;
     }
+    .brand__logo { max-width: 40mm; max-height: 16mm; }
     .brand__name { font-size: 13pt; font-weight: 700; }
     .brand__details { color: #6B7078; font-size: 8pt; white-space: pre-line; }
 
@@ -165,7 +169,11 @@ Blocks that a child template overrides:
 
     <div class="doc-head">
         <div class="brand">
+            {% if company_logo %}
+            <img class="brand__logo" src="{{ company_logo }}" alt="">
+            {% else %}
             <div class="brand__mark">{{ options.company_name|slice:":1"|upper }}</div>
+            {% endif %}
             <div>
                 <div class="brand__name">{{ options.company_name }}</div>
                 <div class="brand__details">{{ options.company_details }}</div>

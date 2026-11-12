@@ -429,6 +429,22 @@ def codes(request):
     return render(request, "inventory/codes.html", {"page_title": "Codes & Tags", "item_types": T.choices})
 
 
+def item_groups(items):
+    """The items of the All items table, grouped as the journal entries of
+    Accounting. Items with the same SKU are one group. An item with no SKU
+    goes into the group of its model. Each group has the total quantity."""
+    groups = {}
+    for item in items:
+        key = ("sku", item.sku) if item.sku else ("model", item.model_id)
+        group = groups.setdefault(key, {"name": item.name, "sku": item.sku, "items": [], "quantity": 0, "types": set()})
+        group["items"].append(item)
+        group["quantity"] += item.quantity
+        group["types"].add(item.get_item_type_display())
+    for group in groups.values():
+        group["type"] = group["types"].pop() if len(group["types"]) == 1 else "Mixed"
+    return list(groups.values())
+
+
 def items(request):
     """The item editor. The list at the left finds the items (?q, ?item_type).
     A click selects an item (?item=pk): the form then changes that item, and
@@ -455,7 +471,7 @@ def items(request):
                     item.files.add(*stored)
             count = len(saved)
             messages.success(request, f"Saved {count} items of {saved[0].name}." if count > 1 else f"Saved {saved[0].name}.")
-            return redirect(f"{request.path}?item={saved[0].pk}")  # Post/Redirect/Get
+            return redirect(request.path)  # Post/Redirect/Get. The editor closes after a save.
 
     q, item_type = request.GET.get("q", "").strip(), request.GET.get("item_type", "")
     listed = matches(items, q).order_by("model__name")
@@ -476,6 +492,8 @@ def items(request):
     listed = with_status(with_stock(listed.select_related("model__thumbnail"), stock_levels(request.company)))
     for item in listed:
         item.open_checkout = open_checkouts.get(item.pk)
+        # A stocked item counts its stock on hand. Another item is one unit.
+        item.quantity = item.on_hand if item.item_type in STOCKED else 1
     # ?new=1 or ?new=item opens an empty editor.
     new = request.GET.get("new", "")
     return render(request, "inventory/items.html", {
@@ -484,6 +502,7 @@ def items(request):
         "selected": selected,
         "show_editor": bool(selected or form.is_bound or new),
         "items": listed,
+        "item_groups": item_groups(listed),
         "posted_serials": request.POST.getlist("serials"),
         "countries": Country.objects.order_by("name"),
         "entities": Entity.objects.filter(company=request.company).order_by("name"),

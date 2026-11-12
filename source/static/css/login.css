@@ -135,6 +135,12 @@ button {
     font-weight: 700;
     box-shadow: 0 6px 18px rgba(240, 190, 114, 0.25);
 }
+.brand__mark--logo {
+    background: none;
+    box-shadow: none;
+    border-radius: 0;
+    object-fit: contain;
+}
 .brand__text {
     text-align: center;
     font-weight: 600;

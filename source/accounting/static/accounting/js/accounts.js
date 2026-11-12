@@ -44,7 +44,7 @@
                 window.location.reload();
             })
             .catch(function () {
-                errors.textContent = "The tax code was not saved. Try again.";
+                errors.replaceChildren(Object.assign(document.createElement("p"), { textContent: "The tax code was not saved. Try again." }));
                 errors.hidden = false;
             });
     };

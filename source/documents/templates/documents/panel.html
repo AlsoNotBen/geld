@@ -19,6 +19,8 @@ documents.js reads these data attributes:
     data-doc-save            the save button (not for an Account Statement)
     data-doc-send            the send button (messaging.js opens its overlay)
     data-doc-close           each element that closes the overlay
+    data-doc-bank-warning    the warning ribbon of an invoice without bank details
+    data-doc-errors          the warning ribbons of the errors of a save
 ============================================================================
 {% endcomment %}
 <section class="doc-panel" data-doc-panel data-doc-key="{{ document.key }}"
@@ -48,6 +50,17 @@ documents.js reads these data attributes:
             </button>
         </div>
     </header>
+
+    {% comment %} The warning ribbons (base.css), one below the other.
+         documents.js shows the bank ribbon when no bank account is selected,
+         or the selected one has no details. It adds one ribbon for each
+         error of a save. {% endcomment %}
+    <div class="warn-ribbons">
+        {% if document.key == "invoice" %}
+        <p class="warn-ribbon" role="status" data-doc-bank-warning hidden>No Bank Details supplied for Invoice. A customer cannot see where to make a payment to.</p>
+        {% endif %}
+        <div class="warn-ribbons" role="alert" data-doc-errors hidden></div>
+    </div>
 
     <div class="doc-panel__body">
         <form class="doc-panel__form" data-doc-form>

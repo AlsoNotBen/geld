@@ -2,7 +2,7 @@
    page_note.js  —  the Info button of the page title
    module_base.html loads it on each page of the module.
 
-   accounting.css hides the paragraph below the page title (.page__note).
+   base.css hides the paragraph below the page title (.page__note).
    This script adds a small grey Info button to the title of each
    .page__head with a .page__note. The button shows and hides the
    paragraph: it sets the class is-open on the head.

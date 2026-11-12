@@ -13,7 +13,7 @@ base.js reads these data attributes:
     data-company-close    each element that closes the overlay
 ============================================================================
 {% endcomment %}
-<form class="msg-panel" method="post" action="{% url 'company_create' %}" data-company-form>
+<form class="msg-panel" method="post" action="{% url 'company_create' %}" enctype="multipart/form-data" data-company-form>
     {% csrf_token %}
 
     <header class="msg-panel__head">
@@ -25,15 +25,18 @@ base.js reads these data attributes:
         </button>
     </header>
 
+    {% if form.non_field_errors %}
+    <div class="warn-ribbons" role="alert">
+        {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+    </div>
+    {% endif %}
+
     <div class="msg-panel__body">
-        {% for error in form.non_field_errors %}
-        <p class="msg-panel__error" role="alert">{{ error }}</p>
-        {% endfor %}
 
         {% for field in form %}
         <div class="msg-field">
             <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-            {{ field }}
+            {% if field.name == "logo" %}{% include "shared/_file_pick.html" with field=field %}{% else %}{{ field }}{% endif %}
             {% for error in field.errors %}<small class="msg-field__error">{{ error }}</small>{% endfor %}
             {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
         </div>

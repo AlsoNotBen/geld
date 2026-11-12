@@ -104,9 +104,15 @@
             // shows all the text of the selected option, e.g. the bank details.
             form.querySelectorAll("[data-doc-details]").forEach(function (box) {
                 var select = box.previousElementSibling;
-                select.addEventListener("change", function () {
-                    box.textContent = select.options[select.selectedIndex].getAttribute("data-details");
-                });
+                // An invoice without bank details shows the warning ribbon (see panel.html).
+                var warning = select.name === "bank_account" && panel.querySelector("[data-doc-bank-warning]");
+                function show() {
+                    var option = select.options[select.selectedIndex];
+                    box.textContent = option ? option.getAttribute("data-details") : "";
+                    if (warning) warning.hidden = !!box.textContent.trim();
+                }
+                select.addEventListener("change", show);
+                show();
             });
             // Align the download link with the initial form state.
             setDownload(serialize(form));
@@ -119,15 +125,22 @@
         // The Save button issues the document, as a download does, but
         // makes no PDF. E.g. an invoice gets its journal entry. After a
         // save, the page loads again with a GET, thus the browser does not
-        // send a page form again. An error shows in the hint.
+        // send a page form again. An error shows in a warning ribbon.
         var save = panel.querySelector("[data-doc-save]");
-        var hint = panel.querySelector(".doc-panel__hint");
+        var errorBox = panel.querySelector("[data-doc-errors]");
         if (save && form) save.addEventListener("click", function () {
+            // One warning ribbon for each error (see panel.html).
             function fail(errors) {
-                hint.textContent = errors.join(" ");
-                hint.classList.add("is-error");
+                errorBox.replaceChildren();
+                errors.forEach(function (text) {
+                    var line = document.createElement("p");
+                    line.textContent = text;
+                    errorBox.appendChild(line);
+                });
+                errorBox.hidden = false;
                 save.disabled = false;
             }
+            errorBox.hidden = true;
             save.disabled = true;
             fetch(panel.getAttribute("data-save-url"), {
                 method: "POST",

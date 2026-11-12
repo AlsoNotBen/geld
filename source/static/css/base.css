@@ -4,11 +4,18 @@
    base.html loads it with the Django static tag.
 
    SCOPE
-   The file holds the chrome of the application only:
-       tokens · reset · skip link · top ribbon · module bar · footer
-   The file does NOT hold a side panel, a content area, or page furniture
-   (cards, tables, headings). Each module builds and styles these parts in
-   its own stylesheet, which base.html loads in the module_css block.
+   The file has two parts:
+     1. The chrome of the application:
+            tokens · reset · skip link · top ribbon · module bar · footer
+     2. The shared module styles: the furniture that the modules share
+        (layout, side panel, tools, sheet, page, cards, tables, tab set,
+        notes, print). Refer to the SHARED MODULE STYLES section.
+   A module stylesheet (the module_css block of base.html) holds only the
+   parts that are special to the module. It comes after this file, thus
+   it wins a tie.
+
+   The Django admin also loads this file (templates/admin/base_site.html).
+   admin.css resets the shared rules that touch an admin class.
 
    The tokens below stay available to every module. Use them, so that all
    modules keep one identity.
@@ -42,11 +49,27 @@
     --context-h: 52px;
     --radius:    12px;
     --radius-sm: 8px;
+
+    /* Shared module tokens */
+    --credit:      #7FBF9A;                    /* money or stock that comes in */
+    --debit:       #E0785E;                    /* money or stock that goes out */
+    --overdue:     #fff38c;                    /* overdue money, or stock that asks for an order */
+    --credit-soft: rgba(127, 191, 154, 0.14);
+    --debit-soft:  rgba(224, 120, 94, 0.14);
+    --rule:        rgba(232, 230, 222, 0.07);  /* table hairline */
+    --gold-deep:   #C79A4E;                    /* dark gold: card labels, field labels */
+    --tool-h:      36px;                       /* the height of a .tool */
+    --tool-action: #808080;                    /* the Info button of the title */
+    --sidebar-w:   244px;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
 
 html, body { height: 100%; }
+
+/* The page does not bounce when the user scrolls past its top or its
+   bottom. Thus the ribbon and the footer do not move off the edge. */
+html, body { overscroll-behavior: none; }
 
 /* iOS makes the text larger when the phone turns to landscape. */
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
@@ -78,13 +101,12 @@ button {
 }
 
 
-
 /* The body is a column: ribbon · module bar · layout · footer.
    Put this class on the top element of the module layout. The element
    then takes the free height, and the footer stays at the bottom. The
    element scrolls if its content is higher, thus the content does not
    go below the footer. */
-.fill { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.fill { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: none; }
 
 .ribbon, .context, .footer { flex: 0 0 auto; }
 
@@ -128,7 +150,7 @@ button {
     padding: 0 20px;
 }
 
-/* Logo placeholder — replace .brand__mark with your <img>. */
+/* The brand mark. .brand__mark--logo is the application logo (static/img/icons/pothos.png). */
 .brand { display: flex; align-items: center; gap: 12px; flex: none; }
 .brand__mark {
     width: 34px;
@@ -142,6 +164,12 @@ button {
     font-size: 15px;
     letter-spacing: 0.5px;
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+.brand__mark--logo {
+    background: none;
+    box-shadow: none;
+    border-radius: 0;
+    object-fit: contain;
 }
 .brand__text {
     font-weight: 600;
@@ -481,7 +509,12 @@ button {
 /* ================================================================== */
 /*  FOOTER                                                            */
 /* ================================================================== */
+/* The footer always sticks to the bottom of the screen, also when the
+   full page scrolls (small screen). */
 .footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 40;
     background: var(--navy);
     color: var(--on-navy);
     display: flex;
@@ -494,6 +527,49 @@ button {
 .footer a:hover { color: var(--gold); }
 .footer__links { display: flex; gap: 18px; margin-left: auto; align-items: center; }
 .footer__version { font-family: var(--font-mono); color: rgba(255, 255, 255, 0.45); }
+
+
+/* ---- Warning ribbon ------------------------------------------------ */
+/* The warning of an overlay (modal), e.g. an invoice without bank
+   details, or a journal entry that is not balanced. It goes directly
+   below the head of the overlay and takes its full width.
+       .warn-ribbon    one ribbon. It is not visible when it is empty.
+       .warn-ribbons   a stack of ribbons. Each child <p> is one ribbon,
+                       thus a script can add one <p> for each warning.
+   The icon comes from CSS, thus a script can set the text only. */
+.warn-ribbons { display: flex; flex-direction: column; flex: none; }
+.warn-ribbons[hidden] { display: none; }
+.warn-ribbon,
+.warn-ribbons > p {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    padding: 8px 20px;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.4;
+    color: #1B1D22;
+    background: #F2994A;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+}
+.warn-ribbon::before,
+.warn-ribbons > p::before {
+    content: "";
+    flex: none;
+    width: 20px;
+    height: 20px;
+    background: currentColor;
+    -webkit-mask: var(--warn-icon) center / contain no-repeat;
+    mask: var(--warn-icon) center / contain no-repeat;
+}
+.warn-ribbon:empty,
+.warn-ribbon[hidden] { display: none; }
+:root {
+    /* The same icon as the no-JS banner of base.html. */
+    --warn-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6'%3E%3Cpath d='M12 3.5L22 20H2L12 3.5z' stroke-linejoin='round'/%3E%3Cpath d='M12 10.5v4' stroke-linecap='round'/%3E%3Ccircle cx='12' cy='17.2' r='0.9' fill='black' stroke='none'/%3E%3C/svg%3E");
+}
 
 
 /* ---- No-JS warning banner ----------------------------------------- */
@@ -535,8 +611,8 @@ button {
     .modules .module.is-active::after { left: 6px; right: 6px; }
 
     /* A small screen scrolls the full page, not an inner panel. The
-       ribbon stays at the top, and the footer goes to the end of the
-       page. The module stylesheet also removes the scroll of .main. */
+       ribbon stays at the top, and the footer stays at the bottom of
+       the screen. The module stylesheet also removes the scroll of .main. */
     html, body { height: auto; }
     body { min-height: 100dvh; }
     .fill { overflow: visible; }
@@ -574,4 +650,1270 @@ button {
 
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { transition: none !important; }
+}
+
+
+/* ##########################################################################
+   SHARED MODULE STYLES
+   The furniture that the modules share (Accounting, Sales, Inventory):
+   the layout, the side panel, the tools, the sheet, the page, the cards,
+   the tables, the tab set, the notes and the print rules. The rules come
+   after the chrome above, thus they win a tie against the chrome. A
+   module stylesheet adds the parts that only the module has.
+   Change a rule here, not in a module file, so that all modules stay
+   the same.
+   ########################################################################## */
+
+/* ================================================================== */
+/*  LAYOUT  (the shell of a module page)                              */
+/* ================================================================== */
+.shell { display: flex; min-height: 0; }
+
+.main {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+    padding: 26px 30px 44px;
+}
+.page__empty { color: var(--ink-soft); }
+
+/* ================================================================== */
+/*  SIDE PANEL                                                        */
+/* ================================================================== */
+/* The panel stays on the canvas color. Only a hairline divides it from
+   the content, thus the figures on the right hold the attention. */
+.sidebar {
+    width: var(--sidebar-w);
+    flex: none;
+    background: var(--cream);
+    border-right: 1px solid var(--line);
+    padding: 18px 10px 28px;
+    overflow-y: auto;
+}
+
+.sidebar__title {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: var(--gold-deep);
+    padding: 2px 12px 16px;
+}
+
+.nav { display: flex; flex-direction: column; gap: 1px; }
+
+/* The group label carries a rule to the right edge. The rule separates
+   the parts of the ledger without a heading that shouts. */
+.nav__group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 16px 0 6px;
+    padding: 0 12px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    white-space: nowrap;
+}
+.nav__group::after {
+    content: "";
+    flex: 1 1 auto;
+    height: 1px;
+    background: var(--line);
+}
+.nav__group:first-child { margin-top: 0; }
+
+.nav__item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    color: var(--ink-soft);
+    font-weight: 500;
+    transition: color 0.12s ease, background 0.12s ease;
+}
+.nav__item:hover { color: var(--ink); background: rgba(232, 230, 222, 0.05); }
+
+/* The script of base.html adds is-active to the item that matches the
+   data-page attribute of the body. */
+.nav__item.is-active {
+    color: var(--gold);
+    font-weight: 600;
+    background: transparent;
+}
+.nav__item.is-active::before {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 9px;
+    bottom: 9px;
+    width: 2px;
+    border-radius: 2px;
+    background: var(--gold);
+}
+
+.nav__count {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+    background: var(--white);
+    border: 1px solid var(--line);
+    padding: 0 7px;
+    border-radius: 20px;
+}
+.nav__item.is-active .nav__count {
+    color: var(--gold);
+    background: var(--gold-soft);
+    border-color: var(--gold-line);
+}
+
+/* The drawer button in the ribbon. It appears on a small screen only.
+   Refer to the media query at 900px. */
+.drawer-toggle { display: none; }
+.scrim { display: none; }
+
+/* ================================================================== */
+/*  TOOLBAR  (module_base.html fills .toolbar with .tool buttons)     */
+/* ================================================================== */
+
+/* The toolbar itself should center its controls vertically. */
+.toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: var(--tool-h);
+}
+
+/* Every tool is a self-contained, vertically and horizontally centered
+   control. Explicit line-height prevents font metrics from making the
+   label appear a few pixels too high or low. */
+.tool {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
+    gap: 7px;
+
+    flex: 0 0 auto;
+    min-width: 34px;
+    height: var(--tool-h);
+    box-sizing: border-box;
+
+    padding: 0 13px;
+    margin: 0;
+
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--white);
+    color: var(--ink-soft);
+
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+
+    text-align: center;
+    vertical-align: middle;
+    white-space: nowrap;
+
+    appearance: none;
+    -webkit-appearance: none;
+
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease,
+        color 0.15s ease;
+}
+
+/* SVGs/icons don't participate in the text baseline. */
+.tool .icon {
+    display: block;
+    flex: 0 0 16px;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    stroke: currentColor;
+    stroke-width: 1.8;
+}
+
+/* If the icon is the only content, it remains exactly centered. */
+.tool:has(.icon:only-child) {
+    padding-left: 8px;
+    padding-right: 12px;
+}
+
+/* Text inside a tool is centered independently of font rendering. */
+.tool > span,
+.tool > label {
+    display: block;
+    margin: 0;
+    padding: 0;
+    line-height: 1;
+    text-align: center;
+}
+
+/* Hover ------------------------------------------------------------- */
+.tool:hover {
+    background: var(--gold-soft);
+    border-color: var(--gold-line);
+    color: var(--gold);
+}
+
+/* Primary. One button of a bar, at most. It starts the main task of
+   the page: a new entry, a new account, or the acceptance of a list. */
+.tool--primary,
+.tool.is-primary {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: var(--navy);
+}
+.tool--primary:hover,
+.tool.is-primary:hover {
+    background: #F5CB8C;
+    border-color: #F5CB8C;
+    color: var(--navy);
+}
+.tool--primary .icon,
+.tool.is-primary .icon { stroke: var(--navy); }
+
+/* Ghost ------------------------------------------------------------- */
+.tool--ghost { background: transparent; }
+.tool--ghost:hover { background: var(--gold-soft); }
+
+.tool--neutral {
+    color: var(--ink);
+    border-color: var(--ink);
+    background: transparent;
+}
+.tool--neutral:hover { background: var(--gold-soft); }
+
+/* Small. For a button inside a table row. */
+.tool--sm {
+    min-width: 28px;
+    height: 28px;
+    padding: 0 10px;
+    gap: 6px;
+    font-size: 12px;
+}
+.tool--sm .icon {
+    flex: 0 0 14px;
+    width: 14px;
+    height: 14px;
+}
+
+/* Disabled ---------------------------------------------------------- */
+.tool[disabled] {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+.tool[disabled]:hover {
+    background: var(--white);
+    border-color: var(--line);
+    color: var(--ink-soft);
+}
+
+/* Divider ----------------------------------------------------------- */
+.tool__sep {
+    flex: 0 0 1px;
+    width: 1px;
+    height: 20px;
+    margin: 0 4px;
+    padding: 0;
+    background: var(--line-strong);
+    align-self: center;
+}
+
+/* If the toolbar contains native buttons alongside .tool elements,
+   normalize their box model so they line up identically. */
+.toolbar > button,
+.toolbar > a {
+    box-sizing: border-box;
+    vertical-align: middle;
+}
+
+/* ------------------------------------------------------------------ */
+/*  TOOLBAR MENUS                                                     */
+/*                                                                    */
+/*  The prefix tbar- keeps these rules away from the .menu rules      */
+/*  above, which belong to the profile drop-down of the ribbon.       */
+/* ------------------------------------------------------------------ */
+
+/* The chrome above makes .toolbar a scroll container. A scroll
+   container clips a panel that hangs below the bar. A module page thus
+   removes the scroll. The media queries below keep the bar inside the
+   screen instead. */
+.context { overflow: visible; }
+.toolbar {
+    overflow: visible;
+    flex-wrap: nowrap;
+}
+
+.tbar-menu {
+    position: relative;
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-self: center;
+}
+
+/* The caret is smaller than a tool icon. */
+.tbar-menu__btn .icon--caret {
+    flex: 0 0 12px;
+    width: 12px;
+    height: 12px;
+    opacity: 0.75;
+}
+
+.tbar-menu__panel {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 70;
+    min-width: 196px;
+    margin-top: 6px;
+    padding: 6px;
+
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
+
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-4px);
+    transition:
+        opacity 0.12s ease,
+        transform 0.12s ease,
+        visibility 0.12s;
+}
+
+/* A gap of 6px is between the button and the panel. This bridge
+   fills the gap, thus the pointer does not lose the menu. */
+.tbar-menu::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    height: 8px;
+}
+
+.tbar-menu:hover .tbar-menu__panel,
+.tbar-menu:focus-within .tbar-menu__panel {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+/* The button keeps the hover tone while the panel is open. */
+.tbar-menu:hover .tbar-menu__btn,
+.tbar-menu:focus-within .tbar-menu__btn {
+    background: var(--gold-soft);
+    border-color: var(--gold-line);
+    color: var(--gold);
+}
+
+.tbar-menu__item {
+    display: block;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    color: var(--ink-soft);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.2;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+.tbar-menu__item:hover,
+.tbar-menu__item:focus-visible {
+    background: var(--gold-soft);
+    color: var(--gold);
+    outline: none;
+}
+
+.tbar-menu__sep {
+    display: block;
+    height: 1px;
+    margin: 6px 8px;
+    background: var(--line);
+}
+
+/* The last menu is near the right edge. Its panel opens to the left. */
+.tbar-menu__panel--right { left: auto; right: 0; }
+
+/* A device without a pointer has no hover. A touch gives focus, thus
+   focus-within opens the panel. */
+@media (hover: none) {
+    .tbar-menu:hover .tbar-menu__panel {
+        opacity: 0;
+        visibility: hidden;
+    }
+    .tbar-menu:focus-within .tbar-menu__panel {
+        opacity: 1;
+        visibility: visible;
+    }
+}
+
+/* The toolbar has no scroll. The menus therefore go away before the
+   bar becomes too wide. The side panel holds the same links. */
+@media (max-width: 1100px) {
+    .toolbar .tbar-menu { display: none; }
+    .toolbar .tool__sep:first-of-type { display: none; }
+}
+
+/* ================================================================== */
+/*  SHEET  (a dialog that holds a form, e.g. a new account)           */
+/* ================================================================== */
+.sheet {
+    width: min(440px, calc(100vw - 32px));
+    padding: 0;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    background: var(--white);
+    color: var(--ink);
+    box-shadow: var(--shadow-md);
+}
+.sheet::backdrop {
+    background: rgba(24, 26, 31, 0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+.sheet__head { padding: 16px 18px; border-bottom: 1px solid var(--line); }
+.sheet__title { margin: 0; font-size: 15px; font-weight: 600; color: var(--ink); }
+.sheet__body { display: grid; gap: 14px; padding: 18px; }
+
+.sheet__foot [data-dialog-cancel] { order: 1; }
+.sheet__foot .tool--primary       { order: 2; }
+.sheet__errors[hidden] { display: none; }
+.sheet__errors p { margin: 0; }
+
+
+/* ---- Form field --------------------------------------------------- */
+.field__label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: bold;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--gold-deep);
+}
+.field__control:focus { outline: none; border-color: var(--gold-line); }
+.field__control:disabled { opacity: 0.55; cursor: not-allowed; }
+/* A multi-line field, e.g. the address of the lead form. */
+textarea.field__control { height: auto; padding: 8px 12px; resize: vertical; }
+
+/* ---- Wide sheet: two columns of fields ---------------------------- */
+/* Put sheet--wide on the dialog and sheet__body--split on the body.
+   A field with the class field--wide takes both columns. */
+.sheet--wide { width: min(60vw, calc(100vw - 32px)); }
+.sheet__body--split {
+    grid-template-columns: 1fr 1fr;
+    column-gap: 18px;
+    align-items: start;     /* A field stays at the top when the field next to it is higher, e.g. an open search. */
+}
+@media (max-width: 900px) {
+    .sheet--wide { width: calc(100vw - 32px); }
+    /* minmax(0, …) and min-width: 0 let a field with a long option
+       become narrower than its text. */
+    .sheet__body--split { grid-template-columns: minmax(0, 1fr); }
+    .sheet__body--split .field__control { min-width: 0; }
+}
+
+/* ---- Switch: one option that is on or off -------------------------- */
+.switch {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: var(--tool-h);
+    cursor: pointer;
+}
+.switch input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+.switch__track {
+    position: relative;
+    flex: none;
+    width: 38px;
+    height: 20px;
+    border-radius: 999px;
+    background: var(--cream);
+    border: 1px solid var(--line-strong);
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.switch__track::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--ink-soft);
+    transition: transform 0.15s ease, background 0.15s ease;
+}
+.switch input:checked + .switch__track {
+    background: var(--gold-soft);
+    border-color: var(--gold-line);
+}
+.switch input:checked + .switch__track::after {
+    transform: translateX(18px);
+    background: var(--gold);
+}
+.switch input:focus-visible + .switch__track {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+}
+.switch__text { font-size: 13px; color: var(--ink-soft); }
+.switch input:checked ~ .switch__text { color: var(--ink); }
+
+/* ---- Toggle: one option of two or more is on, e.g. Internal | Public --- */
+/* Each option is a label with a radio button. The radio button stays for
+   the keyboard and the screen reader, but it is not visible. */
+.toggle {
+    display: flex;
+    gap: 2px;
+    width: fit-content;
+    height: var(--tool-h);
+    padding: 3px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--cream);
+}
+.toggle__option {
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+.toggle__option input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.toggle__option:hover { color: var(--gold); }
+.toggle__option:has(input:checked) { background: var(--gold-soft); color: var(--gold); }
+.toggle__option:has(input:focus-visible) { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* ================================================================== */
+/*  PAGE                                                              */
+/* ================================================================== */
+/* Every page takes the full width of the content area. A statement
+   thus has the same width as the ledger and the chart of accounts. */
+.page,
+.page--statement {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+}
+
+.page__title {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin: 0;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.page__subtitle {
+    margin: 34px 0 14px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+/* ---- The page head ------------------------------------------------- */
+/* The head is the same on every page: the title, and one paragraph
+   below it. The paragraph tells the reader what the page is, what the
+   figures are for, and which period and currency they hold. */
+.page__head { margin: 0 0 20px; }
+
+/* The paragraph stays hidden until the user clicks the Info button of
+   the title. page_note.js adds the button, and the button sets the
+   class is-open on the head. */
+.page__head > .page__note {
+    display: none;
+    margin: 8px 0 0;
+    width: 100%;
+    max-width: none;
+    color: var(--ink-soft);
+    font-size: 13px;
+    line-height: 1.55;
+}
+.page__head.is-open > .page__note { display: block; }
+
+/* The Info button. It is small and grey, thus it does not pull the eye. */
+.page__info {
+    align-self: center;
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    margin-left: -4px;
+    border-radius: 50%;
+    color: var(--tool-action);
+    transition: color 0.12s ease;
+}
+.page__info:hover,
+.page__info[aria-expanded="true"] { color: var(--ink-soft); }
+.page__info .icon { width: 16px; height: 16px; stroke: currentColor; }
+
+.page__note {
+    margin: 0;
+    max-width: 78ch;
+    color: var(--ink-soft);
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+/* ---- The action bar ------------------------------------------------ */
+/* One bar on every page. It goes below the page head and above the
+   content, and it moves away when the user scrolls down. Its buttons
+   are in this order:
+       the primary task of the page, if the page has one
+       a separator
+       Print and Export, as plain tools
+       more tools of the page
+   The hint at the right end explains the state of the bar. */
+.actionbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    min-height: 62px;
+    margin: 0 0 22px;
+    padding: 13px 16px;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+}
+/* The old name of the bar above the content. It changes nothing now,
+   because every bar is at the top. It stays for a template that still
+   uses it. */
+.actionbar--top { position: static; }
+
+.actionbar__group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.actionbar__hint {
+    margin: 0 0 0 auto;
+    color: var(--ink-soft);
+    font-size: 12px;
+}
+
+/* ================================================================== */
+/*  BALANCE CARDS                                                     */
+/* ================================================================== */
+/* Five cards fill the full width of the content area. The tracks stay
+   equal, thus the row reads as one band of figures. */
+.cards {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 16px 18px 18px;
+    background: var(--white);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+}
+
+/* The label of the 5th card is long. The value keeps to the bottom
+   edge, thus all five figures stay on one line. */
+.card__label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: bold;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    line-height: 1.4;
+    color: var(--gold-deep);
+}
+
+/* Money must align on the decimal point. Tabular figures do this. */
+.card__value {
+    margin-top: auto;
+    padding-top: 10px;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: -0.4px;
+    white-space: nowrap;
+    color: var(--ink);
+}
+/* Set the currency in the template: <div class="card__value" data-unit="ZAR"> */
+.card__value[data-unit]::after {
+    content: attr(data-unit);
+    margin-left: 6px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--ink-soft);
+    vertical-align: 2px;
+}
+
+/* Direction of the money. It touches the figure only. */
+.card__value.is-debit,
+.card--debit  .card__value { color: var(--debit); }
+
+.card__value.is-credit,
+.card--credit .card__value { color: var(--credit); }
+
+/* Money at risk. It is receivable, thus it is not a debit. */
+.card__value.is-overdue { color: var(--overdue); }
+
+/* A count is not money. The figure then loses the currency spacing. */
+.card__value.is-count,
+.card--count .card__value { font-size: 26px; letter-spacing: 0; }
+
+/* ================================================================== */
+/*  TABLE  (the base of every table of a module)                      */
+/*  Columns: Date · Reference · Account · Amount                      */
+/* ================================================================== */
+/* Every table takes the full width of the page. The variants below
+   change the columns only, not the frame. */
+.table {
+    width: 100%;
+    font-size: 13px;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+    table-layout: auto;
+}
+.table th,
+.table td { text-align: left; white-space: nowrap; }
+
+.table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 13px 16px;
+    background: var(--white);
+    border-bottom: 1px solid var(--line-strong);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+}
+
+.table tbody td {
+    border-bottom: 1px solid var(--rule);
+    padding: 12px 16px;
+}
+.table tbody tr:last-child td { border-bottom: none; }
+.table tbody tr { transition: background 0.12s ease; }
+.table tbody tr:hover { background: var(--gold-soft); }
+
+/* Column 1 = Date, column 2 = Reference. Both are machine data. */
+.table td:first-child,
+.table td:nth-child(2) {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-soft);
+}
+.table td:nth-child(2) { color: var(--ink); }
+
+/* Column 3 = Account. It takes the free space. */
+.table th:nth-child(3),
+.table td:nth-child(3) { width: 100%; white-space: normal; }
+
+/* Column 4 = Amount. It stays on the right edge of the row. */
+.table th:last-child,
+.table td:last-child { text-align: right; }
+.table td:last-child {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    color: var(--ink);
+}
+/* Add is-debit or is-credit to the amount cell to show the direction. */
+.table td.is-debit  { color: var(--debit); }
+.table td.is-credit { color: var(--credit); }
+
+/* The empty state. It tells the user what the period holds. */
+.table td[colspan] {
+    padding: 34px 16px;
+    text-align: center;
+    color: var(--ink-soft);
+}
+.table tbody tr:hover td[colspan] { background: transparent; }
+
+/* ---- The foot of a table ------------------------------------------- */
+/* The foot holds the figure that the reader looks for first. All
+   variants use the same foot. */
+.table tfoot td {
+    border-top: 1px solid var(--line-strong);
+    padding: 13px 16px;
+    background: rgba(232, 230, 222, 0.03);
+    font-weight: 600;
+    color: var(--ink);
+}
+.table tfoot td[colspan] {
+    padding: 13px 16px;
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+}
+
+/* ---- Shared row states --------------------------------------------- */
+/*  is-group  a heading row inside the table                            */
+/*  is-nest   a line that belongs to the group above it                 */
+/*  accounting.css adds is-sum, is-open and is-prior.                   */
+
+/* The group row uses the label of the side panel, thus all lists of
+   the module read the same. */
+.table tbody tr.is-group td {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--gold-deep);
+    background: rgba(232, 230, 222, 0.04);
+}
+.table tbody tr.is-group:hover td { background: rgba(232, 230, 222, 0.04); }
+
+/* A group row spans the full width. The rule below removes the large
+   space of the empty state, which uses the same colspan attribute. */
+.table tbody tr.is-group td[colspan] {
+    padding: 11px 16px;
+    text-align: left;
+}
+
+/* The space shows that the line belongs to the group above it. */
+.table tbody tr.is-nest td:first-child { padding-left: 34px; }
+
+/* ================================================================== */
+/*  ROW BUTTON                                                        */
+/* ================================================================== */
+
+/* The button of a table row. Every table uses it, thus all row buttons
+   have the same soft tone. It shows an icon only: the title gives the
+   tooltip, the aria-label gives the name for a screen reader. */
+.row-icon {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.row-icon:hover { background: var(--gold-soft); border-color: var(--gold-line); color: var(--gold); }
+.row-icon:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.row-icon .icon { width: 16px; height: 16px; stroke: currentColor; }
+.row-icon:disabled { opacity: 0.4; cursor: not-allowed; }
+.row-icon:disabled:hover { background: none; border-color: var(--line); color: var(--ink-soft); }
+
+/* A label that a screen reader gets, but the screen does not show,
+   e.g. the head of a column of row buttons. */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ================================================================== */
+/*  STATUS PILL  (a state: ok, low, out, idle)                        */
+/* ================================================================== */
+.status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 9px;
+    border: 1px solid var(--line-strong);
+    border-radius: 20px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.6;
+    white-space: nowrap;
+    color: var(--ink-soft);
+}
+.status--ok   { color: var(--credit);  border-color: rgba(127, 191, 154, 0.45); background: var(--credit-soft); }
+.status--low  { color: var(--overdue); border-color: rgba(255, 243, 140, 0.40); background: rgba(255, 243, 140, 0.12); }
+.status--out  { color: var(--debit);   border-color: rgba(224, 120, 94, 0.45);  background: var(--debit-soft); }
+.status--idle { color: var(--ink-soft); }
+
+/* ================================================================== */
+/*  TAB SET                                                           */
+/* ================================================================== */
+/* The active tab carries the gold spine of the module switch in the
+   ribbon, thus the page keeps the identity of the shell. Each module
+   sets the size of .tabset__list and .tabset__tab. */
+.tabset__tab:hover { color: var(--gold); background: var(--gold-soft); }
+
+/* The gold spine. It touches the hairline of the row, thus the tab and
+   the table below it read as one panel. */
+.tabset__tab[aria-selected="true"] { color: var(--ink); }
+.tabset__tab[aria-selected="true"]::after {
+    content: "";
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: -1px;
+    height: 2px;
+    border-radius: 2px 2px 0 0;
+    background: var(--gold);
+}
+
+/* journals.js closes a panel with the hidden attribute. The rule below
+   is necessary, because a class rule beats the browser default. */
+.tabset__panel[hidden] { display: none; }
+
+/* ================================================================== */
+/*  NOTES                                                             */
+/* ================================================================== */
+/* Each note is a card of the module. The list gives the cards one
+   column, because a person reads a note as text. */
+.notes {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.notes .card { padding: 14px 16px 16px; }
+.notes .card__label { margin: 0 0 8px; }
+
+.notes__text {
+    margin: 0;
+    max-width: 74ch;
+    color: var(--ink-soft);
+    font-size: 13px;
+}
+.notes__text + .notes__text { margin-top: 8px; }
+
+/* A wide screen gets two columns. A note is short, thus two columns
+   keep the page in one screen. */
+@media (min-width: 1240px) {
+    .notes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ================================================================== */
+/*  PAGE NOTES  (the notes that users write, see _notes.html)          */
+/*  The Notes pill · the Commentary and Footnotes cards · the editor   */
+/* ================================================================== */
+
+/* The pill at the right end of the page title. It stays grey, because a
+   note is extra information, not an alert. */
+.notes-pill {
+    margin-left: auto;
+    align-self: center;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 3px 4px 3px 11px;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    line-height: 1.5;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--ink-soft);
+}
+.notes-pill__count {
+    min-width: 20px;
+    padding: 0 6px;
+    border-radius: 20px;
+    background: var(--line);
+    color: var(--ink);
+    text-align: center;
+    letter-spacing: 0;
+}
+.notes-pill[href]:hover { border-color: var(--line-strong); color: var(--ink); }
+
+/* The two groups below the content of the page. */
+.page-notes { display: grid; gap: 22px; margin-top: 34px; }
+
+.note-group__head {
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+}
+.note-group__head::marker { color: var(--ink-soft); }
+
+/* A card stays small: the title, three lines of the description, the
+   files and one line of data. A click on the card opens the full note. */
+.note-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+}
+.note-card {
+    gap: 8px;
+    min-width: 0;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease;
+}
+.note-card:hover { background: var(--gold-soft); border-color: var(--gold-line); }
+
+.note-card__title { margin: 0; min-width: 0; font-size: 13px; font-weight: 600; }
+.note-card__title button {
+    display: block;
+    max-width: 100%;
+    padding: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+    font-weight: inherit;
+    color: var(--ink);
+}
+
+.note-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 2px 10px;
+    margin: auto 0 0;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+}
+
+/* The rich text of a note: the description in a card and in the overlay. */
+.note-text { font-size: 13px; line-height: 1.55; color: var(--ink); overflow-wrap: anywhere; }
+.note-text :is(p, ol, ul) { margin: 0 0 6px; }
+.note-text :is(ol, ul) { padding-left: 20px; }
+.note-text > :last-child { margin-bottom: 0; }
+.note-text a[href] { color: var(--gold); text-decoration: underline; }
+
+/* In a card, the description shows three lines at most. */
+.note-card__text {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    max-height: 4.65em;
+    overflow: hidden;
+    font-size: 12px;
+    color: var(--ink-soft);
+}
+.note-card__text :is(p, ol, ul) { margin: 0; }
+
+/* A supporting file. The icon is a paper clip. */
+.note-file {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    color: var(--gold);
+}
+.note-file:hover { text-decoration: underline; }
+
+/* The overlays: a value that the user reads, and the hint of the form. */
+.note-read { margin: 0; font-size: 13px; color: var(--ink); }
+.note-hint { margin: 0; font-size: 12px; line-height: 1.5; color: var(--ink-soft); }
+
+/* The Quill editor. quill.snow.css has a light theme. These rules give
+   it the colors of the module. The id wins over the rules of Quill. */
+#note-new .ql-toolbar.ql-snow,
+#note-new .ql-container.ql-snow { border-color: var(--line); background: var(--cream); }
+#note-new .ql-toolbar.ql-snow { border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+#note-new .ql-container.ql-snow {
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--ink);
+}
+#note-new .ql-container.ql-snow:focus-within { border-color: var(--gold-line); }
+#note-new .ql-editor { min-height: 140px; }
+#note-new .ql-editor:focus-visible { outline: none; }
+#note-new .ql-editor.ql-blank::before { color: var(--ink-soft); font-style: normal; }
+#note-new .ql-snow .ql-stroke { stroke: var(--ink-soft); }
+#note-new .ql-snow .ql-fill { fill: var(--ink-soft); }
+#note-new .ql-snow button:hover .ql-stroke,
+#note-new .ql-snow button.ql-active .ql-stroke { stroke: var(--gold); }
+#note-new .ql-snow button:hover .ql-fill,
+#note-new .ql-snow button.ql-active .ql-fill { fill: var(--gold); }
+#note-new .ql-snow .ql-tooltip {
+    background: var(--white);
+    border-color: var(--line-strong);
+    box-shadow: var(--shadow-md);
+    color: var(--ink);
+}
+#note-new .ql-snow .ql-tooltip input[type=text] {
+    background: var(--cream);
+    border-color: var(--line);
+    color: var(--ink);
+}
+#note-new .ql-snow .ql-tooltip a { color: var(--gold); }
+
+/* Paper gets the footnotes only. A comment is for the screen. */
+@media print {
+    .note-card { break-inside: avoid; }
+    .note-group__head, .note-card__title button, .note-text { color: #000000; }
+    .note-card__meta { color: #333333; }
+}
+
+/* ================================================================== */
+/*  RESPONSIVE                                                        */
+/* ================================================================== */
+@media (max-width: 1240px) {
+    .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 900px) {
+    /* The side panel becomes a drawer. base.js sets data-drawer on the
+       body when the user operates the button or the scrim. */
+    .drawer-toggle { display: grid; }
+
+    .sidebar {
+        position: fixed;
+        top: 0; bottom: 0; left: 0;
+        z-index: 60;
+        width: 272px;
+        background: var(--white);
+        transform: translateX(-100%);
+        transition: transform 0.2s ease;
+        box-shadow: var(--shadow-md);
+    }
+    body[data-drawer="true"] .sidebar { transform: translateX(0); }
+
+    .scrim {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        background: rgba(24, 26, 31, 0.55);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s ease, visibility 0.2s;
+    }
+    body[data-drawer="true"] .scrim { opacity: 1; visibility: visible; }
+
+    /* The full page scrolls on a small screen. Refer to RESPONSIVE above. */
+    .main { padding: 20px; overflow: visible; }
+    .page__subtitle { margin-top: 28px; }
+    .card__value { font-size: 22px; }
+
+    .actionbar { gap: 10px; }
+    .actionbar__hint { margin-left: 0; }
+
+    /* Every table scrolls sideways. Thus each column keeps its content,
+       and no column takes the free width. The block display removes the
+       corner clip, thus the radius moves to a scroll frame that the
+       border makes. The relative position keeps a visually-hidden label
+       inside the scroll frame. */
+    .table {
+        display: block;
+        position: relative;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .table thead th { position: static; }
+    .table th, .table td { width: auto; white-space: nowrap; }
+}
+
+@media (max-width: 560px) {
+    .toolbar { gap: 6px; }
+    .tool { padding-left: 10px; padding-right: 10px; }
+    .tool:has(.icon:only-child) { padding-left: 7px; padding-right: 7px; }
+    .tool__sep { margin-left: 2px; margin-right: 2px; }
+
+    .actionbar { padding: 11px 12px; }
+    .actionbar__group { gap: 6px; }
+
+    .table tbody tr.is-nest td:first-child { padding-left: 26px; }
+
+    .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .card { padding: 13px 14px 15px; }
+    /* A large amount pushes the currency to a second line. The amount
+       itself stays on one line. */
+    .card__value {
+        font-size: 19px;
+        padding-top: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        column-gap: 6px;
+    }
+    .card__value[data-unit]::after { margin-left: 0; }
+}
+
+/* ================================================================== */
+/*  PRINT  (a module page goes into a file or to an auditor)          */
+/* ================================================================== */
+@media print {
+    .shell { display: block; }
+    .main { padding: 0; overflow: visible; }
+    body { background: #FFFFFF; color: #000000; }
+
+    .page__title, .page__subtitle, .card__value { color: #000000; }
+    .page__note { color: #333333; }
+    .page__head > .page__note { display: block; }   /* Paper always shows the paragraph. */
+    .card__label { color: #7A5B22; }
+    .card, .table {
+        background: #FFFFFF;
+        border: 1px solid #999999;
+        box-shadow: none;
+    }
+    .table thead { display: table-header-group; }
+    .table tfoot { display: table-footer-group; }
+    .table tbody tr { page-break-inside: avoid; }
+
+    .table td { color: #000000; }
+    .table tbody tr.is-group td { color: #7A5B22; background: #FFFFFF; }
+
+    .notes .card { break-inside: avoid; }
+    .notes__text { color: #000000; }
+
+    /* Ink is expensive and a gold pill prints grey. */
+    .status { color: #000000; border-color: #999999; background: #FFFFFF; }
 }

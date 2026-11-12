@@ -84,6 +84,12 @@ class TaxCode(CompanyOwned):
     def __str__(self):
         return self.code
 
+    @classmethod
+    def usable(cls, company):
+        """The tax codes that the company can apply. A company that is not tax registered
+        (see Company.is_tax_registered) has none, thus each default rate and each new tax is zero."""
+        return cls.objects.filter(company=company) if company.is_tax_registered else cls.objects.none()
+
 class Account(CompanyOwned):
     class AccountType(models.TextChoices):
         SALES                   = "SALES", "Sales"

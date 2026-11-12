@@ -108,15 +108,14 @@
                         <div class="review__buttons">
                             <form method="post" action="{% url 'accounting:journalentry_post' entry.id %}">
                                 {% csrf_token %}
-                                <button class="tool tool--sm tool--accept" type="submit" aria-label="Accept {{ entry.reference }}">
-                                    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-10" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                    Accept
+                                <button class="row-icon row-icon--accept" type="submit" title="Accept" aria-label="Accept {{ entry.reference }}">
+                                    <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4 10-10" stroke-linecap="round" stroke-linejoin="round"/></svg>
                                 </button>
                             </form>
                             {% comment %} journals.js reads these attributes and
                                  fills the overlay. {% endcomment %}
-                            <button class="tool tool--sm tool--neutral" type="button"
-                                    aria-label="View {{ entry.reference }}"
+                            <button class="row-icon" type="button"
+                                    title="View" aria-label="View {{ entry.reference }}"
                                     data-entry-view
                                     data-url="{% url 'accounting:journalentry_update' entry.id %}"
                                     data-post-url="{% url 'accounting:journalentry_post' entry.id %}"
@@ -127,8 +126,7 @@
                                     data-reference="{{ entry.reference }}"
                                     data-narration="{{ entry.narration }}"
                                     data-lines="{{ entry.lines_json }}">
-                                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" stroke-linejoin="round"/><circle cx="12" cy="12" r="3"/></svg>
-                                View
+                                <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" stroke-linejoin="round"/><circle cx="12" cy="12" r="3"/></svg>
                             </button>
                         </div>
                     </td>
@@ -222,6 +220,9 @@
             <div class="sheet__head">
                 <h2 class="sheet__title">New Journal Entry</h2>
             </div>
+            {% comment %} journals.js shows a ribbon when the debits and the credits
+                 do not balance, or a line has no account. {% endcomment %}
+            <p class="warn-ribbon" role="status" data-entry-balance aria-live="polite"></p>
 
             <div class="sheet__body sheet__body--split">
                 {% comment %} The schedule: the date, and for a recurring entry (e.g. the
@@ -310,7 +311,7 @@
                                 </td>
                                 <td><input class="field__control num" type="number" name="line_debit" step="0.01" min="0" aria-label="Debit"></td>
                                 <td><input class="field__control num" type="number" name="line_credit" step="0.01" min="0" aria-label="Credit"></td>
-                                <td><button class="tool tool--sm" type="button" data-entry-line-remove aria-label="Remove the line">&times;</button></td>
+                                <td><button class="row-icon" type="button" data-entry-line-remove title="Remove" aria-label="Remove the line"><svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg></button></td>
                             </tr>
                         </tbody>
                         <tfoot>
@@ -321,15 +322,13 @@
                                 <td></td>
                             </tr>
                             <tr>
-                                <td colspan="2"><button class="tool tool--sm" type="button" data-entry-line-add>Add line</button></td>
-                                <td class="num">Total</td>
+                                <td colspan="3" class="num">Total</td>
                                 <td class="num" data-total-debit>0.00</td>
                                 <td class="num" data-total-credit>0.00</td>
-                                <td></td>
+                                <td><button class="row-icon" type="button" data-entry-line-add title="Add line" aria-label="Add a line"><svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg></button></td>
                             </tr>
                         </tfoot>
                     </table>
-                    <p class="entry-balance" data-entry-balance aria-live="polite"></p>
                 </div>
             </div>
 

@@ -104,11 +104,17 @@ class Company(models.Model):
     allocate_to_oldest  = models.BooleanField("Allocate unreferenced to oldest invoices", default=True)
     address             = models.TextField(blank=True, help_text="The Accounting Overview shows this address on a map.") #TODO: remove this. gets complicated when a company has multiple locations
     is_active           = models.BooleanField(default=True)
+    logo                = models.ForeignKey("filestore.StoredFile", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")   # PNG or SVG, used on the PDF documents (see documents.renderers.logo_data_uri)
     created_at          = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering            = ["name"]
         verbose_name_plural = "companies"
+
+    @property
+    def is_tax_registered(self):
+        """A company with a tax number is tax registered. Without one, it charges and claims no tax."""
+        return bool(self.tax_number.strip())
 
     def __str__(self):
         return self.name

@@ -76,7 +76,7 @@
     </div>
 
     {% for message in messages %}
-    <p class="item-flash{% if message.level_tag == 'error' %} is-error{% endif %}" role="status" style="margin: 16px 0 0;">{{ message }}</p>
+    <p class="item-flash{% if message.level_tag == 'error' %} is-error{% endif %}" role="status" style="margin: 16px 0 0;"{% if message.level_tag != 'error' %} data-flash-temp{% endif %}>{{ message }}</p>
     {% endfor %}
 
     {% comment %} The editor shows only after New Item (?new=1), or when an
@@ -514,24 +514,51 @@
     {% endif %}
 
     <h2 class="page__subtitle">All items</h2>
-    {% comment %} Each row has the image of its model, and three actions:
+    {% comment %} Items with the same SKU (or, with no SKU, the same model)
+         are one group, as the entries of the Accounting journals (see
+         item_groups in views.py). A group of two or more items has a head
+         row: the name, the number of items and the total quantity. The
+         toggle of the head row opens and closes the item rows. A group of
+         one item shows only the item row.
+         Each item row has the image of its model, and three actions:
          View opens the overlay (item_view), Edit opens the editor, and
          Checkout opens the checkout overlay. A checked-out item shows
          Check In instead. A stock item has no checkout (see Checkout.clean). {% endcomment %}
-    <table class="table table--inv">
+    <table class="table table--inv table--items">
         <thead>
             <tr>
                 <th>Item</th>
                 <th>Code</th>
                 <th>Type</th>
+                <th class="is-qty">Quantity</th>
                 <th class="is-qty">Relationships</th>
                 <th>Status</th>
                 <th><span class="visually-hidden">Actions</span></th>
             </tr>
         </thead>
-        <tbody>
-            {% for item in items %}
-            <tr>
+        {% for group in item_groups %}
+        {% with grouped=group.items|length|add:"-1" %}
+        <tbody class="item-group"{% if grouped %} data-item-group{% endif %}>
+            {% if grouped %}
+            <tr class="item-group__head">
+                <td class="is-name">
+                    <button class="item-group__toggle" type="button" aria-expanded="false" data-item-group-toggle
+                            aria-label="Show the items of {{ group.name }}">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        {{ group.name }}
+                    </button>
+                    <span class="item-group__count">{{ group.items|length }} items</span>
+                </td>
+                <td class="is-code">{{ group.sku|default:"—" }}</td>
+                <td>{{ group.type }}</td>
+                <td class="is-qty">{{ group.quantity|qty }}</td>
+                <td class="is-qty"></td>
+                <td></td>
+                <td></td>
+            </tr>
+            {% endif %}
+            {% for item in group.items %}
+            <tr{% if grouped %} class="item-group__line"{% endif %}>
                 <td class="is-name">
                     <span class="item-cell">
                         {% if item.model.thumbnail_id %}
@@ -539,11 +566,12 @@
                         {% else %}
                         <span class="item-thumb item-thumb--none" aria-hidden="true"></span>
                         {% endif %}
-                        <a href="?item={{ item.pk }}">{{ item.name }}</a>
+                        <span><a href="?item={{ item.pk }}">{{ item.name }}</a>{% if item.serial %}<span class="cell-sub">{{ item.serial }}</span>{% endif %}</span>
                     </span>
                 </td>
                 <td class="is-code">{{ item.sku|default:"—" }}</td>
                 <td>{{ item.get_item_type_display }}</td>
+                <td class="is-qty">{{ item.quantity|qty }}</td>
                 <td class="is-qty">{{ item.relation_count }}</td>
                 <td>
                     <span class="status status--{{ item.tone }}">{{ item.status }}</span>
@@ -551,40 +579,41 @@
                 </td>
                 <td>
                     <div class="row-actions">
-                        <button class="tool tool--sm tool--neutral" type="button" data-item-view="{% url 'inventory:itemview' item.pk %}">
-                            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" stroke-linejoin="round"/><circle cx="12" cy="12" r="3"/></svg>
-                            View
+                        <button class="row-icon" type="button" data-item-view="{% url 'inventory:itemview' item.pk %}" title="View" aria-label="View {{ item.name }}">
+                            <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" stroke-linejoin="round"/><circle cx="12" cy="12" r="3"/></svg>
                         </button>
-                        <a class="tool tool--sm tool--neutral" href="?item={{ item.pk }}">
-                            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M4 20h4L19 9l-4-4L4 16v4z" stroke-linejoin="round"/></svg>
-                            Edit
+                        <a class="row-icon" href="?item={{ item.pk }}" title="Edit" aria-label="Edit {{ item.name }}">
+                            <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z" stroke-linejoin="round"/></svg>
                         </a>
                         {% if item.open_checkout %}
                         <form method="post" action="{% url 'inventory:itemcheckin' item.pk %}">
                             {% csrf_token %}
-                            <button class="tool tool--sm tool--neutral" type="submit">
-                                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M15 12H3M7 8l-4 4 4 4M13 4h6a1 1 0 011 1v14a1 1 0 01-1 1h-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                Check In
+                            <button class="row-icon" type="submit" title="Check In" aria-label="Check in {{ item.name }}">
+                                <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 12H3M7 8l-4 4 4 4M13 4h6a1 1 0 011 1v14a1 1 0 01-1 1h-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
                             </button>
                         </form>
                         {% else %}
-                        <button class="tool tool--sm tool--neutral" type="button"
+                        <button class="row-icon" type="button"
                                 data-checkout="{% url 'inventory:itemcheckout' item.pk %}" data-name="{{ item.name }}{% if item.sku %} · {{ item.sku }}{% endif %}"
-                                {% if item.item_type == stock_type %}disabled title="A stock item is not checked out"{% endif %}>
-                            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M9 12h12M17 8l4 4-4 4M11 4H5a1 1 0 00-1 1v14a1 1 0 001 1h6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                            Checkout
+                                aria-label="Check out {{ item.name }}"
+                                {% if item.item_type == stock_type %}disabled title="A stock item is not checked out"{% else %}title="Checkout"{% endif %}>
+                            <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 12h12M17 8l4 4-4 4M11 4H5a1 1 0 00-1 1v14a1 1 0 001 1h6" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         </button>
                         {% endif %}
                     </div>
                 </td>
             </tr>
-            {% empty %}
-            <tr><td colspan="6">There are no items{% if q or item_type %} that match the filter{% endif %}.</td></tr>
             {% endfor %}
         </tbody>
+        {% endwith %}
+        {% empty %}
+        <tbody>
+            <tr><td colspan="7">There are no items{% if q or item_type %} that match the filter{% endif %}.</td></tr>
+        </tbody>
+        {% endfor %}
         <tfoot>
             <tr>
-                <td colspan="6">{{ items|length }} of {{ item_count }} item{{ item_count|pluralize }}</td>
+                <td colspan="7">{{ items|length }} of {{ item_count }} item{{ item_count|pluralize }}</td>
             </tr>
         </tfoot>
     </table>
@@ -624,12 +653,26 @@
 {% block extra_js %}
 {{ block.super }}
 <script>
+/* A message that is not an error goes away after 4 seconds. */
+document.querySelectorAll("[data-flash-temp]").forEach(function (flash) {
+    setTimeout(function () {
+        flash.classList.add("is-gone");
+        setTimeout(function () { flash.hidden = true; }, 400);
+    }, 4000);
+});
+
 /* The All items table: the View and the Checkout overlays. */
 (function () {
     var viewDialog = document.getElementById("item-view-dialog");
     var checkoutDialog = document.getElementById("checkout-dialog");
 
     document.addEventListener("click", function (e) {
+        var toggle = e.target.closest("[data-item-group-toggle]");
+        if (toggle) {
+            var open = toggle.closest("[data-item-group]").classList.toggle("is-open");
+            toggle.setAttribute("aria-expanded", String(open));
+            return;
+        }
         var view = e.target.closest("[data-item-view]");
         if (view) {
             viewDialog.innerHTML = '<div class="sheet__body"><p class="chart-note">The item loads…</p></div>';

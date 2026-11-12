@@ -30,7 +30,7 @@ from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_GET, require_POST
 from .printing import build_report
 from .registry import registry
-from .renderers import render_pdf
+from .renderers import logo_data_uri, render_pdf
 
 
 def _get_document(module, key):
@@ -113,6 +113,7 @@ def _pdf_response(request, module, key, inline):
             return HttpResponseBadRequest(" ".join(error.messages))
 
     context     = document.get_context(request, options)
+    context["company_logo"] = logo_data_uri(getattr(request, "company", None))
     pdf         = render_pdf(document.template_name, context)
     disposition = "inline" if inline else "attachment"
     filename    = document.get_filename(options)
