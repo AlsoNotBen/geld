@@ -15,9 +15,13 @@ import datetime
 from decimal import Decimal, ROUND_HALF_UP
 
 from django import forms
+from django.core.exceptions import ValidationError
+from django.db import transaction
+from django.db.models import Q
 
-from accounting.documents import catalog, currency_symbol, standard_rate
-from accounting.models import NumberSequence, supplier_entities
+from accounting.documents import catalog, catalog_record, currency_symbol, standard_rate
+from accounting.models import AuditLog, Document, DocumentLine, NumberSequence, TaxCode, supplier_entities
+from accounting.posting import COST_OF_SALES, _account, asset_account
 from documents.forms import (
     DocumentOptionsForm, LineItemsField, SelectWithAddButton,
 )
@@ -33,10 +37,86 @@ def _suppliers(company):
     return supplier_entities(company).filter(is_active=True)
 
 
+def _supplier_entity(options, company):
+    return _suppliers(company).filter(pk=options["supplier"] or None).first()
+
+
 def _supplier(options, company):
     """Return the supplier record for the selected choice. No choice gives an empty record."""
-    entity = _suppliers(company).filter(pk=options["supplier"] or None).first()
+    entity = _supplier_entity(options, company)
     return {"name": entity.name, "details": entity.address} if entity else {"name": "", "details": ""}
+
+
+def _purchase_lines(company, options):
+    """The lines of a purchase order as unsaved DocumentLines. A line from the catalog
+    keeps its item. A tracked item posts to its asset account (Inventory): the bill
+    then puts the stock on the balance sheet. Every other line posts to Cost of Sales.
+    The tax rate must have a tax code that is valid on the issue date."""
+    day, rate = options["issue_date"], options["tax_rate"]
+    tax_code = (TaxCode.usable(company).filter(rate=rate, valid_from__lte=day)
+                .filter(Q(valid_to__isnull=True) | Q(valid_to__gte=day)).order_by("-valid_from").first())
+    if rate and not tax_code:
+        raise ValidationError(f"No tax code has the rate {rate}% on {day:%d %b %Y}. Add it first.")
+    expense = _account(company, COST_OF_SALES)
+    lines = []
+    for index, line in enumerate(options["line_items"]):
+        record = catalog_record(company, line.get("ref"))
+        item = record.get("item")
+        lines.append(DocumentLine(
+            account=asset_account(item) if item and item.tracked else expense, tax_code=tax_code,
+            description=line["description"], quantity=line["quantity"], unit_price=line["unit_price"],
+            sort_order=index, item=item))
+    return lines
+
+
+def _replace_lines(document, lines):
+    document.lines.all().delete()
+    for line in lines:
+        line.pk, line.document = None, document
+    DocumentLine.objects.bulk_create(lines)
+
+
+def record_purchase_order(request, options):
+    """Keep an issued purchase order as a Document, and make its draft bill.
+
+    The order is a commitment, not a liability, thus it has no journal entry. The
+    draft bill (source_doc = the order) waits in the Review part of the Bills page.
+    Approve posts it: Dr the asset or expense account of each line / Cr Accounts
+    Payable, and the stock of each tracked item comes in (see posting.post_bill).
+    Deny voids it when the supplier does not deliver.
+
+    The same order number again (e.g. Download, then one more line, then Save)
+    changes the order and its draft bill. An order with an approved bill cannot
+    change. Returns the order."""
+    company = request.company
+    entity = _supplier_entity(options, company)
+    if not entity:
+        raise ValidationError("Select a supplier.")
+    if not options["line_items"]:
+        raise ValidationError("Add one line or more. Each line must have a description.")
+    P, B, S = Document.Direction.PURCHASE, Document.DocType, Document.Status
+    with transaction.atomic():
+        order, created = Document.objects.update_or_create(
+            company=company, direction=P, doc_type=B.PURCHASE_ORDER, number=options["number"],
+            defaults={"date": options["issue_date"], "due": options["delivery_date"], "entity": entity,
+                      "currency": company.base_currency, "notes": options["notes"], "status": S.SENT})
+        bill = order.related_docs.filter(doc_type=B.BILL).first()
+        if bill and bill.status != S.DRAFT:
+            raise ValidationError(f"Purchase order {order.number} has the approved bill {bill.number}, "
+                                  "thus it cannot change. Use a new order number.")
+        lines = _purchase_lines(company, options)
+        _replace_lines(order, lines)
+        if not bill:
+            NumberSequence.peek(company, "bill", "BILL-")      # Makes the sequence on first use
+            bill = Document.objects.create(
+                company=company, direction=P, doc_type=B.BILL, number=NumberSequence.take(company, "bill"),
+                date=order.date, due=order.due, entity=entity, currency=company.base_currency,
+                status=S.DRAFT, source_doc=order, notes=f"From purchase order {order.number}", created_by=request.user)
+        else:
+            Document.objects.filter(pk=bill.pk).update(date=order.date, due=order.due, entity=entity)
+        _replace_lines(bill, lines)
+        AuditLog.record(request, AuditLog.Action.CREATE if created else AuditLog.Action.UPDATE, order)
+    return order
 
 
 def _in_days(days):
@@ -190,6 +270,12 @@ class PurchaseOrderDocument(StockDocument):
     description = "An order to a supplier with line items, totals and delivery details."
     template_name = "inventory/pdf/purchase_order.html"
     options_form_class = PurchaseOrderOptionsForm
+
+    def issue(self, request, options):
+        """Take the number, then keep the order and make its draft bill (see record_purchase_order)."""
+        with transaction.atomic():
+            super().issue(request, options)
+            record_purchase_order(request, options)
 
 
 @register

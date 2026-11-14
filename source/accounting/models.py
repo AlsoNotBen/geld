@@ -199,14 +199,23 @@ class JournalLine(models.Model):
             ),
         ]
 
-# Billable item not based on any physical goods (e.g consulting, installation etc)
+# Billable item not based on any physical goods (e.g consulting, installation etc).
+# The Services page (views.services) keeps them. The catalog of an invoice or a
+# quote lists the active services with the unit price (see documents.catalog).
 class Service(CompanyOwned):
-    code    = models.CharField(max_length=100)
-    name    = models.CharField(max_length=255)
-    account = models.ForeignKey(Account, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+    code        = models.CharField(max_length=100)
+    name        = models.CharField(max_length=255)
+    description = models.CharField(max_length=255, blank=True)
+    unit_price  = models.DecimalField(max_digits=13, decimal_places=2, null=True, blank=True)   # Empty: the user types it
+    account     = models.ForeignKey(Account, on_delete=models.PROTECT, null=True, blank=True, related_name="+")  # Empty: "Sales"
+    active      = models.BooleanField(default=True)
 
     class Meta:
         unique_together = [("company", "code")]
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
 
 class PaymentTerms(models.TextChoices):
     ON_RECEIPT = "0",   "On receipt"
@@ -242,6 +251,7 @@ class Document(CompanyOwned, TimeStamped):
         INVOICE     = "I", "Invoice"
         BILL        = "B", "Bill"
         CREDIT_NOTE = "C", "Credit note"
+        PURCHASE_ORDER = "O", "Purchase order"   # A commitment, not a liability: it has no journal entry
 
     class Status(models.TextChoices):
         DRAFT       = "D", "Draft"

@@ -5,6 +5,7 @@ from django.contrib.auth.views import LoginView
 from django.db import transaction
 from django import forms
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -14,7 +15,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 from accounting.setup import seed_company
 from filestore.services import LOGO_EXTENSIONS, save_upload, update_avatar
 
-from .forms import AvatarField, CompanyForm
+from .forms import AvatarField, CompanyEditForm, CompanyForm
 from .middleware import SESSION_KEY
 from .models import Membership, UserProfile
 
@@ -86,7 +87,9 @@ class ProfileForm(forms.Form):
 
 @require_http_methods(["GET", "POST"])
 def profile(request):
-    """The Profile page of the user menu. The user uploads or removes an avatar."""
+    """The Profile page of the user menu. The user uploads or removes an
+    avatar. The Companies section lists the companies of the user. An owner
+    can edit a company (see company_edit)."""
     form = ProfileForm(request.POST or None, request.FILES or None)
     if form.is_valid():
         user_profile, _ = UserProfile.objects.get_or_create(user=request.user)
@@ -95,4 +98,35 @@ def profile(request):
         if upload or clear:
             messages.success(request, "The avatar was saved." if upload else "The avatar was removed.")
         return redirect("profile")
-    return render(request, "shared/profile.html", {"form": form})
+    memberships = (Membership.objects.filter(user=request.user)
+                   .select_related("company").order_by("company__name"))
+    return render(request, "shared/profile.html", {"form": form, "memberships": memberships})
+
+
+@require_http_methods(["GET", "POST"])
+def company_edit(request, pk):
+    """The Edit Company page. Only an owner of the company can open it.
+    A new logo replaces the old one. The Remove button removes the logo."""
+    membership = Membership.objects.filter(user=request.user, company_id=pk).select_related("company").first()
+    if not membership:
+        raise Http404("You are not a member of this company.")
+    if membership.role != Membership.Role.OWNER:
+        raise PermissionDenied("Only an owner can edit the company.")
+    company = membership.company
+
+    form = CompanyEditForm(request.POST or None, request.FILES or None, instance=company)
+    if form.is_valid():
+        with transaction.atomic():
+            form.save()
+            upload, old = form.cleaned_data["logo"], company.logo
+            if upload:
+                company.logo = save_upload(upload, request.user, company, LOGO_EXTENSIONS)
+            elif request.POST.get("avatar_clear"):     # The Remove button (see shared/_file_pick.html)
+                company.logo = None
+            if company.logo != old:
+                company.save(update_fields=["logo"])
+                if old:
+                    old.delete()
+        messages.success(request, f"{company.name} was saved.")
+        return redirect("profile")
+    return render(request, "shared/company_edit.html", {"form": form, "company": company})

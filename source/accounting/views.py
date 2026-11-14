@@ -12,10 +12,11 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from accounting.models import *
 from accounting.date_range import get_range, previous_range
 from accounting.documents import AGEING_LABELS, age_bucket, standard_rate
-from accounting.forms import BankAccountForm, BillForm, CustomerForm, NoteForm, PaymentForm, SupplierForm
+from accounting.forms import BankAccountForm, BillForm, CustomerForm, NoteForm, PaymentForm, ServiceForm, SupplierForm
 from accounting.posting import (CENT, PAYABLE, RECEIVABLE, VAT, _account, _open_period, allocate, linked_entry_ids, post_bill,
                                 post_opening_document, post_payment, reverse_entry, run_recurring, set_bank_opening)
 from datetime import datetime, timedelta
+from urllib.parse import urlencode
 from filestore.services import save_upload, validate
 
 ZERO = Decimal("0")
@@ -852,8 +853,35 @@ def equity(request):
     })
     return render(request, "accounting/shareholder_equity.html", ctx)
 
+# The rows of the Reports page: (name, group, description, page URL names).
+# A report with more than one page prints them as one PDF with a cover page.
+FINANCIAL_STATEMENTS = ["balancesheet", "incomestatement", "cashflow", "equity"]
+REPORTS = [
+    ("Full Financial Statement", "Bookkeeping", "All the financial statements in one PDF, with a cover page.", FINANCIAL_STATEMENTS),
+    ("Chart of Accounts", "Bookkeeping", "The balance of each account in the date range.", ["chartaccounts"]),
+    ("General Ledger", "Bookkeeping", "The posted lines of each account, with the opening and the closing balance.", ["ledger"]),
+    ("Balance Sheet", "Bookkeeping", "The assets, the liabilities and the equity at the end of the date range.", ["balancesheet"]),
+    ("Income Statement", "Bookkeeping", "The income, the expenses and the profit of the date range.", ["incomestatement"]),
+    ("Cash Flow Statement", "Bookkeeping", "The cash that came in and went out in the date range.", ["cashflow"]),
+    ("Equity and Notes", "Bookkeeping", "The changes of the equity in the date range.", ["equity"]),
+    ("Receivables", "Customers", "The open invoices and the paid invoices.", ["receivables"]),
+    ("Aging Receivables", "Customers", "The overdue invoices, by the days after the due date.", ["aging_receivables"]),
+    ("Payables", "Suppliers", "The bills that are not paid in full.", ["payables"]),
+    ("Aging Payables", "Suppliers", "The overdue bills, by the days after the due date.", ["aging_payables"]),
+    ("Bank Accounts", "Banking", "The balance of each bank account.", ["bank_accounts"]),
+    ("Tax Dashboard", "Taxes", "The VAT payable and the income tax from the ledger.", ["tax_dashboard"]),
+]
+
 def reports(request):
-    return render(request, "accounting/reports.html")
+    """Each row links to the PDF of its page(s), as the Print button of the page does."""
+    rows = []
+    for name, group, description, pages in REPORTS:
+        query = [("url", reverse(f"accounting:{page}")) for page in pages]
+        if len(pages) > 1:
+            query.append(("title", name))
+        rows.append({"name": name, "group": group, "description": description,
+                     "print_url": reverse("documents:print") + "?" + urlencode(query)})
+    return render(request, "accounting/reports.html", {"reports": rows})
 
 def bill_list(request, *statuses, **filters):
     """The bills of the company with one of the statuses, the next due first."""
@@ -1047,6 +1075,37 @@ def module_settings(request):
         "lock_date": last_closed and last_closed.end_date,
         "next_invoice": NumberSequence.peek(company, "invoice", "INV-"),
         "next_quote": NumberSequence.peek(company, "quote", "QUO-"),
+    })
+
+def services(request):
+    """The billable services of the company (see Service): work that the
+    business sells, e.g. consulting or installation. An active service is in
+    the catalog of the invoice and the quote overlays, with its unit price.
+    An inactive service stays on record, but drops out of the catalog."""
+    rows = Service.objects.filter(company=request.company).select_related("account")
+    return render(request, "accounting/services.html", {
+        "services": rows,
+        "active_count": sum(1 for s in rows if s.active),
+    })
+
+def service_form(request, pk=None):
+    """The New Service page, and the Edit Service page of a service of the
+    Services page (pk). Save makes or changes the service. The browser then
+    goes to the Services page."""
+    company = request.company
+    service = get_object_or_404(Service, company=company, pk=pk) if pk else Service(company=company)
+    form = ServiceForm(request.POST or None, instance=service, company=company)
+    if form.is_valid():
+        with transaction.atomic():
+            service = form.save()
+            if not pk and service.code == NumberSequence.peek(company, "service", "SVC-"):
+                NumberSequence.take(company, "service")
+            AuditLog.record(request, AuditLog.Action.UPDATE if pk else AuditLog.Action.CREATE, service)
+        return redirect("accounting:services")
+    return render(request, "accounting/record_form.html", {
+        "title": "Edit Service" if pk else "New Service",
+        "note": "Change the details of the service." if pk else "Fill in the fields below to add a billable service.",
+        "form": form, "cancel_url": reverse("accounting:services"), "page_key": "services",
     })
 
 def open_invoices(company):

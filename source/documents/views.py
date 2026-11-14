@@ -10,7 +10,8 @@ Four generic views serve every registered document type:
 
 One more view serves the Print button of each page:
 
-    print_page  a greyscale PDF of the headings and the tables of a page
+    print_page  a greyscale PDF of the headings and the tables of a page,
+                or of more pages in one PDF with a cover page
 
 The views take the options from the query string. Thus the preview
 frame and the download link share one URL format, and the browser can
@@ -125,6 +126,10 @@ def _pdf_response(request, module, key, inline):
     return response
 
 
+class _NoPrint(Exception):
+    """A page that cannot print. The message tells the user why."""
+
+
 @require_GET
 def print_page(request):
     """The Print button of a page (documents.js). The query string gives
@@ -133,17 +138,51 @@ def print_page(request):
     The view renders that page again with the same user, company and
     date range (the cookie), thus the report shows what the page shows.
     The page view does its own access checks. The answer is the PDF,
-    inline, thus the browser shows it and the user prints it."""
-    url = request.GET.get("url", "")
-    if not url.startswith("/") or url.startswith("//"):
+    inline, thus the browser shows it and the user prints it.
+
+    More than one url gives one PDF with a cover page and a part for
+    each page, e.g. the Full Financial Statement of the Reports page.
+    The title parameter gives the title of the cover page."""
+    urls = request.GET.getlist("url")
+    if not urls:
         return HttpResponseBadRequest("Give the path of a page.")
+    try:
+        parts = [_page_report(request, url) for url in urls]
+    except _NoPrint as error:
+        return HttpResponseBadRequest(str(error))
+
+    company = getattr(request, "company", None)
+    context = {"company": company.name if company else "", "printed": timezone.localdate()}
+    if len(parts) == 1:
+        context.update(parts[0])
+        pdf = render_pdf("documents/report_pdf.html", context)
+    else:
+        context.update(
+            title=request.GET.get("title") or "Report",
+            period=next((part["period"] for part in parts if part["period"]), ""),
+            parts=parts,
+            company_logo=logo_data_uri(company),
+        )
+        pdf = render_pdf("documents/bundle_pdf.html", context)
+
+    response = HttpResponse(pdf, content_type="application/pdf")
+    response["Content-Disposition"] = f'inline; filename="{slugify(context["title"]) or "report"}.pdf"'
+    response["Cache-Control"]       = "no-store"
+    return response
+
+
+def _page_report(request, url):
+    """Render the page at url again for this request. Return its report
+    (see printing.build_report). Raise _NoPrint when it cannot print."""
+    if not url.startswith("/") or url.startswith("//"):
+        raise _NoPrint("Give the path of a page.")
     path, _, query = url.partition("?")
     try:
         match = resolve(path)
     except Resolver404:
         raise Http404("No page has this path.")
     if match.func is print_page:
-        return HttpResponseBadRequest("This page cannot print itself.")
+        raise _NoPrint("This page cannot print itself.")
 
     page = copy(request)
     page.path = page.path_info = path
@@ -155,17 +194,5 @@ def print_page(request):
     if hasattr(response, "render"):
         response.render()
     if response.status_code != 200 or "text/html" not in response.get("Content-Type", ""):
-        return HttpResponseBadRequest("This page has nothing to print.")
-
-    report  = build_report(response.content.decode(response.charset))
-    company = getattr(request, "company", None)
-    pdf     = render_pdf("documents/report_pdf.html", {
-        **report,
-        "company": company.name if company else "",
-        "printed": timezone.localdate(),
-    })
-
-    response = HttpResponse(pdf, content_type="application/pdf")
-    response["Content-Disposition"] = f'inline; filename="{slugify(report["title"]) or "report"}.pdf"'
-    response["Cache-Control"]       = "no-store"
-    return response
+        raise _NoPrint("This page has nothing to print.")
+    return build_report(response.content.decode(response.charset))

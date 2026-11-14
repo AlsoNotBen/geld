@@ -54,9 +54,6 @@
         </div>
 
         <p class="actionbar__hint">Accept All posts the {{ pending_count }} new {{ pending_count|pluralize:"entry,entries" }} to the ledger.</p>
-        {% comment %} table_filter.js filters the rows of each table of the page. {% endcomment %}
-        <input class="field__control filter" type="search" placeholder="Filter the entries"
-               aria-label="Filter the entries" data-filter>
     </div>
 
     {% for message in messages %}
@@ -75,7 +72,8 @@
             <p class="review__hint">These entries wait for a review. Accept or view each one.</p>
         </div>
 
-        <table class="table table--review" data-num>
+        {% comment %} table_columns.js gives each column a filter and a sort. {% endcomment %}
+        <table class="table table--review" data-num data-columns>
             <thead>
                 <tr>
                     <th>Date</th>
@@ -95,7 +93,7 @@
                 {% comment %} Each line of a side shows on its own line in the cell.
                      A line on a tax account has the Tax tag (see draft_rows). {% endcomment %}
                 <tr>
-                    <td>{{ entry.date }}</td>
+                    <td data-sort="{{ entry.date|date:'Y-m-d' }}">{{ entry.date }}</td>
                     <td>{{ entry.reference }}{% if entry.recurring or entry.reversal %}<span class="review__line">{% include "accounting/_entry_badges.html" %}</span>{% endif %}</td>
                     <td>{{ entry.journal }}</td>
                     <td>{% for line in entry.debit_lines %}<span class="review__line" data-code>{{ line.account.code }}</span>{% endfor %}</td>

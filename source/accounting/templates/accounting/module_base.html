@@ -249,6 +249,7 @@
             <a class="nav__item" data-nav="claims" href="{% url 'accounting:claims' %}">Claims</a>
 
             <div class="nav__group">General</div>
+            <a class="nav__item" data-nav="services" href="{% url 'accounting:services' %}">Services</a>
             <a class="nav__item" data-nav="settings" href="{% url 'accounting:module_settings' %}">Module Settings</a>
         </nav>
 
@@ -287,4 +288,5 @@
 <script src="{% static 'accounting/js/payment_form.js' %}"></script>
 <script src="{% static 'accounting/js/page_note.js' %}"></script>
 <script src="{% static 'accounting/js/table_filter.js' %}"></script>
+<script src="{% static 'accounting/js/table_columns.js' %}"></script>
 {% endblock %}

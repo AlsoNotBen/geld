@@ -1,0 +1,76 @@
+{% extends "documents/report_pdf.html" %}
+{% comment %}
+============================================================================
+documents/templates/documents/bundle_pdf.html
+----------------------------------------------------------------------------
+More pages in one PDF, e.g. the Full Financial Statement (see
+views.print_page). A cover page comes first. It shows the logo, the
+company, the title, the period and the contents. Each part then starts
+on a new page with the head of a normal report.
+
+The context: company, company_logo, title, period, printed, and
+    parts       a list of reports: title, period, sections
+============================================================================
+{% endcomment %}
+
+{% block extra_css %}
+    /* The cover page has no footer. */
+    @page :first {
+        @bottom-left { content: none; }
+        @bottom-right { content: none; }
+    }
+
+    .cover {
+        height: 250mm;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        break-after: page;
+    }
+    .cover__logo { max-width: 60mm; max-height: 30mm; margin-bottom: 10mm; object-fit: contain; }
+    .cover__company { font-size: 13pt; color: #444444; }
+    .cover__title {
+        font-size: 28pt;
+        margin: 3mm 0 4mm;
+        padding-bottom: 4mm;
+        border-bottom: 3pt solid #F0BE72;
+    }
+    .cover__meta { font-size: 10pt; color: #444444; }
+
+    .contents { margin-top: 18mm; width: 110mm; }
+    .contents h2 { border-left: 0; padding-left: 0; font-size: 10pt; text-transform: uppercase; letter-spacing: 1pt; }
+    .contents a { display: block; color: #000000; text-decoration: none; padding: 1.5mm 0; border-bottom: 0.5pt solid #E8C68E; font-size: 10pt; }
+    .contents a::after { content: target-counter(attr(href), page); float: right; color: #444444; }
+
+    .part { break-before: page; }
+{% endblock %}
+
+{% block content %}
+    <div class="cover">
+        {% if company_logo %}<div><img class="cover__logo" src="{{ company_logo }}" alt=""></div>{% endif %}
+        <div class="cover__company">{{ company }}</div>
+        <h1 class="cover__title">{{ title }}</h1>
+        <div class="cover__meta">
+            {% if period %}Period: {{ period }}<br>{% endif %}Printed on {{ printed|date:"j F Y" }}
+        </div>
+        <nav class="contents">
+            <h2>Contents</h2>
+            {% for part in parts %}<a href="#part-{{ forloop.counter }}">{{ part.title }}</a>{% endfor %}
+        </nav>
+    </div>
+
+    {% for part in parts %}
+    <div class="part" id="part-{{ forloop.counter }}">
+        <div class="report-head">
+            <div class="report-head__company">{{ company }}</div>
+            <h1>{{ part.title }}</h1>
+            {% if part.period %}<div class="report-head__meta">Period: {{ part.period }}</div>{% endif %}
+        </div>
+        {% for section in part.sections %}
+        <div class="section">{{ section|safe }}</div>
+        {% empty %}
+        <p class="empty">This page has no tables to print.</p>
+        {% endfor %}
+    </div>
+    {% endfor %}
+{% endblock %}

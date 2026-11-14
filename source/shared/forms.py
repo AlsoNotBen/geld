@@ -83,3 +83,25 @@ class CompanyForm(forms.ModelForm):
         if commit:
             company.save()
         return company
+
+
+class CompanyEditForm(forms.ModelForm):
+    """The fields of the Edit Company page. Only an owner of the company
+    sees it (see shared.views.company_edit). The base currency, the
+    accounting basis and the financial year do not change here, because
+    the books already use them. The view stores the logo."""
+
+    logo = LogoField()
+
+    class Meta:
+        model = Company
+        fields = ["name", "tax_number", "address"]
+        labels = {"tax_number": "VAT number"}
+        widgets = {"address": forms.Textarea(attrs={"rows": 3})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["address"].help_text = ""
+        for name, field in self.fields.items():
+            if name != "logo":
+                field.widget.attrs["class"] = "field__control"

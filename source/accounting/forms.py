@@ -2,7 +2,7 @@ import datetime
 from django import forms
 from django.utils import timezone
 from accounting.models import (Account, BankAccount, Document, Entity, Note, NumberSequence, OrganizationProfile,
-                               Payment, RecurringDocument, in_one_month)
+                               Payment, RecurringDocument, Service, in_one_month)
 from shared.models import Supplier
 from shared.forms import AvatarField
 from filestore.services import update_avatar
@@ -116,7 +116,7 @@ class SupplierForm(forms.ModelForm):
 
     name = forms.CharField(label="Name", max_length=255)
     email = forms.EmailField(label="Email", required=False)
-    phone = forms.CharField(label="Phone", max_length=50, required=False)
+    phone = forms.CharField(label="Phone", max_length=50, required=False, widget=forms.TelInput)
     vat_number = forms.CharField(label="VAT number", max_length=50, required=False)
     avatar = AvatarField()
     opening_balance, opening_date = _opening_fields()    # A new supplier only (see post_opening_document)
@@ -234,7 +234,7 @@ class CustomerForm(forms.ModelForm):
         fields = ["name", "email", "phone", "address", "is_active"]
         labels = {"is_active": "Status"}
         help_texts = {"is_active": "Active"}
-        widgets = {"address": forms.Textarea(attrs={"rows": 3})}
+        widgets = {"address": forms.Textarea(attrs={"rows": 3}), "phone": forms.TelInput}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -286,3 +286,34 @@ class NoteForm(forms.ModelForm):
         if not data.get("is_permanent") and data["expires_on"] < timezone.localdate():
             self.add_error("expires_on", "The expiry date must be today or later.")
         return data
+
+
+class ServiceForm(forms.ModelForm):
+    """The fields of the New Service and Edit Service pages. The account is an
+    income account: the invoice line of the service posts there. Empty: Sales.
+    The view sets the company. The code must be unique in the company: the
+    form has no company field, thus the model constraint does not check it."""
+
+    class Meta:
+        model = Service
+        fields = ["code", "name", "description", "unit_price", "account", "active"]
+        labels = {"unit_price": "Unit price", "account": "Income account", "active": "Status"}
+        help_texts = {"unit_price": "The default price on an invoice or a quote. Empty: type it on the document.",
+                      "active": "Active"}
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.company = company
+        self.fields["account"].queryset = Account.objects.filter(
+            company=company, is_active=True, type__in=[Account.AccountType.SALES, Account.AccountType.OTHER_INCOME])
+        self.fields["account"].empty_label = "Sales (default)"
+        if not self.is_bound and not self.instance.pk:
+            self.initial["code"] = NumberSequence.peek(company, "service", "SVC-")
+        for field in self.fields.values():
+            field.widget.attrs["class"] = "field__control"
+
+    def clean_code(self):
+        code = self.cleaned_data["code"].strip()
+        if Service.objects.filter(company=self.company, code=code).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError("A service with this code already exists.")
+        return code

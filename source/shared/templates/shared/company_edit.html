@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% comment %}
+  ============================================================================
+  shared/templates/shared/company_edit.html
+  ----------------------------------------------------------------------------
+  The Edit Company page. The Companies section of the Profile page links
+  to it. Only an owner of the company can open it (see
+  shared.views.company_edit). The page uses the styles of the Profile page.
+  ============================================================================
+{% endcomment %}
+
+{% block title %}Edit {{ company.name }} · Console{% endblock %}
+
+{% block module_css %}
+<link rel="stylesheet" href="{% static 'accounting/css/accounting.css' %}">
+<link rel="stylesheet" href="{% static 'css/home.css' %}">
+{% endblock %}
+
+{% block layout %}
+<div class="fill">
+    <main id="main" class="home">
+        <div class="page__head">
+            <h1 class="page__title">Edit Company</h1>
+            <p class="page__note">The name, the VAT number and the logo show on the documents (invoices, quotes, statements).</p>
+        </div>
+
+        <form class="card" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="sheet__body">
+                {% if form.errors %}
+                <div class="sheet__errors" role="alert">
+                    {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+                    {% for field in form %}{% for error in field.errors %}<p>{{ field.label }}: {{ error }}</p>{% endfor %}{% endfor %}
+                </div>
+                {% endif %}
+
+                {% for field in form %}
+                <div class="field">
+                    <label class="field__label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {% if field.name == "logo" %}
+                        {% include "shared/_file_pick.html" with field=field has_avatar=company.logo_id %}
+                        <small class="page__note">{% if company.logo %}The current logo: {{ company.logo.original_name }}. {% endif %}{{ field.help_text }}</small>
+                    {% else %}
+                        {{ field }}
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            <div class="sheet__foot">
+                <button class="tool tool--primary" type="submit">Save</button>
+                <a class="tool tool--ghost" href="{% url 'profile' %}">Cancel</a>
+            </div>
+        </form>
+    </main>
+</div>
+{% endblock %}

@@ -1095,6 +1095,41 @@
 /* The filter field of a column. The filter button opens it (leads.js). */
 .board__search { margin: 12px 12px 0; }
 
+/* The column heads of a table with a filter and a sort (table_columns.js).
+   The name sorts the column. The arrow shows the direction. */
+.th-head { display: inline-flex; align-items: center; gap: 4px; }
+.th-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    color: inherit;
+    cursor: pointer;
+}
+.th-sort:hover { color: var(--ink); }
+th[aria-sort="ascending"] .th-sort__mark::after { content: "\25B2"; }
+th[aria-sort="descending"] .th-sort__mark::after { content: "\25BC"; }
+th[aria-sort] .th-sort { color: var(--gold); }
+.th-filter { margin-left: 0; width: 22px; height: 20px; }
+.th-filter .icon { width: 13px; height: 13px; }
+.th-search {
+    display: block;
+    width: 100%;
+    min-width: 100px;
+    height: 28px;
+    margin-top: 6px;
+    padding: 0 8px;
+    font-size: 12px;
+    letter-spacing: normal;
+    text-transform: none;
+}
+.th-search[hidden] { display: none; }
+@media print {
+    .th-filter, .th-search, .th-sort__mark { display: none; }
+}
+
 /* Drag and drop (leads.js). The card that moves goes dim, and the column
    below the pointer gets the gold tone. */
 .board__col.is-target { border-color: var(--gold-line); background: var(--gold-soft); }

@@ -194,11 +194,13 @@
             row.innerHTML =
                 '<input type="text" data-line-field="description" placeholder="Description" aria-label="Description">' +
                 '<input type="hidden" data-line-field="unit">' +
+                '<input type="hidden" data-line-field="ref">' +
                 '<input type="number" data-line-field="quantity" min="0" step="any" aria-label="Quantity">' +
                 '<input type="number" data-line-field="unit_price" min="0" step="0.01" aria-label="Unit price">' +
                 '<button type="button" class="doc-lines__remove" data-line-remove aria-label="Remove the line">&times;</button>';
             row.querySelector('[data-line-field="description"]').value = item.description || "";
             row.querySelector('[data-line-field="unit"]').value = item.unit || "";
+            row.querySelector('[data-line-field="ref"]').value = item.ref || "";
             row.querySelector('[data-line-field="quantity"]').value = item.quantity || "1";
             row.querySelector('[data-line-field="unit_price"]').value = item.unit_price || "";
             return row;
@@ -222,6 +224,7 @@
                 rowsBox.appendChild(buildRow({
                     description: option.getAttribute("data-description"),
                     unit: option.getAttribute("data-unit"),
+                    ref: option.getAttribute("data-ref"),
                     unit_price: option.getAttribute("data-price"),
                     quantity: "1"
                 }));

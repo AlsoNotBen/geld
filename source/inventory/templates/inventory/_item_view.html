@@ -28,7 +28,8 @@
         <dt>Serial number</dt><dd>{{ item.serial|default:"—" }}</dd>
         <dt>Tag</dt><dd class="is-code">{{ item.tag|default:"—" }}</dd>
         <dt>Cost</dt><dd>{{ item.unit_cost|default_if_none:"—" }}{% if item.cost is None and model.cost is not None %} (model cost){% endif %}</dd>
-        <dt>Useful life</dt><dd>{% if model.lifespan_months %}{{ model.lifespan_months }} months{% else %}No depreciation{% endif %}</dd>
+        <dt>Accounting</dt><dd>{% if item.tracked %}Tracked · {{ item.account|default:"Inventory" }}{% else %}Not tracked{% endif %}</dd>
+        {% if item.tracked %}<dt>Useful life</dt><dd>{% if model.lifespan_months %}{{ model.lifespan_months }} months{% else %}No depreciation{% endif %}</dd>{% endif %}
         <dt>Checked out</dt><dd>{% if checkout %}{% if checkout.entity %}{{ checkout.entity }}{% else %}{{ checkout.location.address }}{% endif %} · {{ checkout.created_at|date:"j M Y" }}{% else %}No{% endif %}</dd>
         <dt>Description</dt><dd>{{ item.description|default:"—"|linebreaksbr }}</dd>
         <dt>Files</dt>

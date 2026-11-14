@@ -134,3 +134,5 @@ a.tile:focus-visible {
     text-transform: uppercase;
     color: var(--ink-soft);
 }
+/* The Companies section of the Profile page. */
+.profile-companies { margin-top: 32px; }

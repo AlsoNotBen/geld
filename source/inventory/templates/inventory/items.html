@@ -233,7 +233,8 @@
                                 <input type="checkbox" name="new_model-active" checked>
                                 Active model
                             </label>
-                            <label class="field-check">
+                            {% comment %} Only a tracked item depreciates (the Accounting tracked box of the Item tab). {% endcomment %}
+                            <label class="field-check tracked-only">
                                 <input type="checkbox" name="new_model-depreciate">
                                 Depreciating model
                             </label>
@@ -335,6 +336,30 @@
                         </div>
                         <p class="chart-note" style="margin-top: 4px;">An asset gets a tag automatically. A blank cost uses the cost of the model.</p>
 
+                        {% comment %} Accounting. A tracked item needs a cost (see ItemForm.clean).
+                             The asset account and the depreciation of the model show only
+                             for a tracked item. Refer to inventory.css. {% endcomment %}
+                        <div class="field-row field-row--full">
+                            <label class="field-check">
+                                <input type="checkbox" name="tracked" data-tracked{% if form.tracked.value %} checked{% endif %}>
+                                Accounting tracked
+                            </label>
+                        </div>
+                        <div class="field-row field-row--full tracked-only" style="margin-top: 4px;">
+                            <label class="visually-hidden" for="item-account">Asset account</label>
+                            <select class="field field--select" id="item-account" name="account">
+                                <option value="">Asset account: Inventory</option>
+                                {% for a in form.fields.account.queryset %}
+                                <option value="{{ a.pk }}"{% if a.pk|stringformat:"s" == form.account.value|stringformat:"s" %} selected{% endif %}>{{ a }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <p class="chart-note" style="margin-top: 4px;">
+                            A tracked item has a value in the ledger: when you add it, a draft entry of its cost waits on
+                            the Journal Entries page. A bill for it debits the asset account and an invoice for it debits Cost of Sales.
+                            It needs a cost. An untracked item is a record only.
+                        </p>
+
                         {% if selected %}
                         <div class="field-row field-row--full">
                             <label class="visually-hidden" for="item-serial-number">Serial number</label>
@@ -342,20 +367,26 @@
                                    value="{{ form.serial.value|default_if_none:'' }}">
                         </div>
                         {% else %}
-                        {% comment %} A new item: the quantity sets how many items to make.
+                        {% comment %} A new item: for stock, a consumable or a component without serial
+                             numbers, the quantity is the stock on hand of one item. Otherwise
+                             the quantity sets how many items to make.
                              With Serial numbers ticked, the script shows one field
                              for each item. A paste of several lines fills the fields
                              in order. Refer to ItemForm.clean. {% endcomment %}
                         <span class="field-row__label">Quantity</span>
                         <div class="field-row" style="margin-top: 0;">
                             <label class="visually-hidden" for="item-quantity">Quantity</label>
-                            <input class="field" id="item-quantity" name="quantity" type="number" min="1" max="500" step="1"
+                            <input class="field" id="item-quantity" name="quantity" type="number" min="1" step="1"
                                    placeholder="Quantity" value="{{ form.quantity.value|default:1 }}" inputmode="numeric">
                             <label class="field-check">
                                 <input type="checkbox" name="has_serials" data-serials-toggle{% if form.has_serials.value %} checked{% endif %}>
                                 Serial numbers
                             </label>
                         </div>
+                        <p class="chart-note" style="margin-top: 4px;">
+                            Stock, a consumable or a component: one item with this quantity on hand.
+                            An asset, or an item with serial numbers: one item for each unit.
+                        </p>
                         <div class="serials" data-serials hidden>
                             <p class="chart-note serials__count" data-serials-count></p>
                             <div class="serials__list" data-serials-list></div>
@@ -659,6 +690,14 @@ document.querySelectorAll("[data-flash-temp]").forEach(function (flash) {
         flash.classList.add("is-gone");
         setTimeout(function () { flash.hidden = true; }, 400);
     }, 4000);
+});
+
+/* An untracked item does not depreciate: Accounting tracked off clears
+   Depreciating model, which inventory.css hides at the same time. */
+document.addEventListener("change", function (e) {
+    var tracked = e.target.closest("[data-tracked]");
+    var depreciate = document.querySelector('input[name="new_model-depreciate"]');
+    if (tracked && !tracked.checked && depreciate) depreciate.checked = false;
 });
 
 /* The All items table: the View and the Checkout overlays. */

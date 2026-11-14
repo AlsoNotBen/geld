@@ -19,6 +19,7 @@
   fetch(). A new bill is a draft. Approve posts its entry to the ledger.
   The View button opens #bill-view-ID: the bill, with Deny and Approve.
   The Note button opens the New Note overlay (see note_tags.py).
+  Each column of the three tables has a filter and a sort (table_columns.js).
   ============================================================================
 {% endcomment %}
 
@@ -81,7 +82,7 @@
             <p class="review__hint">These bills wait for a review. Approve posts the bill to the ledger. View shows the bill, and its Deny button voids it.</p>
         </div>
 
-        <table class="table table--review" data-num>
+        <table class="table table--review" data-num data-columns>
             <thead>
                 <tr>
                     <th>Date</th>
@@ -96,9 +97,9 @@
             <tbody>
                 {% for bill in review_bills %}
                 <tr>
-                    <td>{{ bill.date }}</td>
+                    <td data-sort="{{ bill.date|date:'Y-m-d' }}">{{ bill.date }}</td>
                     <td>{{ bill.number }}</td>
-                    <td>{{ bill.due|default:"—" }}</td>
+                    <td data-sort="{{ bill.due|date:'Y-m-d' }}">{{ bill.due|default:"—" }}</td>
                     <td>{{ bill.entity.name }}</td>
                     <td>
                         {% for file in bill.files.all %}
@@ -148,16 +149,16 @@
         <div class="tabset__panel" role="tabpanel" data-panel="unpaid"
              id="panel-unpaid" aria-labelledby="tab-unpaid" tabindex="0">
             <h2 class="tabset__print-title">Unpaid bills</h2>
-            <table class="table table--bills" data-num>
+            <table class="table table--bills" data-num data-columns>
                 <thead>
                     <tr><th>Date</th><th>Number</th><th>Due</th><th>Supplier</th><th>Amount</th></tr>
                 </thead>
                 <tbody>
                     {% for bill in unpaid_bills %}
                     <tr>
-                        <td>{{ bill.date }}</td>
+                        <td data-sort="{{ bill.date|date:'Y-m-d' }}">{{ bill.date }}</td>
                         <td>{{ bill.number }}</td>
-                        <td>{{ bill.due|default:"—" }}</td>
+                        <td data-sort="{{ bill.due|date:'Y-m-d' }}">{{ bill.due|default:"—" }}</td>
                         <td>{{ bill.entity.name }}</td>
                         <td class="{% if bill.due and bill.due < today %}is-overdue{% else %}is-debit{% endif %}"
                             {% if bill.status == "PP" %}title="Partially paid: {{ bill.paid|money }} of {{ bill.gross|money }}"{% endif %}>{{ bill.balance|money }}</td>
@@ -175,16 +176,16 @@
         <div class="tabset__panel" role="tabpanel" data-panel="paid"
              id="panel-paid" aria-labelledby="tab-paid" tabindex="0" hidden>
             <h2 class="tabset__print-title">Paid bills</h2>
-            <table class="table table--bills" data-num>
+            <table class="table table--bills" data-num data-columns>
                 <thead>
                     <tr><th>Date</th><th>Number</th><th>Due</th><th>Supplier</th><th>Amount</th></tr>
                 </thead>
                 <tbody>
                     {% for bill in paid_bills %}
                     <tr>
-                        <td>{{ bill.date }}</td>
+                        <td data-sort="{{ bill.date|date:'Y-m-d' }}">{{ bill.date }}</td>
                         <td>{{ bill.number }}</td>
-                        <td>{{ bill.due|default:"—" }}</td>
+                        <td data-sort="{{ bill.due|date:'Y-m-d' }}">{{ bill.due|default:"—" }}</td>
                         <td>{{ bill.entity.name }}</td>
                         <td class="is-debit">{{ bill.gross|money }}</td>
                     </tr>

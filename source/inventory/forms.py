@@ -1,7 +1,11 @@
 from django import forms
 
+from accounting.models import Account
 from shared.models import Country
-from .models import Category, Item, Manufacturer, Model
+from .models import Category, Item, ItemType, Manufacturer, Model
+
+# The account types of the asset account of a tracked item.
+ASSET_TYPES = [Account.AccountType.CURRENT_ASSETS, Account.AccountType.NON_CURRENT_ASSETS]
 
 # The most items that one save of the item editor makes.
 MAX_COPIES = 500
@@ -15,20 +19,25 @@ class ItemForm(forms.ModelForm):
     manufacturer and the category change the model, thus they change every
     item of that model.
 
-    A new item has a quantity: the form makes that many items of the model.
-    With has_serials, each item gets one of the serial numbers in the
-    "serials" fields, in order."""
+    A new item has a quantity. A stocked item (stock, consumable or component)
+    without serial numbers is one item: the quantity is its opening stock (see
+    cleaned_data["opening_quantity"]). Otherwise the form makes that many
+    items of the model, each with a quantity of one. With has_serials, each
+    item gets one of the serial numbers in the "serials" fields, in order.
+
+    A tracked item (see Item.tracked) needs a cost and an asset account.
+    A blank cost takes the cost of the model. A blank account is Inventory."""
 
     manufacturer = forms.ModelChoiceField(queryset=Manufacturer.objects.none(), required=False)
     model        = forms.ModelChoiceField(queryset=Model.objects.none(),
                                           error_messages={"required": "Select a model, or add a new one."})
     category     = forms.ModelChoiceField(queryset=Category.objects.none(), required=False)
-    quantity     = forms.IntegerField(min_value=1, max_value=MAX_COPIES, required=False)
+    quantity     = forms.IntegerField(min_value=1, required=False)     # Copies: not more than MAX_COPIES (see clean)
     has_serials  = forms.BooleanField(required=False)
 
     class Meta:
         model = Item
-        fields = ["sku", "item_type", "tag", "serial", "cost", "description", "active"]
+        fields = ["sku", "item_type", "tag", "serial", "cost", "description", "active", "tracked", "account"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -36,6 +45,7 @@ class ItemForm(forms.ModelForm):
         self.fields["manufacturer"].queryset = Manufacturer.objects.filter(company=company).order_by("name")
         self.fields["model"].queryset = Model.objects.filter(company=company).order_by("name")
         self.fields["category"].queryset = Category.objects.filter(company=company).order_by("name")
+        self.fields["account"].queryset = Account.objects.filter(company=company, is_active=True, type__in=ASSET_TYPES)
         if self.instance.model_id:
             m = self.instance.model
             self.initial.update({"model": m.pk, "manufacturer": m.manufacturer_id, "category": m.category_id})
@@ -52,11 +62,26 @@ class ItemForm(forms.ModelForm):
 
     def clean(self):
         data = super().clean()
+        if data.get("tracked"):
+            model = data.get("model")
+            if data.get("cost") is None and model and model.cost is not None:
+                data["cost"] = model.cost
+            if data.get("cost") is None:
+                self.add_error("cost", "A tracked item needs a cost.")
+        else:
+            data["account"] = None
         if self.instance.pk:            # A change to one item.
             data["serials"] = [data.get("serial")]
             return data
 
         count = data.get("quantity") or 1
+        if data.get("item_type") != ItemType.ASSET and not data.get("has_serials"):
+            data["serials"], data["opening_quantity"] = [None], count       # One stock item with the full quantity
+            return data
+        data["opening_quantity"] = 1
+        if count > MAX_COPIES:
+            self.add_error("quantity", f"One save makes {MAX_COPIES} items or less. "
+                                       "A stock item without serial numbers has no limit.")
         if count > 1 and data.get("tag"):
             self.add_error("tag", "A tag is unique. Leave it blank to make more than one item.")
         serials = [None] * count
@@ -106,6 +131,7 @@ class ManufacturerForm(EntryForm):
         model = Manufacturer
         fields = ["name", "url", "email", "phone", "origin"]
         labels = {"url": "Website", "origin": "Country of origin"}
+        widgets = {"phone": forms.TelInput}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

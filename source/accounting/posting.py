@@ -1,11 +1,21 @@
 """accounting/posting.py: the entries of an invoice, a payment and an opening balance,
-and the reversal and the recurring copies of an entry."""
+and the reversal and the recurring copies of an entry.
+
+Tracked inventory (see inventory.models.Item.tracked) posts here too:
+    post_opening_stock   a new item: the stock movement of its opening quantity, and for a
+                         tracked item a draft entry Dr its asset account / Cr Opening
+                         Balance Equity. It waits on the Journal Entries page.
+    post_bill            a bill for tracked items: the stock comes in (move_stock).
+    post_invoice_entry   an invoice for tracked items: the stock goes out, and the
+                         entry gets Dr Cost of Sales / Cr the asset account at cost.
+"""
 from decimal import Decimal, ROUND_HALF_UP
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 from accounting.models import (Account, BankAccount, Document, DocumentLine, JournalEntry, JournalLine, Payment,
                                PaymentAllocation, Period, RecurringEntry, customer_entities, supplier_entities)
+from inventory.models import Item, StockMovement, stock_levels
 
 CENT = Decimal("0.01")
 
@@ -15,6 +25,8 @@ PAYABLE    = "Accounts Payable"
 SUSPENSE   = "Suspense"
 VAT        = "VAT Control"
 OPENING    = "Opening Balance Equity"
+INVENTORY  = "Inventory"
+COST_OF_SALES = "Cost of Sales"
 
 
 def _add(entry, account, amount, entity=None, description=""):
@@ -194,6 +206,86 @@ def post_payment(payment):
         post_cash_entry(payment, period, suspense)
 
 
+def asset_account(item):
+    """The asset account of a tracked item: the account on the item, else "Inventory"."""
+    return item.account or _account(item.company, INVENTORY)
+
+
+def tracked_lines(document):
+    """The lines of the document that have a tracked item with a quantity on hand (a
+    stock, consumable or component item). An asset item is one unit: a bill or an
+    invoice does not move its stock."""
+    return [line for line in document.lines.select_related("item__model", "item__account")
+            if line.item and line.item.tracked and line.item.is_stocked]
+
+
+def _takes(item, quantity):
+    """Split an issue of the quantity over the tracked items of the group of the item (see
+    Item.group): the oldest item with stock first. The item takes what stays. Thus the
+    stock of one item does not go below zero while another item of the group has stock.
+    Returns [(item, quantity)]."""
+    group = list(item.group().filter(tracked=True).order_by("pk"))
+    levels = stock_levels(item.company, item__in=group)
+    takes = []
+    for member in group:
+        part = min(quantity, max(levels.get(member.pk, (Decimal(0),))[0], Decimal(0)))
+        if part > 0:
+            takes.append((member, part))
+            quantity -= part
+    if quantity > 0:
+        takes.append((item, quantity))
+    return takes
+
+
+def _move(document, item, direction, quantity, unit_cost):
+    total = (quantity * unit_cost).quantize(CENT, ROUND_HALF_UP)
+    StockMovement.objects.create(company=document.company, item=item, date=document.date, direction=direction,
+                                 quantity=quantity, unit_cost=unit_cost, total_cost=total, document=document)
+    return total
+
+
+def move_stock(document, direction):
+    """Write the stock movements of the tracked lines of a bill (IN) or an invoice (OUT).
+    The same document again replaces its movements, thus a changed invoice moves the
+    stock one time only. A bill moves the stock into the item of the line, at the price
+    of the line. An invoice takes it from the items of the group (see _takes), at the
+    cost of each item. Returns [(line, total cost)]."""
+    StockMovement.objects.filter(document=document).delete()
+    moved = []
+    for line in tracked_lines(document):
+        if direction == StockMovement.Direction.IN:
+            total = _move(document, line.item, direction, line.quantity, line.unit_price)
+        else:
+            total = sum((_move(document, item, direction, quantity, item.unit_cost or Decimal(0))
+                         for item, quantity in _takes(line.item, line.quantity)), Decimal(0))
+        moved.append((line, total))
+    return moved
+
+
+def post_opening_stock(item, quantity=1):
+    """The opening stock of a new item. A stocked item (see Item.is_stocked) gets a stock
+    movement IN of the quantity, at its unit cost, because the goods are there. A tracked
+    item with a cost also gets a draft entry: Dr its asset account / Cr Opening Balance
+    Equity, for the cost of the quantity. The entry waits on the Journal Entries page:
+    Accept posts it, Void stops it. Links the entry to the item. Returns the entry, or None."""
+    cost = item.unit_cost or Decimal(0)
+    today = timezone.localdate()
+    entry = None
+    with transaction.atomic():
+        if item.is_stocked:
+            StockMovement.objects.create(company=item.company, item=item, date=today, quantity=quantity,
+                                         direction=StockMovement.Direction.IN, unit_cost=cost,
+                                         total_cost=(cost * quantity).quantize(CENT, ROUND_HALF_UP))
+        if item.tracked and cost:
+            reference = (item.sku or item.tag or f"ITEM-{item.pk}")[:255]
+            entry = post_opening_balance(item.company, asset_account(item), cost * quantity, today, reference,
+                                         f"Opening stock · {item.name}", basis=JournalEntry.Basis.ACCRUAL,
+                                         status=JournalEntry.Status.DRAFT)
+            item.opening_entry = entry
+            item.save(update_fields=["opening_entry"])
+    return entry
+
+
 def post_invoice_entry(invoice):
     """Write the draft ACCRUAL entry of a sales invoice from its lines, as post_bill does.
 
@@ -206,6 +298,10 @@ def post_invoice_entry(invoice):
     An invoice that changed keeps its draft entry: the entry gets the new date and all
     the new lines. The tax is the tax of the invoice only. The default tax code of an
     account (Account.tax_code) adds no tax here.
+
+    A line with a tracked stock item sells stock: the stock goes out (see move_stock)
+    and the entry gets Dr Cost of Sales / Cr the asset account of the item, at the cost
+    of the item. Thus the gross profit of the sale is in the ledger.
     """
     company = invoice.company
     head = {"date": invoice.date, "period": _open_period(company, invoice.date), "narration": invoice.entity.name}
@@ -225,6 +321,11 @@ def post_invoice_entry(invoice):
         parts += [(code.output_account or _account(company, VAT), -tax) for code, tax in invoice.tax_lines()]
         total = _add_rolled_up(entry, parts)
         _add(entry, _account(company, RECEIVABLE), -total, entity=invoice.entity)
+        # The cost of the stock that the invoice sells. The two sides balance each other.
+        cost_parts = []
+        for line, cost in move_stock(invoice, StockMovement.Direction.OUT):
+            cost_parts += [(_account(company, COST_OF_SALES), cost), (asset_account(line.item), -cost)]
+        _add_rolled_up(entry, cost_parts)
     return entry
 
 
@@ -235,6 +336,10 @@ def post_bill(bill):
     Cr Accounts Payable (gross). The payable line keeps the supplier,
     thus the statement of the supplier finds it. On the cash basis the
     bill shows when it is paid (see post_cash_entry).
+
+    A line with a tracked stock item buys stock: the line debits the
+    asset account of the item (see inventory.documents, which sets the
+    account of the line), and the stock comes in (see move_stock).
     """
     company = bill.company
     period = _open_period(company, bill.date)
@@ -254,19 +359,22 @@ def post_bill(bill):
         bill.journal_entry = entry
         bill.status = Document.Status.APPROVED
         bill.save(update_fields=["journal_entry", "status"])
+        move_stock(bill, StockMovement.Direction.IN)
     return entry
 
 
 def post_opening_balance(company, account, amount, date, reference, narration, entity=None,
-                         basis=JournalEntry.Basis.BOTH):
-    """Write the posted entry of an opening balance. A positive amount is a debit on the
-    account. The other side goes to Opening Balance Equity. Returns the entry."""
+                         basis=JournalEntry.Basis.BOTH, status=JournalEntry.Status.POSTED):
+    """Write the entry of an opening balance: posted, or a draft with status DRAFT. A
+    positive amount is a debit on the account. The other side goes to Opening Balance
+    Equity. Returns the entry."""
     opening = _account(company, OPENING)
     period = _open_period(company, date)
+    posted = status == JournalEntry.Status.POSTED
     with transaction.atomic():
         entry = JournalEntry.objects.create(
             company=company, date=date, period=period, entry_type=JournalEntry.EntryType.GENERAL, basis=basis,
-            status=JournalEntry.Status.POSTED, posted_at=timezone.now(), reference=reference, narration=narration,
+            status=status, posted_at=timezone.now() if posted else None, reference=reference, narration=narration,
         )
         _add(entry, account, amount, entity=entity, description="Opening balance")
         _add(entry, opening, -amount)
@@ -339,6 +447,7 @@ def linked_entry_ids(company):
     for pair in Payment.objects.filter(company=company).values_list("journal_entry_id", "cash_entry_id"):
         ids.update(pair)
     ids.update(BankAccount.objects.filter(company=company).values_list("opening_entry_id", flat=True))
+    ids.update(Item.objects.filter(company=company).values_list("opening_entry_id", flat=True))
     return ids
 
 

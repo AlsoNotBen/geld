@@ -40,6 +40,9 @@ urlpatterns = [
     path("claims/", views.claims, name="claims"),
 
     # General
+    path("services/", views.services, name="services"),
+    path("services/new/", views.service_form, name="service_new"),
+    path("services/<int:pk>/edit/", views.service_form, name="service_edit"),
     path("settings/module/", views.module_settings, name="module_settings"),
 
     # Customers

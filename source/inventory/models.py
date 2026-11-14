@@ -2,7 +2,7 @@ from django.db import models
 from shared.models import *
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db.models import Q
+from django.db.models import Case, DecimalField, F, Q, Sum, When
 from django.utils import timezone
 import uuid
 
@@ -66,8 +66,23 @@ class Item(CompanyOwned):
     active      = models.BooleanField(default=True)
     files       = models.ManyToManyField("filestore.StoredFile", blank=True, related_name="+")
 
+    # Accounting. A tracked item has a value in the ledger: its cost posts to the
+    # asset account (Inventory for stock, else a fixed asset account) when the item
+    # is added (see inventory.views.post_opening_stock), a bill for the item debits
+    # that account, and an invoice for the item credits it and debits Cost of Sales.
+    # An untracked item is a record only. It needs no cost and it does not depreciate.
+    tracked       = models.BooleanField(default=False)
+    account       = models.ForeignKey("accounting.Account", on_delete=models.PROTECT, null=True, blank=True,
+                                      related_name="+")       # The asset account. Empty: "Inventory".
+    opening_entry = models.ForeignKey("accounting.JournalEntry", on_delete=models.SET_NULL, null=True, blank=True,
+                                      related_name="+")       # The entry of the cost when the item was added.
+
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["company", "serial"], name="unique_item_serial_per_company")]
+        constraints = [
+            models.UniqueConstraint(fields=["company", "serial"], name="unique_item_serial_per_company"),
+            # A tracked item needs a cost. The form checks this first (see ItemForm.clean).
+            models.CheckConstraint(condition=Q(tracked=False) | Q(cost__isnull=False), name="tracked_item_has_cost"),
+        ]
 
     def __str__(self):
         return self.name
@@ -79,6 +94,18 @@ class Item(CompanyOwned):
     @property
     def unit_cost(self):
         return self.cost if self.cost is not None else self.model.cost
+
+    @property
+    def is_stocked(self):
+        """True for a type with a quantity on hand (stock, consumable, component)."""
+        return self.item_type != ItemType.ASSET
+
+    def group(self):
+        """The items that the catalog of a document shows as one (see accounting.documents.catalog):
+        the same type and the same code, or, without a code, the same type and model. The
+        All items table groups the same way (see inventory.views.item_groups)."""
+        same = Item.objects.filter(company_id=self.company_id, item_type=self.item_type)
+        return same.filter(sku=self.sku) if self.sku else same.filter(sku="", model_id=self.model_id)
 
     @property
     def current_checkout(self):
@@ -141,9 +168,26 @@ class StockMovement(CompanyOwned):
     unit_cost     = models.DecimalField(max_digits=13, decimal_places=4)
     total_cost    = models.DecimalField(max_digits=13, decimal_places=2)
     method        = models.CharField(max_length=4, choices=Method.choices, default=Method.AVERAGE)
+    # The bill or the invoice that moved the stock (see accounting.posting.move_stock).
+    # Empty: the opening stock of the item, or a manual movement.
+    document      = models.ForeignKey("accounting.Document", on_delete=models.SET_NULL, null=True, blank=True,
+                                      related_name="stock_movements")
 
     class Meta:
         indexes = [models.Index(fields=["company", "item", "date"])]
+
+def signed(field):
+    """A field of a movement with its sign: an OUT takes stock away."""
+    return Case(When(direction=StockMovement.Direction.OUT, then=-F(field)), default=F(field), output_field=DecimalField())
+
+
+def stock_levels(company, **filters):
+    """The quantity on hand and the value of each item, from the stock
+    movements of the company. Returns {item_id: (quantity, value)}."""
+    rows = (StockMovement.objects.filter(company=company, **filters).values("item_id")
+            .annotate(quantity=Sum(signed("quantity")), value=Sum(signed("total_cost"))))
+    return {row["item_id"]: (row["quantity"], row["value"]) for row in rows}
+
 
 class Checkout(CompanyOwned, TimeStamped):
     item          = models.ForeignKey(Item, on_delete=models.PROTECT, related_name="checkouts")

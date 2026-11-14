@@ -8,10 +8,11 @@
   The page gives tax_ids and can_edit_tax. The Edit button of the Tax code
   opens the Edit Tax Code overlay (accounts.js, see account_tax in views.py).
   Only an Owner or an Accountant sees it, in the last column of the row.
+  Each column has a filter and a sort (table_columns.js).
   A tax account has no tax code.
 {% endcomment %}
 {% load fin %}
-<table class="table table--coa">
+<table class="table table--coa" data-columns>
     <thead>
         <tr><th>Code</th><th>Account</th><th>Type</th><th>Tax code</th><th>Balance</th>{% if can_edit_tax %}<th><span class="visually-hidden">Actions</span></th>{% endif %}</tr>
     </thead>

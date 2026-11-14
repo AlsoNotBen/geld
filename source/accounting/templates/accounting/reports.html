@@ -5,8 +5,9 @@
   ============================================================================
   accounting/templates/accounting/reports.html
   ----------------------------------------------------------------------------
-  Select a report to open it. Each report uses the date range at the top of
-  the page. The list links to the report pages of the module.
+  Select a report to print it. Each report uses the date range at the top of
+  the page. A row links to the PDF of its page, as the Print button of that
+  page does (see accounting.views.REPORTS and documents.views.print_page).
   ============================================================================
 {% endcomment %}
 
@@ -21,7 +22,7 @@
 
     <div class="page__head">
         <h1 class="page__title">Reports{% notes_pill %}</h1>
-        <p class="page__note">Select a report to open it. Each report uses the date range at the top of the page.</p>
+        <p class="page__note">Select a report to print it as a PDF. Each report uses the date range at the top of the page.</p>
     </div>
 
     <div class="actionbar" role="group" aria-label="Page controls">
@@ -44,21 +45,15 @@
 
     <table class="table">
         <thead>
-            <tr><th>Report</th><th>Group</th><th>Description</th><th><span class="visually-hidden">Open</span></th></tr>
+            <tr><th>Report</th><th>Group</th><th>Description</th><th><span class="visually-hidden">Print</span></th></tr>
         </thead>
         <tbody>
-            <tr><td>Chart of Accounts</td><td>Bookkeeping</td><td>The balance of each account in the date range.</td><td><a class="row-icon" href="{% url 'accounting:chartaccounts' %}" title="Open" aria-label="Open the Chart of Accounts"><svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" stroke-linecap="round" stroke-linejoin="round"/></svg></a></td></tr>
-            <tr><td>General Ledger</td><td>Bookkeeping</td><td>The posted lines of each account, with the opening and the closing balance.</td><td><a class="row-icon" href="{% url 'accounting:ledger' %}" title="Open" aria-label="Open the General Ledger"><svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" stroke-linecap="round" stroke-linejoin="round"/></svg></a></td></tr>
-            <tr><td>Balance Sheet</td><td>Bookkeeping</td><td>The assets, the liabilities and the equity at the end of the date range.</td><td><a class="row-icon" href="{% url 'accounting:balancesheet' %}" title="Open" aria-label="Open the Balance Sheet"><svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" stroke-linecap="round" stroke-linejoin="round"/></svg></a></td></tr>
-            <tr><td>Income Statement</td><td>Bookkeeping</td><td>The income, the expenses and the profit of the date range.</td><td><a class="row-icon" href="{% url 'accounting:incomestatement' %}" title="Open" aria-label="Open the Income Statement"><svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" stroke-linecap="round" stroke-linejoin="round"/></svg></a></td></tr>
-            <tr><td>Cash Flow Statement</td><td>Bookkeeping</td><td>The cash that came in and went out in the date range.</td><td><a class="row-icon" href="{% url 'accounting:cashflow' %}" title="Open" aria-label="Open the Cash Flow Statement"><svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" stroke-linecap="round" stroke-linejoin="round"/></svg></a></td></tr>
-            <tr><td>Equity and Notes</td><td>Bookkeeping</td><td>The changes of the equity in the date range.</td><td><a class="row-icon" href="{% url 'accounting:equity' %}" title="Open" aria-label="Open the Equity and Notes"><svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" stroke-linecap="round" stroke-linejoin="round"/></svg></a></td></tr>
-            <tr><td>Receivables</td><td>Customers</td><td>The open invoices and the paid invoices.</td><td><a class="row-icon" href="{% url 'accounting:receivables' %}" title="Open" aria-label="Open the Receivables"><svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" stroke-linecap="round" stroke-linejoin="round"/></svg></a></td></tr>
-            <tr><td>Aging Receivables</td><td>Customers</td><td>The overdue invoices, by the days after the due date.</td><td><a class="row-icon" href="{% url 'accounting:aging_receivables' %}" title="Open" aria-label="Open the Aging Receivables"><svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" stroke-linecap="round" stroke-linejoin="round"/></svg></a></td></tr>
-            <tr><td>Payables</td><td>Suppliers</td><td>The bills that are not paid in full.</td><td><a class="row-icon" href="{% url 'accounting:payables' %}" title="Open" aria-label="Open the Payables"><svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" stroke-linecap="round" stroke-linejoin="round"/></svg></a></td></tr>
-            <tr><td>Aging Payables</td><td>Suppliers</td><td>The overdue bills, by the days after the due date.</td><td><a class="row-icon" href="{% url 'accounting:aging_payables' %}" title="Open" aria-label="Open the Aging Payables"><svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" stroke-linecap="round" stroke-linejoin="round"/></svg></a></td></tr>
-            <tr><td>Bank Accounts</td><td>Banking</td><td>The balance of each bank account.</td><td><a class="row-icon" href="{% url 'accounting:bank_accounts' %}" title="Open" aria-label="Open the Bank Accounts"><svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" stroke-linecap="round" stroke-linejoin="round"/></svg></a></td></tr>
-            <tr><td>Tax Dashboard</td><td>Taxes</td><td>The VAT payable and the income tax from the ledger.</td><td><a class="row-icon" href="{% url 'accounting:tax_dashboard' %}" title="Open" aria-label="Open the Tax Dashboard"><svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" stroke-linecap="round" stroke-linejoin="round"/></svg></a></td></tr>
+            {% for report in reports %}
+            <tr>
+                <td>{{ report.name }}</td><td>{{ report.group }}</td><td>{{ report.description }}</td>
+                <td><a class="row-icon" href="{{ report.print_url }}" target="_blank" rel="noopener" title="Print" aria-label="Print the {{ report.name }}"><svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg></a></td>
+            </tr>
+            {% endfor %}
         </tbody>
     </table>
     {% notes_section %}

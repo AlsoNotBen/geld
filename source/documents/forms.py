@@ -128,6 +128,7 @@ def _line_row(row):
         '<input type="text" data-line-field="description" value="{}"'
         ' placeholder="Description" aria-label="Description">'
         '<input type="hidden" data-line-field="unit" value="{}">'
+        '<input type="hidden" data-line-field="ref" value="{}">'
         '<input type="number" data-line-field="quantity" value="{}"'
         ' min="0" step="any" aria-label="Quantity">'
         '<input type="number" data-line-field="unit_price" value="{}"'
@@ -135,7 +136,7 @@ def _line_row(row):
         '<button type="button" class="doc-lines__remove" data-line-remove'
         ' aria-label="Remove the line">&times;</button>'
         '</div>',
-        row.get("description", ""), row.get("unit", ""),
+        row.get("description", ""), row.get("unit", ""), row.get("ref", ""),
         row.get("quantity", ""), row.get("unit_price", ""),
     )
 
@@ -162,10 +163,10 @@ class LineItemsWidget(forms.Widget):
         rows_html = format_html_join("", "{}", ((_line_row(row),) for row in rows))
         catalog_html = format_html_join(
             "",
-            '<option value="{}" data-description="{}" data-unit="{}" data-price="{}">{}</option>',
+            '<option value="{}" data-description="{}" data-unit="{}" data-price="{}" data-ref="{}">{}</option>',
             (
                 (str(index), item["description"], item.get("unit", ""),
-                 item.get("unit_price", ""), item["description"])
+                 item.get("unit_price", ""), item.get("ref", ""), item.get("label", item["description"]))
                 for index, item in enumerate(self.catalog)
             ),
         )
@@ -192,8 +193,11 @@ class LineItemsField(forms.JSONField):
     """Line items as one JSON value.
 
     The clean method returns a list of dicts with these keys:
-    description (str), unit (str), quantity (Decimal) and unit_price
-    (Decimal). A row without a description does not count.
+    description (str), unit (str), ref (str), quantity (Decimal) and
+    unit_price (Decimal). A row without a description does not count.
+    The ref is the catalog record of the row, e.g. "I12" for the item
+    with pk 12 or "S3" for the service with pk 3 (see accounting.
+    documents.catalog). A custom line has an empty ref.
     """
 
     widget = LineItemsWidget
@@ -226,6 +230,7 @@ class LineItemsField(forms.JSONField):
             lines.append({      # Two decimals, as DocumentLine keeps them. Thus the PDF and the ledger agree.
                 "description": description[:200],
                 "unit": str(row.get("unit", ""))[:24],
+                "ref": str(row.get("ref", ""))[:20],
                 "quantity": quantity.quantize(Decimal("0.01"), ROUND_HALF_UP),
                 "unit_price": unit_price.quantize(Decimal("0.01"), ROUND_HALF_UP),
             })

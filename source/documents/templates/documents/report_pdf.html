@@ -12,6 +12,8 @@ The context (see views.print_page and printing.build_report):
     period      the date range of the page, or ""
     printed     the date of the print
     sections    HTML parts. Each part after the first starts on a new page.
+
+documents/bundle_pdf.html extends this template for a PDF of more pages.
 ============================================================================
 {% endcomment %}<!DOCTYPE html>
 <html lang="en">
@@ -126,10 +128,12 @@ The context (see views.print_page and printing.build_report):
     .report-table tr.is-credit-line td:nth-child(3) { padding-left: 8mm; }
 
     .empty { color: #666666; font-style: italic; }
+    {% block extra_css %}{% endblock %}
 </style>
 </head>
 <body>
     <div class="running-footer">{{ company }} · {{ title }}</div>
+    {% block content %}
 
     <div class="report-head">
         <div class="report-head__company">{{ company }}</div>
@@ -144,5 +148,6 @@ The context (see views.print_page and printing.build_report):
     {% empty %}
     <p class="empty">This page has no tables to print.</p>
     {% endfor %}
+    {% endblock %}
 </body>
 </html>

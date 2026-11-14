@@ -18,15 +18,17 @@ from decimal import Decimal
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import Case, Count, DecimalField, F, Q, Sum, When
+from django.db.models import Count, Q, Sum
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
+from accounting.posting import post_opening_stock
 from filestore.services import save_upload, validate, validate_image
 from .forms import CategoryForm, ItemForm, ManufacturerForm, ModelEntryForm
 from shared.models import Country, Entity, Location
-from .models import Checkout, Item, ItemRelationship, ItemType, StockTakeSchedule, StockMovement
+from .models import (Checkout, Item, ItemRelationship, ItemType, StockTakeSchedule, StockMovement, signed,
+                     stock_levels)
 
 ZERO = Decimal("0")
 T = ItemType
@@ -37,18 +39,7 @@ MOVED = {D.IN: "Received", D.OUT: "Issued", D.ADJUSTMENT: "Adjusted"}
 
 
 # ___________________________________STOCK___________________________________________#
-def signed(field):
-    """A field of a movement with its sign: an OUT takes stock away."""
-    return Case(When(direction=D.OUT, then=-F(field)), default=F(field), output_field=DecimalField())
-
-
-def stock_levels(company):
-    """The quantity on hand and the value of each item, from the stock
-    movements of the company. Returns {item_id: (quantity, value)}."""
-    rows = (StockMovement.objects.filter(company=company).values("item_id")
-            .annotate(quantity=Sum(signed("quantity")), value=Sum(signed("total_cost"))))
-    return {row["item_id"]: (row["quantity"], row["value"]) for row in rows}
-
+# signed and stock_levels are in models.py: the posting of accounting uses them too.
 
 def with_stock(items, levels):
     """Put the quantity on hand and the value on each item. Returns the items as a list."""
@@ -461,16 +452,29 @@ def items(request):
             # Validate every file first, so a bad file stores nothing.
             for upload in uploads:
                 validate(upload)
-        except ValidationError as error:
-            form.add_error(None, error)
-        else:
             with transaction.atomic():
                 saved = form.save()
                 stored = [save_upload(u, request.user, request.company) for u in uploads]
+                quantity = form.cleaned_data.get("opening_quantity")
                 for item in saved:
                     item.files.add(*stored)
-            count = len(saved)
-            messages.success(request, f"Saved {count} items of {saved[0].name}." if count > 1 else f"Saved {saved[0].name}.")
+                    # The opening stock of a new item, and the draft entry of its cost when it is
+                    # tracked. A problem (e.g. no open period) saves nothing, and the editor shows it.
+                    if not selected:
+                        post_opening_stock(item, quantity)
+        except ValidationError as error:
+            form.add_error(None, error)
+        else:
+            count, item = len(saved), saved[0]
+            if count > 1:
+                messages.success(request, f"Saved {count} items of {item.name}.")
+            elif not selected and item.is_stocked:
+                messages.success(request, f"Saved {item.name} with {quantity} on hand.")
+            else:
+                messages.success(request, f"Saved {item.name}.")
+            if not selected and saved[0].opening_entry_id:
+                messages.info(request, "The cost of the stock waits as a draft on the Journal Entries page. "
+                                       "Accept it there to post it to the ledger.")
             return redirect(request.path)  # Post/Redirect/Get. The editor closes after a save.
 
     q, item_type = request.GET.get("q", "").strip(), request.GET.get("item_type", "")

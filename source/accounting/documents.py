@@ -70,18 +70,44 @@ def _customer(options, company):
 
 def catalog(company, item_types, purchase=False):
     """The rows of the "Add from the catalog" select. A sale lists the
-    services of the company, then the active items of the types, with no
-    price: the data has no sale price, thus the user types it. A purchase
-    lists the items only, with the unit cost of each item as its price.
-    An item of an obsolete model is not in the list."""
-    services = [] if purchase else Service.objects.filter(company=company).order_by("name")
-    rows = [{"description": s.name, "unit": "", "unit_price": ""} for s in services]
+    active services of the company with the unit price of each, then the
+    items. A purchase lists the items only.
+
+    The items of one group (see Item.group: the same type and code, or the
+    same type and model) are one row. The first item of the group stands for
+    it: a tracked item first, then the oldest. Its unit cost is the price of
+    the row. The user can change the price on the document. An item of an
+    obsolete model is not in the list. The ref of a row finds the item again
+    (see catalog_record)."""
+    services = [] if purchase else Service.objects.filter(company=company, active=True)
+    rows = [{"description": s.name, "unit": "", "unit_price": _price(s.unit_price), "ref": f"S{s.pk}"} for s in services]
     items = (Item.objects.filter(company=company, item_type__in=item_types, active=True, model__active=True)
-             .select_related("model").order_by("model__name"))
+             .select_related("model").order_by("-tracked", "pk"))
+    groups = {}
     for item in items:
-        price = item.unit_cost if purchase and item.unit_cost is not None else ""
-        rows.append({"description": item.name, "unit": "", "unit_price": str(price)})
+        groups.setdefault((item.item_type, item.sku or item.model_id), item)
+    for item in sorted(groups.values(), key=lambda i: (i.name, i.sku)):
+        description = " · ".join(filter(None, [item.name, item.sku]))
+        label = f"{description} ({item.get_item_type_display()})" if len(item_types) > 1 else description
+        rows.append({"description": description, "label": label, "unit": "", "unit_price": _price(item.unit_cost),
+                     "ref": f"I{item.pk}"})
     return rows
+
+
+def _price(amount):
+    return "" if amount is None else str(amount)
+
+
+def catalog_record(company, ref):
+    """The item or the service of a catalog ref ("I<pk>" or "S<pk>"), as
+    {"item": ...} or {"service": ...}. A custom line, or a ref of another
+    company, gives {}."""
+    if ref and ref[1:].isdigit():
+        if ref[0] == "I":
+            return {"item": Item.objects.filter(company=company, pk=ref[1:]).select_related("account").first()}
+        if ref[0] == "S":
+            return {"service": Service.objects.filter(company=company, pk=ref[1:]).select_related("account").first()}
+    return {}
 
 
 def currency_symbol(company):
@@ -426,7 +452,10 @@ def _sales_record(company, options, entity, doc_type, due, status=None, discount
     """Keep an issued sales document (an invoice or a quote) as a Document with its lines.
     The same number again changes the document and replaces its lines. A status of None
     keeps the status (a new document is a draft). The statement reads the due date.
-    A tax rate must have a tax code that is valid on the issue date. Returns (document, created)."""
+    A tax rate must have a tax code that is valid on the issue date. Returns (document, created).
+
+    A line from the catalog keeps its item or its service (see catalog_record). A service
+    with an account posts there. Every other line posts to Sales."""
     sales = _account(company, "Sales")
     day, rate = options["issue_date"], options["tax_rate"]
     tax_code = (TaxCode.usable(company).filter(rate=rate, valid_from__lte=day)
@@ -444,11 +473,15 @@ def _sales_record(company, options, entity, doc_type, due, status=None, discount
         defaults=fields,
     )
     document.lines.all().delete()
-    DocumentLine.objects.bulk_create(
-        DocumentLine(document=document, account=sales, tax_code=tax_code, description=line["description"],
-                     quantity=line["quantity"], unit_price=line["unit_price"], discount=discount, sort_order=index)
-        for index, line in enumerate(options["line_items"])
-    )
+    lines = []
+    for index, line in enumerate(options["line_items"]):
+        record = catalog_record(company, line.get("ref"))
+        service = record.get("service")
+        lines.append(DocumentLine(
+            document=document, account=(service and service.account) or sales, tax_code=tax_code,
+            description=line["description"], quantity=line["quantity"], unit_price=line["unit_price"],
+            discount=discount, sort_order=index, **record))
+    DocumentLine.objects.bulk_create(lines)
     return document, created
 
 

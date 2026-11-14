@@ -6,7 +6,8 @@
   shared/templates/shared/profile.html
   ----------------------------------------------------------------------------
   The Profile page of the user menu. The user uploads an avatar. The ribbon
-  and the lead cards show it. The page uses the styles of the Accounting
+  and the lead cards show it. The Companies section lists the companies of
+  the user. An owner can edit a company (see shared/company_edit.html). The page uses the styles of the Accounting
   module (card, field, sheet).
   ============================================================================
 {% endcomment %}
@@ -53,6 +54,31 @@
                 <a class="tool tool--ghost" href="{% url 'index' %}">Cancel</a>
             </div>
         </form>
+
+        <section class="profile-companies">
+            <div class="page__head">
+                <h2 class="page__title">Companies</h2>
+                <p class="page__note">The companies that you are a member of. Only an owner can edit a company.</p>
+            </div>
+            <table class="table">
+                <thead>
+                    <tr><th>Company</th><th>Role</th><th>VAT number</th><th>Status</th><th><span class="visually-hidden">Edit</span></th></tr>
+                </thead>
+                <tbody>
+                    {% for membership in memberships %}
+                    <tr>
+                        <td>{{ membership.company.name }}{% if membership.company == request.company %} <span class="page__note">(selected)</span>{% endif %}</td>
+                        <td>{{ membership.get_role_display }}</td>
+                        <td>{{ membership.company.tax_number|default:"—" }}</td>
+                        <td>{{ membership.company.is_active|yesno:"Active,Inactive" }}</td>
+                        <td>{% if membership.role == "OWN" %}<a class="row-icon" href="{% url 'company_edit' membership.company_id %}" title="Edit" aria-label="Edit {{ membership.company.name }}"><svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z" stroke-linejoin="round"/><path d="M14 6l4 4" stroke-linecap="round"/></svg></a>{% endif %}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5">You are not a member of a company.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
     </main>
 </div>
 {% endblock %}

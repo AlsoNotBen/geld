@@ -46,14 +46,15 @@
         </div>
     </div>
 
-    <table class="table table--edit" data-num>
+    {% comment %} table_columns.js gives each column a filter and a sort. {% endcomment %}
+    <table class="table table--edit" data-num data-columns>
         <thead>
             <tr><th>Customer</th><th>Email</th><th>Phone</th><th>Terms</th><th>Status</th><th>Balance</th><th><span class="visually-hidden">Edit</span></th></tr>
         </thead>
         <tbody>
             {% for customer in customers %}
             <tr>
-                <td><span class="name-cell">{% avatar customer.entity "sm" %}{{ customer.name }}</span></td>
+                <td data-sort="{{ customer.name }}"><span class="name-cell">{% avatar customer.entity "sm" %}{{ customer.name }}</span></td>
                 <td>{{ customer.email|default:"—" }}</td>
                 <td>{{ customer.phone|default:"—" }}</td>
                 <td>{{ customer.terms|default:"—" }}</td>

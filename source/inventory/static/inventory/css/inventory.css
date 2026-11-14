@@ -616,6 +616,14 @@
 form:has(input[name="new_model-depreciate"]:checked) .useful-life-row { display: flex; }
 form:has(input[name="new_model-depreciate"]:checked) .useful-life-hint { display: block; }
 
+/* The asset account and the depreciation show only for an Accounting
+   tracked item (the "tracked" checkbox of the Item tab). An untracked
+   item has no value in the ledger, thus nothing to depreciate. */
+.tracked-only { display: none; }
+form:has(input[name="tracked"]:checked) .tracked-only { display: flex; }
+form:not(:has(input[name="tracked"]:checked)) .useful-life-row,
+form:not(:has(input[name="tracked"]:checked)) .useful-life-hint { display: none; }
+
 /* ================================================================== */
 /*  ITEM EDITOR TABS  (a copy of .tabset of accounting.css, which this */
 /*  module does not load)                                             */
