@@ -2,12 +2,12 @@
 accounting/setup.py
 ------------------------------------------------------------------------
 The first-use data of a new company (see seed_company). The lists are
-the same as parts 4 to 6 of seed.sql: one financial year with its 12
+the same as parts 5 to 7 of seed.sql: one financial year with its 12
 periods, the standard chart of accounts and the South African VAT codes.
+If you change one file, change the other file too.
 
-The posting finds some accounts by name: "Accounts Receivable",
-"Accounts Payable", "Suspense", "VAT Control", "Sales" and "Opening
-Balance Equity". Do not change these names.
+The posting finds some accounts by name (see the names at the top of
+posting.py). Do not change these names.
 
 The number sequences need no seed: NumberSequence.peek makes each one
 on first use.
@@ -27,6 +27,8 @@ ACCOUNTS = [
     ("1100", "Accounts Receivable",                           T.CURRENT_ASSETS,          D, None,   "The open invoices. The posting finds it by name."),
     ("1200", "Inventory",                                     T.CURRENT_ASSETS,          D, None,   "Stock for resale, at cost."),
     ("1300", "Prepaid Expenses",                              T.CURRENT_ASSETS,          D, None,   None),
+    ("1400", "Claims Receivable",                             T.CURRENT_ASSETS,          D, None,   None),
+    ("1401", "Insurance Claims Receivable",                   T.CURRENT_ASSETS,          D, "1400", "The approved insurance claims that the insurer did not pay yet. The posting finds it by name."),
     ("1500", "Computer Equipment",                            T.NON_CURRENT_ASSETS,      D, None,   None),
     ("1510", "Accumulated Depreciation — Computer Equipment", T.NON_CURRENT_ASSETS,      C, "1500", None),
     ("1520", "Vehicles",                                      T.NON_CURRENT_ASSETS,      D, None,   None),
@@ -35,6 +37,9 @@ ACCOUNTS = [
     ("2000", "Accounts Payable",                              T.CURRENT_LIABILITIES,     C, None,   "The unpaid bills. The posting finds it by name."),
     ("2100", "VAT Control",                                   T.CURRENT_LIABILITIES,     C, None,   "Output VAT less input VAT."),
     ("2200", "PAYE Payable",                                  T.CURRENT_LIABILITIES,     C, None,   "Employees' tax."),
+    ("2300", "Claims Payable",                                T.CURRENT_LIABILITIES,     C, None,   None),
+    ("2301", "Employee Claims Payable",                       T.CURRENT_LIABILITIES,     C, "2300", "The approved expense claims that the business did not pay yet. The posting finds it by name."),
+    ("2302", "Creditor Claims Payable",                       T.CURRENT_LIABILITIES,     C, "2300", "The approved creditor claims that the business did not pay yet. The posting finds it by name."),
     ("2400", "Accrued Expenses",                              T.CURRENT_LIABILITIES,     C, None,   None),
     ("2500", "Income Tax Payable",                            T.CURRENT_LIABILITIES,     C, None,   None),
     ("3000", "Share Capital",                                 T.SHAREHOLDER_EQUITY,      C, None,   None),
@@ -42,6 +47,7 @@ ACCOUNTS = [
     ("3200", "Opening Balance Equity",                        T.SHAREHOLDER_EQUITY,      C, None,   "The other side of each opening balance. The posting finds it by name."),
     ("4000", "Sales",                                         T.SALES,                   C, None,   "The invoices post here."),
     ("4500", "Interest Received",                             T.OTHER_INCOME,            C, None,   None),
+    ("4600", "Insurance Recoveries",                          T.OTHER_INCOME,            C, None,   "The default account of an insurance claim."),
     ("5000", "Cost of Sales",                                 T.COST_OF_SALES,           D, None,   "The cost of the stock that was sold."),
     ("6000", "Salaries and Wages",                            T.EXPENSES,                D, None,   None),
     ("6100", "Rent",                                          T.EXPENSES,                D, None,   None),
@@ -79,8 +85,7 @@ def seed_company(company, year_start):
     3. The tax codes (see TAX_CODES).
     The caller runs this in the transaction that makes the company. Thus
     an error makes no company at all."""
-    year = FiscalYear.objects.create(company=company, name=f"FY{year_start.year}", start_date=year_start,
-                                     end_date=add_months(year_start, 12) - datetime.timedelta(days=1))
+    year = FiscalYear.objects.create(company=company, name=f"FY{year_start.year}", start_date=year_start, end_date=add_months(year_start, 12) - datetime.timedelta(days=1))
     Period.objects.bulk_create(
         Period(company=company, fiscal_year=year, name=f"{add_months(year_start, n):%Y-%m}",
                start_date=add_months(year_start, n),

@@ -7,17 +7,21 @@
 --     psql "$DATABASE_URL" -f seed.sql      (or: python manage.py dbshell < seed.sql)
 --
 -- WARNING: The file REPLACES ALL DATA of the shared and accounting apps and of
--- the users. Do not run it on a database that has real data.
+-- the users. CASCADE also clears each table that refers to them (e.g. inventory,
+-- sales and filestore). Do not run it on a database that has real data.
 -- The file runs in one transaction. If an error occurs, nothing changes.
 --
 -- The file adds only the data that the apps must have before first use:
 --   1. The ISO 4217 currencies.
 --   2. The GICS sectors (the industry list).
---   3. One user, one company and the membership of the user.
---   4. The financial years and their periods.
---   5. A standard chart of accounts.
---   6. The South African VAT codes.
---   7. The number sequences.
+--   3. The countries.
+--   4. One user, one company and the membership of the user.
+--   5. One financial year and its periods.
+--   6. The standard chart of accounts.
+--   7. The South African VAT codes.
+-- Parts 5 to 7 are the same as accounting/setup.py (seed_company). If you change
+-- one file, change the other file too.
+-- The number sequences need no seed: NumberSequence.peek makes each one on first use.
 --
 -- Log in as admin / admin. Change the password immediately.
 -- Then change the company name, tax number and address in the admin.
@@ -33,10 +37,13 @@ TRUNCATE TABLE
     accounting_auditlog,
     accounting_bankaccount,
     accounting_banktransaction,
+    accounting_claim,
+    accounting_claimreceipt,
     accounting_depreciationschedule,
     accounting_document,
     accounting_document_files,
     accounting_documentline,
+    accounting_employee,
     accounting_fiscalyear,
     accounting_fixedasset,
     accounting_journalentry,
@@ -49,24 +56,30 @@ TRUNCATE TABLE
     accounting_paymentallocation,
     accounting_period,
     accounting_recurringdocument,
+    accounting_recurringentry,
     accounting_service,
+    accounting_snapshot,
+    accounting_snapshotbalance,
     accounting_taxcode,
     auth_user,
     django_admin_log,
     django_session,
     shared_businessrole,
     shared_company,
+    shared_country,
     shared_currency,
     shared_entity,
     shared_exchangerate,
     shared_individualprofile,
     shared_industry,
+    shared_location,
     shared_membership,
     shared_organizationprofile,
     shared_project,
     shared_source,
     shared_supplier,
-    shared_title
+    shared_title,
+    shared_userprofile
 RESTART IDENTITY CASCADE;
 
 -- ____________________________________________________________________________
@@ -106,7 +119,7 @@ INSERT INTO shared_currency (alpha_code, numeric_code, minor_unit, name, symbol)
     ('COP', 170, 2, 'Colombian Peso', '$'),
     ('CRC', 188, 2, 'Costa Rican Colon', '₡'),
     ('CUP', 192, 2, 'Cuban Peso', '$'),
-    ('CVE', 132, 2, 'Cabo Verde Escudo', '​'),
+    ('CVE', 132, 2, 'Cabo Verde Escudo', ''),
     ('CZK', 203, 2, 'Czech Koruna', ''),
     ('DJF', 262, 0, 'Djibouti Franc', 'Fdj'),
     ('DKK', 208, 2, 'Danish Krone', 'kr.'),
@@ -142,7 +155,7 @@ INSERT INTO shared_currency (alpha_code, numeric_code, minor_unit, name, symbol)
     ('KES', 404, 2, 'Kenyan Shilling', 'Ksh'),
     ('KGS', 417, 2, 'Som', 'сом'),
     ('KHR', 116, 2, 'Riel', '៛'),
-    ('KMF', 174, 0, 'Comorian Franc ', 'CF'),
+    ('KMF', 174, 0, 'Comorian Franc', 'CF'),
     ('KPW', 408, 2, 'North Korean Won', ''),
     ('KRW', 410, 0, 'Won', '₩'),
     ('KWD', 414, 3, 'Kuwaiti Dinar', 'د.ك.‏'),
@@ -251,7 +264,7 @@ INSERT INTO shared_industry (sector) VALUES
 
 
 -- ____________________________________________________________________________
--- 2. Countries: ISO 3166-1, ITU-T E.164 and ITU-T E.212.
+-- 3. Countries: ISO 3166-1, ITU-T E.164 and ITU-T E.212.
 
 INSERT INTO shared_country
     (alpha2, alpha3, numeric3, name,
@@ -263,9 +276,8 @@ VALUES
     ('DE', 'DEU', '276', 'Germany', '+49', '262'),
     ('AU', 'AUS', '036', 'Australia', '+61', '505');
 
-
 -- ____________________________________________________________________________
--- 3. The first user, the company and the membership.
+-- 4. The first user, the company and the membership.
 
 -- admin / password admin. Change it immediately.
 INSERT INTO auth_user (password, last_login, is_superuser, username, first_name, last_name, email, is_staff, is_active, date_joined) VALUES
@@ -281,15 +293,14 @@ FROM auth_user AS u, shared_company AS c
 WHERE u.username = 'admin' AND c.slug = 'my-company';
 
 -- ____________________________________________________________________________
--- 4. Financial years (March to February): the current year and the next year.
--- Each year has 12 periods (calendar months). All are open.
+-- 5. One financial year from 1 March of the current year (see shared.forms.current_year_start).
+-- It has 12 periods (calendar months). All are open.
 
 INSERT INTO accounting_fiscalyear (company_id, name, start_date, end_date, is_closed)
-SELECT c.id, 'FY' || extract(year from y.start)::int, y.start::date,
+SELECT c.id, 'FY' || extract(year from y.start)::int, y.start,
        (y.start + interval '1 year' - interval '1 day')::date, FALSE
 FROM shared_company AS c,
-     (SELECT make_date(extract(year from CURRENT_DATE - interval '2 month')::int, 3, 1) + make_interval(years => n) AS start
-      FROM generate_series(0, 1) AS n) AS y;
+     (SELECT make_date(extract(year from CURRENT_DATE - interval '2 month')::int, 3, 1) AS start) AS y;
 
 INSERT INTO accounting_period (company_id, fiscal_year_id, name, start_date, end_date, is_closed)
 SELECT fy.company_id, fy.id, to_char(month, 'YYYY-MM'), month::date,
@@ -298,9 +309,8 @@ FROM accounting_fiscalyear AS fy, generate_series(fy.start_date, fy.end_date, in
 ORDER BY month;
 
 -- ____________________________________________________________________________
--- 5. Chart of accounts. The posting finds these accounts by name: "Accounts Receivable",
--- "Accounts Payable", "Suspense", "VAT Control", "Sales" and "Opening Balance Equity".
--- Do not change these names.
+-- 6. Chart of accounts. The posting finds some accounts by name (see the names at the top
+-- of accounting/posting.py). Do not change these names.
 -- Add a bank account in the app. Its ledger account is "Bank". Give its opening balance there.
 
 INSERT INTO accounting_account (company_id, code, name, type, normal_side, currency_id, is_active, description)
@@ -311,6 +321,8 @@ FROM shared_company AS c, (VALUES
     ('1100', 'Accounts Receivable',                           'CA',     'D', NULL,  'The open invoices. The posting finds it by name.'),
     ('1200', 'Inventory',                                     'CA',     'D', NULL,  'Stock for resale, at cost.'),
     ('1300', 'Prepaid Expenses',                              'CA',     'D', NULL,  NULL),
+    ('1400', 'Claims Receivable',                             'CA',     'D', NULL,  NULL),
+    ('1401', 'Insurance Claims Receivable',                   'CA',     'D', NULL,  'The approved insurance claims that the insurer did not pay yet. The posting finds it by name.'),
     ('1500', 'Computer Equipment',                            'NCA',    'D', NULL,  NULL),
     ('1510', 'Accumulated Depreciation — Computer Equipment', 'NCA',    'C', NULL,  NULL),
     ('1520', 'Vehicles',                                      'NCA',    'D', NULL,  NULL),
@@ -319,6 +331,9 @@ FROM shared_company AS c, (VALUES
     ('2000', 'Accounts Payable',                              'CL',     'C', NULL,  'The unpaid bills. The posting finds it by name.'),
     ('2100', 'VAT Control',                                   'CL',     'C', NULL,  'Output VAT less input VAT.'),
     ('2200', 'PAYE Payable',                                  'CL',     'C', NULL,  'Employees'' tax.'),
+    ('2300', 'Claims Payable',                                'CL',     'C', NULL,  NULL),
+    ('2301', 'Employee Claims Payable',                       'CL',     'C', NULL,  'The approved expense claims that the business did not pay yet. The posting finds it by name.'),
+    ('2302', 'Creditor Claims Payable',                       'CL',     'C', NULL,  'The approved creditor claims that the business did not pay yet. The posting finds it by name.'),
     ('2400', 'Accrued Expenses',                              'CL',     'C', NULL,  NULL),
     ('2500', 'Income Tax Payable',                            'CL',     'C', NULL,  NULL),
     ('3000', 'Share Capital',                                 'EQ',     'C', NULL,  NULL),
@@ -326,6 +341,7 @@ FROM shared_company AS c, (VALUES
     ('3200', 'Opening Balance Equity',                        'EQ',     'C', NULL,  'The other side of each opening balance. The posting finds it by name.'),
     ('4000', 'Sales',                                         'SALES',  'C', NULL,  'The invoices post here.'),
     ('4500', 'Interest Received',                             'OTHINC', 'C', NULL,  NULL),
+    ('4600', 'Insurance Recoveries',                          'OTHINC', 'C', NULL,  'The default account of an insurance claim.'),
     ('5000', 'Cost of Sales',                                 'COS',    'D', NULL,  'The cost of the stock that was sold.'),
     ('6000', 'Salaries and Wages',                            'EXP',    'D', NULL,  NULL),
     ('6100', 'Rent',                                          'EXP',    'D', NULL,  NULL),
@@ -339,15 +355,16 @@ FROM shared_company AS c, (VALUES
     ('9000', 'Clearing Account',                              'FN',     'D', NULL,  'A floating account for transfers. It stays at zero.')
 ) AS a (code, name, type, side, currency, description);
 
--- Each accumulated depreciation account is a child of its asset account.
+-- The parent accounts (the same as the parent codes in setup.ACCOUNTS).
 UPDATE accounting_account AS child
 SET parent_id = parent.id
 FROM accounting_account AS parent
 WHERE parent.company_id = child.company_id
-  AND (child.code, parent.code) IN (('1510', '1500'), ('1530', '1520'));
+  AND (child.code, parent.code) IN (('1401', '1400'), ('1510', '1500'), ('1530', '1520'),
+                                    ('2301', '2300'), ('2302', '2300'));
 
 -- ____________________________________________________________________________
--- 6. Tax codes: South African VAT (VAT Act 89 of 1991).
+-- 7. Tax codes: South African VAT (VAT Act 89 of 1991).
 -- The standard rate is 15% from 1 April 2018. If the company is not in South Africa, replace these codes.
 
 INSERT INTO accounting_taxcode (company_id, code, name, kind, rate, valid_from, valid_to, input_account_id, output_account_id)
@@ -360,19 +377,5 @@ JOIN accounting_account AS vat ON vat.company_id = c.id AND vat.code = '2100',
     ('ZR',    'Zero rated',         'ZER',  0.00, DATE '1991-09-30', TRUE),
     ('EX',    'Exempt',             'EXE',  0.00, DATE '1991-09-30', FALSE)
 ) AS t (code, name, kind, rate, valid_from, has_account);
-
--- ____________________________________________________________________________
--- 7. Number sequences. NumberSequence.take() needs these rows. Each sequence starts at 1.
-
-INSERT INTO accounting_numbersequence (company_id, name, prefix, next_number, padding)
-SELECT c.id, s.name, s.prefix, 1, 5
-FROM shared_company AS c, (VALUES
-    ('invoice',   'INV-'),
-    ('bill',      'BILL-'),
-    ('quote',     'QUO-'),
-    ('payment',   'PAY-'),
-    ('statement', 'STM-'),
-    ('supplier',  'SUP-')
-) AS s (name, prefix);
 
 COMMIT;

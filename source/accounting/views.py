@@ -1,10 +1,11 @@
 import json
+import re
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db import IntegrityError, transaction
-from django.db.models import Max, Sum, DecimalField, Q
+from django.db.models import Exists, Max, OuterRef, Sum, DecimalField, Q
 from django.db.models.functions import Coalesce
 from django.urls import reverse
 from django.utils import timezone
@@ -12,14 +13,34 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from accounting.models import *
 from accounting.date_range import get_range, previous_range
 from accounting.documents import AGEING_LABELS, age_bucket, standard_rate
-from accounting.forms import BankAccountForm, BillForm, CustomerForm, NoteForm, PaymentForm, ServiceForm, SupplierForm
-from accounting.posting import (CENT, PAYABLE, RECEIVABLE, VAT, _account, _open_period, allocate, linked_entry_ids, post_bill,
-                                post_opening_document, post_payment, reverse_entry, run_recurring, set_bank_opening)
+from accounting.forms import (BankAccountForm, BillForm, ClaimForm, CustomerForm, NoteForm, PaymentForm, ServiceForm,
+                              SupplierForm)
+from accounting.posting import (CENT, INSURANCE_INCOME, PAYABLE, RECEIVABLE, VAT, _account, _open_period, allocate,
+                                linked_entry_ids, post_bill, post_claim, post_opening_document, post_payment,
+                                reverse_entry, run_recurring, set_bank_opening, update_claims)
 from datetime import datetime, timedelta
+from functools import wraps
 from urllib.parse import urlencode
 from filestore.services import save_upload, validate
 
 ZERO = Decimal("0")
+
+PROFIT_TYPES = [
+    Account.AccountType.SALES, Account.AccountType.COST_OF_SALES, Account.AccountType.OTHER_INCOME,
+    Account.AccountType.EXPENSES, Account.AccountType.INCOME_TAX,
+]
+
+def company_page(template):
+    """A user without a company (e.g. a new user) gets the page with an empty context."""
+    def decorator(view):
+        @wraps(view)
+        def wrapper(request, *args, **kwargs):
+            if request.company is None:
+                return render(request, template, {})
+            return view(request, *args, **kwargs)
+        return wrapper
+    return decorator
+
 JOURNAL_TABS = {
     "general_entries":  [JournalEntry.EntryType.GENERAL],
     "sales_entries":    [JournalEntry.EntryType.SALES],
@@ -148,6 +169,7 @@ def entry_lines(post, company):
                               f"and the credits are {total_credit}.")
     return lines
 
+@company_page("accounting/journals.html")
 def journals(request):
     # The global date range keeps only the entries of the selected period.
     key, start, end = get_range(request)
@@ -260,6 +282,7 @@ def post_entries(request, **filters):
         status=JournalEntry.Status.POSTED, posted_at=timezone.now(),
     )
     AuditLog.record(request, AuditLog.Action.POST, *(JournalEntry(pk=pk) for pk in ids))
+    update_claims(request.company)
 
 def journalentry_post(request, pk):
     """The Accept button. It moves one draft entry to the Posted status."""
@@ -284,6 +307,7 @@ def journalentry_void(request, pk):
         ):
             RecurringEntry.objects.filter(template_id=pk).update(is_active=False)
             AuditLog.record(request, AuditLog.Action.VOID, JournalEntry(pk=pk))
+            update_claims(request.company)
     return redirect("accounting:journals")
 
 def journalentry_reverse(request, pk):
@@ -323,6 +347,8 @@ def payment_create(request):
                 payment.created_by = request.user
                 payment.save()
                 documents = allocate(payment)     # Before post_payment: the cash entry reads the allocations.
+                if any(d.doc_type == Document.DocType.CLAIM for d in documents) and not is_owner_or_accountant(request):
+                    raise ValidationError("Only an Owner or an Accountant can pay a claim.")
                 post_payment(payment)
                 payment.files.add(*(save_upload(u, request.user, request.company) for u in uploads))
                 AuditLog.record(request, AuditLog.Action.CREATE, payment)
@@ -331,7 +357,9 @@ def payment_create(request):
                     NumberSequence.take(request.company, "payment")
             if documents:
                 messages.success(request, f"{payment.number} pays " + ", ".join(
-                    f"{d.get_doc_type_display().lower()} {d.number} ({d.get_status_display()})" for d in documents) + ".")
+                    f"{d.get_doc_type_display().lower()} {d.number} "
+                    + ("(paid when you accept the entries)" if d.doc_type == Document.DocType.CLAIM
+                       else f"({d.get_status_display()})") for d in documents) + ".")
             return JsonResponse({"redirect": reverse("accounting:journals")})
         except ValidationError as error:
             form.add_error(None, error)
@@ -399,134 +427,215 @@ NORMAL_SIDE = {
 }
  
 def category_of(account):
-    if account.type == Account.AccountType.FLOATING_NOMINAL:
-        return "asset" if account.is_debit else "liability"
-    for key, types in CATEGORIES.items():
-        if account.type in types:
-            return key
+    if account is not None:
+        if account.type == Account.AccountType.FLOATING_NOMINAL:
+            return "asset" if account.is_debit else "liability"
+        
+        for key, types in CATEGORIES.items():
+            if account.type in types:
+                return key
+            
     return None
 
+def code_key(account):
+    """Sort by code as a person reads it: "900" before "1000", and "1000" before "1000.1"."""
+    return [int(part) if part.isdigit() else part for part in re.split(r"(\d+)", account.code)]
+
 def tree_order(accounts):
-    """The accounts as (account, depth) pairs, each child below its parent.
-    The depth is the number of parents above the account in the list, thus
-    the table can indent the child. An account with its parent outside the
-    list starts a new tree. The order in each level stays the order of the list."""
+    """The accounts as (account, depth) pairs, by code ascending, each child directly below
+    its parent. The depth is the number of parents above the account in the list, thus the
+    table can indent the child. An account with its parent outside the list starts a new tree."""
     ids = {a.pk for a in accounts}
     children = {}
-    for account in accounts:
-        children.setdefault(account.parent_id if account.parent_id in ids else None, []).append(account)
-    rows = []
-    def add(parent_id, depth):
-        for account in children.get(parent_id, []):
-            rows.append((account, depth))
-            add(account.pk, depth + 1)
-    add(None, 0)
-    seen = {a.pk for a, _ in rows}
-    return rows + [(a, 0) for a in accounts if a.pk not in seen]     # A loop of parents has no top account.
+    for account in sorted(accounts, key=code_key):
+        pid = account.parent_id if account.parent_id in ids and account.parent_id != account.pk else None
+        children.setdefault(pid, []).append(account)
 
+    rows, seen = [], set()
+
+    def walk(parent_id, depth):
+        for account in children.get(parent_id, ()):
+            if account.pk not in seen:
+                seen.add(account.pk)
+                rows.append((account, depth))
+                walk(account.pk, depth + 1)
+
+    walk(None, 0)
+    rows += [(a, 0) for a in sorted(accounts, key=code_key) if a.pk not in seen]  # Accounts in a parent loop
+    return rows
+
+@company_page("accounting/chart_of_accounts.html")
 def chartaccounts(request):
-    # The balance of an account uses only the lines of the date range.
-    key, start, end = get_range(request)
-    company = request.company
-    in_range = Q(lines__entry__date__range=(start, end),
-                 lines__entry__status=JournalEntry.Status.POSTED,
-                 lines__entry__basis__in=JournalEntry.bases_of(company))
 
-    accounts = list(Account.objects.filter(company=company).select_related("tax_code").annotate(
-        debits=Coalesce(Sum("lines__base_debit", filter=in_range), ZERO, output_field=DecimalField()),
-        credits=Coalesce(Sum("lines__base_credit", filter=in_range), ZERO, output_field=DecimalField()),
-    ).order_by("code"))
- 
-    parent_ids = set(Account.objects.filter(company=company).exclude(parent=None).values_list("parent_id", flat=True))
- 
+    key, start, end = get_range(request)
+    company         = request.company
+
+    if company is None:
+        return render(request, "accounting/chart_of_accounts.html", {
+            "account_types"     : Account.AccountType.choices,
+            "currencies"        : Currency.objects.none(),
+            "tax_codes"         : TaxCode.objects.none(),
+            "tax_ids"           : [],
+            "can_edit_tax"      : False,
+            "parent_accounts"   : [],
+            "all_accounts"      : [],
+            "all_total"         : ZERO,
+            **{f"{k}_accounts"  : [] for k in CATEGORIES},
+            **{f"{k}_total"     : ZERO for k in CATEGORIES},
+        })
+
+
+    if start is None or end is None:
+        in_range = Q(pk__in=[])
+
+    else:
+        in_range = Q(
+            lines__entry__date__range   = (start, end),
+            lines__entry__status        = JournalEntry.Status.POSTED,
+            lines__entry__basis__in     = JournalEntry.bases_of(company),
+        )
+
+    accounts = list(
+        Account.objects.filter(company=company).select_related("tax_code")
+        .annotate(
+            debits          = Coalesce(Sum("lines__base_debit", filter=in_range), ZERO, output_field=DecimalField()),
+            credits         = Coalesce(Sum("lines__base_credit", filter=in_range), ZERO, output_field=DecimalField()),
+            has_children    = Exists(Account.objects.filter(parent_id=OuterRef("pk"))),
+        )
+        .order_by("code")
+    )
+
+    by_category = {key: [] for key in CATEGORIES}
+    all_total = ZERO
     for account in accounts:
-        account.signed = account.debits - account.credits
-        account.is_debit = account.signed >= 0
-        account.is_credit = not account.is_debit
-        account.balance = abs(account.signed)
-        account.is_group = account.pk in parent_ids
- 
+        debits              = account.debits if account.debits is not None else ZERO
+        credits             = account.credits if account.credits is not None else ZERO
+        signed              = debits - credits
+        account.signed      = signed
+        account.is_debit    = signed >= 0
+        account.is_credit   = not account.is_debit
+        account.balance     = abs(signed)
+        account.is_group    = bool(account.has_children) and account.parent_id != account.pk
+        all_total           += signed
+        cat                 = category_of(account)
+
+        if cat in by_category:
+            by_category[cat].append(account)
+
     context = {
         "account_types"     : Account.AccountType.choices,
-        "currencies"        : Currency.objects.all(),
+        "currencies"        : Currency.objects.all().order_by("alpha_code"),
         "tax_codes"         : TaxCode.usable(company).order_by("code", "valid_from"),
         "tax_ids"           : tax_account_ids(company),
         "can_edit_tax"      : is_owner_or_accountant(request),
         "parent_accounts"   : accounts,
         "all_accounts"      : tree_order(accounts),
-        "all_total"         : sum((a.signed for a in accounts), ZERO),
+        "all_total"         : all_total,
     }
+
     for key in CATEGORIES:
-        rows = [a for a in accounts if category_of(a) == key]
+        rows = by_category[key]
         context[f"{key}_accounts"] = tree_order(rows)
         context[f"{key}_total"] = abs(sum((a.signed for a in rows), ZERO))
- 
+
     return render(request, "accounting/chart_of_accounts.html", context)
- 
+
+
+# TODO: THIS IS USER INPUT, SANITIZE AND CHECK CSRF!! 
 def account_create(request):
     if request.method == "POST":
         company = request.company
+
+        if company is None:
+            messages.error(request, "The account is not saved. No company selected.")
+            return redirect("accounting:chartaccounts")
+
+        code            = (request.POST.get("code") or "").strip()
+        name            = (request.POST.get("name") or "").strip()
+        account_type    = request.POST.get("type")
+
+        if not code or not name or account_type not in NORMAL_SIDE:
+            messages.error(request, "The account is not saved. Code, name and a valid type are required.")
+            return redirect("accounting:chartaccounts")
+
+        def _as_int(value):
+            value = (value or "").strip()
+            if not value.isdigit():
+                return None
+            
+            return int(value)
+
+        parent_pk       = _as_int(request.POST.get("parent"))
+        currency_pk     = (request.POST.get("currency") or "").strip() or None
+        tax_code_pk     = (request.POST.get("tax_code"))
+
         try:
             with transaction.atomic():
+                parent      = ( Account.objects.filter(company=company, pk=parent_pk).first() if parent_pk is not None else None )
+                currency    = ( Currency.objects.filter(pk=currency_pk).first() if currency_pk is not None else None )
+                tax_code    = ( TaxCode.usable(company).filter(pk=tax_code_pk).first() if tax_code_pk is not None else None )
+                is_active   = ( bool(request.POST.get("is_active")))
+
                 account = Account.objects.create(
-                    company=company,                            # Add to every function that creates a CompanyOwned record
-                    code=request.POST["code"],
-                    name=request.POST["name"],
-                    type=request.POST["type"],
-                    normal_side=NORMAL_SIDE[request.POST["type"]],
-                    parent=Account.objects.filter(company=company, pk=request.POST.get("parent") or None).first(),
-                    currency_id=request.POST.get("currency") or None,
-                    is_active=bool(request.POST.get("is_active")),
-                    description=request.POST.get("description", ""),
-                    tax_code=TaxCode.usable(company).filter(pk=request.POST.get("tax_code") or None).first(),
+                    company     = company,
+                    code        = code,
+                    name        = name,
+                    type        = account_type,
+                    normal_side = NORMAL_SIDE[account_type],
+                    parent      = parent,
+                    currency    = currency,
+                    is_active   = is_active,
+                    description = (request.POST.get("description") or "").strip(),
+                    tax_code    = tax_code,
                 )
+
                 AuditLog.record(request, AuditLog.Action.CREATE, account)
+
         except IntegrityError:
-            messages.error(request, "The account is not saved. Another account has this code or this name.")
+            messages.error(request, "The account is not saved. It conflicts with existing data (duplicate code/name or invalid reference).")
+
     return redirect("accounting:chartaccounts")
 
 def is_owner_or_accountant(request):
-    """True for an Owner or an Accountant of the current company."""
     return bool(request.membership and request.membership.can_post)
 
+# TODO: CONTAINS USER INPUT, SANITIZE!!
 def account_tax(request, pk):
     """The Edit Tax Code overlay of an account row. accounts.js sends it with fetch().
     A new journal line or bill line on the account gets this tax code (see Account.tax_code).
     Only an Owner or an Accountant can change it."""
     if not is_owner_or_accountant(request):
-        return HttpResponse(status=403)
+        return HttpResponse(status = 403)
+    
     if request.method == "POST":
-        account = get_object_or_404(Account, pk=pk, company=request.company)
-        account.tax_code = TaxCode.usable(request.company).filter(pk=request.POST.get("tax_code") or None).first()
+        account             = get_object_or_404(Account, pk=pk, company=request.company)
+        account.tax_code    = TaxCode.usable(request.company).filter(pk=request.POST.get("tax_code") or None).first()
+
         account.save(update_fields=["tax_code"])
         AuditLog.record(request, AuditLog.Action.UPDATE, account)
+
     return HttpResponse(status=204)
 
+# TODO: CONTAINS USER INPUT, SANITIZE!!
 def child_account(parent, name):
     """Add an account with the name below the parent. It gets the type of the parent. The
     code is the code of the parent, a point and the next number: 1000.1, 1000.2, 1000.3."""
-    accounts = Account.objects.filter(company_id=parent.company_id)
-    prefix = f"{parent.code}."
-    codes = accounts.filter(code__startswith=prefix).values_list("code", flat=True)
-    code = prefix + str(max((int(c[len(prefix):]) for c in codes if c[len(prefix):].isdecimal()), default=0) + 1)
+    accounts    = Account.objects.filter(company_id=parent.company_id)
+    prefix      = f"{parent.code}."
+    codes       = accounts.filter(code__startswith=prefix).values_list("code", flat=True)
+    code        = prefix + str(max((int(c[len(prefix):]) for c in codes if c[len(prefix):].isdecimal()), default=0) + 1)
+
     if len(code) > Account._meta.get_field("code").max_length:
         raise ValidationError(f"The code {code} is too long. Select a parent account with a shorter code.")
+    
     if accounts.filter(name=name).exists():
-        raise ValidationError(f'The chart of accounts already has an account "{name}". '
-                              "Give the bank account another name.")
-    return Account.objects.create(company_id=parent.company_id, code=code, name=name, type=parent.type,
-                                  normal_side=NORMAL_SIDE[parent.type], parent=parent)
-
-PROFIT_TYPES = [
-    Account.AccountType.SALES, Account.AccountType.COST_OF_SALES, Account.AccountType.OTHER_INCOME,
-    Account.AccountType.EXPENSES, Account.AccountType.INCOME_TAX,
-]
+        raise ValidationError(f'The chart of accounts already has an account "{name}". ' "Give the bank account another name.")
+    
+    return Account.objects.create(company_id=parent.company_id, code=code, name=name, type=parent.type, normal_side=NORMAL_SIDE[parent.type], parent=parent)
 
 def posted_lines(company):
     """The posted lines of the company, for the basis of the company."""
-    return JournalLine.objects.filter(entry__company=company,
-                                      entry__status=JournalEntry.Status.POSTED,
-                                      entry__basis__in=JournalEntry.bases_of(company))
+    return JournalLine.objects.filter(entry__company=company, entry__status=JournalEntry.Status.POSTED, entry__basis__in=JournalEntry.bases_of(company))
 
 def movements(company, start=None, end=None):
     """The signed movement (debits less credits) of each account, from the
@@ -584,6 +693,7 @@ def statement_context(request):
         "basis": company.get_accounting_basis_display().lower(),
     }
 
+@company_page("accounting/ledger.html")
 def ledger(request):
     ctx = statement_context(request)
     company = ctx["company"]
@@ -665,6 +775,7 @@ def balance_data(accounts, this, last):
         "is_balanced": assets_this == eq_this + liabilities_this,
     }
 
+@company_page("accounting/balance_sheet.html")
 def balancesheet(request):
     ctx = statement_context(request)
     company = ctx["company"]
@@ -711,6 +822,7 @@ def income_data(accounts, this, last):
         "margin_last": gross_last / rev_last * 100 if rev_last else None,
     }
 
+@company_page("accounting/income_statement.html")
 def incomestatement(request):
     ctx = statement_context(request)
     company = ctx["company"]
@@ -799,6 +911,7 @@ def cash_flow_of(company, accounts, start, end, prev_start, prev_end):
                           movements(company, start, end), movements(company, prev_start, prev_end),
                           cash_at(start - day), cash_at(prev_start - day))
 
+@company_page("accounting/cash_flow.html")
 def cashflow(request):
     ctx = statement_context(request)
     company = ctx["company"]
@@ -806,6 +919,7 @@ def cashflow(request):
     ctx.update(cash_flow_of(company, accounts, ctx["start"], ctx["end"], ctx["prev_start"], ctx["prev_end"]))
     return render(request, "accounting/cash_flow.html", ctx)
 
+@company_page("accounting/shareholder_equity.html")
 def equity(request):
     ctx = statement_context(request)
     company = ctx["company"]
@@ -897,6 +1011,7 @@ def unpaid_bills(request):
     S = Document.Status
     return bill_list(request, S.SENT, S.APPROVED, S.PART_PAID)
 
+@company_page("accounting/bills.html")
 def bills(request):
     """Review: the draft bills. Unpaid: the approved bills that are not
     paid in full. Paid: the paid bills of the date range."""
@@ -1012,6 +1127,7 @@ def bill_deny(request, pk):
             AuditLog.record(request, AuditLog.Action.VOID, Document(pk=pk))
     return redirect("accounting:bills")
 
+@company_page("accounting/suppliers.html")
 def suppliers(request):
     """Each entity with supplier details or with a bill. The balance is the
     money that the business owes: the posted Accounts Payable lines of the
@@ -1046,9 +1162,119 @@ def suppliers(request):
         })
     return render(request, "accounting/suppliers.html", {"suppliers": rows})
 
-def claims(request):
-    return render(request, "accounting/claims.html")
+def claim_list(request, *statuses):
+    """The claims of the company with one of the statuses (see Document.DocType.CLAIM)."""
+    return list(Document.objects
+                .filter(company=request.company, doc_type=Document.DocType.CLAIM, status__in=statuses)
+                .select_related("claim__employee__entity", "claim__control_account", "entity")
+                .prefetch_related("lines__account", "lines__receipts__file", "lines__tax_code",
+                                  "allocations__payment__journal_entry")
+                .order_by("date", "id"))
 
+@company_page("accounting/claims.html")
+def claims(request):
+    """Review: the draft claims. Open: the approved claims that are not fully paid; a claim
+    with a payment waits for the journal. Pay (or Receive) opens the Record Payment overlay
+    with the claim as the reference (see posting.allocate). Paid: the claims paid in the date range."""
+    _, start, end = get_range(request)
+    S = Document.Status
+    open_claims = claim_list(request, S.APPROVED, S.PART_PAID)
+    paid = [c for c in claim_list(request, S.PAID) if start <= c.claim.paid_on <= end]
+    defaults = ClaimForm.defaults(request.company)
+    accounts = Account.objects.filter(company=request.company, is_active=True).order_by("code")
+    return render(request, "accounting/claims.html", {
+        "review_claims": claim_list(request, S.DRAFT),
+        "open_claims": open_claims,
+        "paid_claims": paid,
+        "open_total": sum((c.balance for c in open_claims), ZERO),
+        "paid_total": sum((c.gross for c in paid), ZERO),
+        "claim_form": ClaimForm(company=request.company, user=request.user, defaults=defaults),
+        "claim_kinds": [(kind, label, defaults[kind]) for kind, label in Claim.Kind.choices],
+        "accounts": accounts,
+        "insurance_account": accounts.filter(name=INSURANCE_INCOME).first(),
+        "can_review": is_owner_or_accountant(request),
+    })
+
+def claim_create(request):
+    """The Save button of the New Claim overlay. claims.js sends the form with fetch() and
+    reads the JSON answer: the errors, or the page to go to. The claim is a draft."""
+    if request.method != "POST":
+        return redirect("accounting:claims")
+    form = ClaimForm(request.POST, request.FILES, company=request.company)
+    if form.is_valid():
+        try:
+            for *_, uploads in form.lines:          # Validate every file first, so a bad file stores nothing.
+                for upload in uploads:
+                    validate(upload)
+            with transaction.atomic():
+                employee = Employee.of(request.company, form.cleaned_data["user"])
+                document = form.save(commit=False)
+                document.company = request.company          # Add to every function that creates a CompanyOwned record
+                document.direction = Document.Direction.PURCHASE
+                document.doc_type = Document.DocType.CLAIM
+                document.currency = request.company.base_currency
+                document.entity = form.cleaned_data["entity"] or employee.entity
+                document.created_by = request.user
+                document.save()
+                Claim.objects.create(document=document, kind=form.cleaned_data["kind"], employee=employee,
+                                     control_account=form.cleaned_data["control_account"])
+                for n, (reason, account, amount, uploads) in enumerate(form.lines):
+                    line = DocumentLine.objects.create(document=document, account=account, description=reason,
+                                                       quantity=1, unit_price=amount, sort_order=n)
+                    ClaimReceipt.objects.bulk_create(ClaimReceipt(line=line, file=save_upload(u, request.user, request.company))
+                                                     for u in uploads)
+                AuditLog.record(request, AuditLog.Action.CREATE, document)
+                if document.number == NumberSequence.peek(request.company, "claim", "CLM-"):
+                    NumberSequence.take(request.company, "claim")
+            return JsonResponse({"redirect": reverse("accounting:claims")})
+        except ValidationError as error:
+            form.add_error(None, error)
+    return form_errors(form)
+
+def can_review(request):
+    """Only an Owner or an Accountant can approve or deny a claim."""
+    if is_owner_or_accountant(request):
+        return True
+    messages.error(request, "Only an Owner or an Accountant can approve or deny a claim.")
+    return False
+
+def get_claim(request, pk, status):
+    """The claim document, with its Claim."""
+    return get_object_or_404(Document.objects.select_related("claim"), pk=pk, company=request.company,
+                             doc_type=Document.DocType.CLAIM, status=status)
+
+def approve_claim(request, claim):
+    """Post the entry of a draft claim. A problem (e.g. no open period) does not approve
+    the claim, and the Claims page shows the problem."""
+    try:
+        post_claim(claim)
+        AuditLog.record(request, AuditLog.Action.POST, claim)
+    except ValidationError as error:
+        messages.error(request, f"{claim.number} is not approved. {' '.join(error.messages)}")
+
+def claim_approve(request, pk):
+    """The Approve button. It posts the entry of a draft claim."""
+    if request.method == "POST" and can_review(request):
+        approve_claim(request, get_claim(request, pk, Document.Status.DRAFT))
+    return redirect("accounting:claims")
+
+def claim_approve_all(request):
+    """The Accept All button. It approves each draft claim, as the Approve button does."""
+    if request.method == "POST" and can_review(request):
+        for claim in claim_list(request, Document.Status.DRAFT):
+            approve_claim(request, claim)
+    return redirect("accounting:claims")
+
+def claim_deny(request, pk):
+    """The Deny button of the View overlay. It voids a draft claim."""
+    if request.method == "POST" and can_review(request):
+        claim = get_claim(request, pk, Document.Status.DRAFT)
+        claim.status = Document.Status.VOID
+        claim.save(update_fields=["status", "updated_at"])
+        AuditLog.record(request, AuditLog.Action.VOID, claim)
+    return redirect("accounting:claims")
+
+@company_page("accounting/module_settings.html")
 def module_settings(request):
     company = request.company
     membership = request.user.memberships.filter(company=company).first()
@@ -1077,6 +1303,7 @@ def module_settings(request):
         "next_quote": NumberSequence.peek(company, "quote", "QUO-"),
     })
 
+@company_page("accounting/services.html")
 def services(request):
     """The billable services of the company (see Service): work that the
     business sells, e.g. consulting or installation. An active service is in
@@ -1088,6 +1315,7 @@ def services(request):
         "active_count": sum(1 for s in rows if s.active),
     })
 
+@company_page("accounting/record_form.html")
 def service_form(request, pk=None):
     """The New Service page, and the Edit Service page of a service of the
     Services page (pk). Save makes or changes the service. The browser then
@@ -1149,6 +1377,7 @@ def receivable_balances(company):
         for entity_id, balance in per_entity.values_list("entity", "balance")
     }
 
+@company_page("accounting/customers.html")
 def customers(request):
     company = request.company
     S = Document.Status
@@ -1174,6 +1403,7 @@ def customers(request):
         })
     return render(request, "accounting/customers.html", {"customers": rows})
 
+@company_page("accounting/record_form.html")
 def customer_edit(request, pk):
     """The Edit Customer page. Save changes the entity, then the browser goes to the Customers page."""
     entity = get_object_or_404(customer_entities(request.company), pk=pk)
@@ -1186,6 +1416,7 @@ def customer_edit(request, pk):
         "cancel_url": reverse("accounting:customers"), "page_key": "customers", "avatar_owner": entity,
     })
 
+@company_page("accounting/receivables.html")
 def receivables(request):
     """Unpaid: the open invoices and their open amounts. Paid: the paid
     invoices of the date range, as on the Bills page."""
@@ -1222,11 +1453,13 @@ def aging_report(documents):
     totals = [sum(column, ZERO) for column in zip(*(r["buckets"] for r in rows))] or [ZERO] * len(labels)
     return {"labels": labels, "rows": rows, "totals": totals, "total": sum(totals, ZERO)}
 
+@company_page("accounting/aging_receivables.html")
 def aging_receivables(request):
     """The overdue invoices, in groups by the days after the due date (see
     aging_report). The payment terms of each invoice give its due date."""
     return render(request, "accounting/aging_receivables.html", aging_report(open_invoices(request.company)))
 
+@company_page("accounting/customer_dashboard.html")
 def customer_dashboard(request):
     _, start, end   = get_range(request)
     company         = request.company
@@ -1260,6 +1493,7 @@ def customer_dashboard(request):
     })
 
 # Suppliers
+@company_page("accounting/record_form.html")
 def supplier_form(request, pk=None):
     """The New Supplier page, and the Edit Supplier page of an entity of the
     Suppliers page (pk). Save makes or changes the entity, its profile and
@@ -1296,6 +1530,7 @@ def supplier_form(request, pk=None):
         "avatar_owner": supplier and supplier.entity,
     })
 
+@company_page("accounting/payables.html")
 def payables(request):
     """The unpaid bills and their open amounts. A draft bill is not a
     payable yet: it waits in the Review part of the Bills page."""
@@ -1306,10 +1541,12 @@ def payables(request):
         "today": timezone.localdate(),
     })
 
+@company_page("accounting/aging_payables.html")
 def aging_payables(request):
     """The overdue bills, in groups by the days after the due date (see aging_report)."""
     return render(request, "accounting/aging_payables.html", aging_report(unpaid_bills(request)))
 
+@company_page("accounting/supplier_dashboard.html")
 def supplier_dashboard(request):
     """The position of the suppliers today, and the bills and the payments of the date range.
     Creditor days: the open amount divided by the bills of the range, times the days of the range."""
@@ -1346,6 +1583,7 @@ def supplier_dashboard(request):
     })
 
 # Banking
+@company_page("accounting/bank_accounts.html")
 def bank_accounts(request):
     """The bank accounts of the company. The balance is the balance of the
     ledger account: the posted lines up to today, for the basis of the
@@ -1362,6 +1600,7 @@ def bank_accounts(request):
         "banks": banks, "total": sum((bank.balance for bank in banks), ZERO),
     })
 
+@company_page("accounting/record_form.html")
 def bank_account_form(request, pk=None):
     """The New Bank Account page, and the Edit Bank Account page (pk). A new
     bank account gets a new ledger account below the selected parent account,
@@ -1400,12 +1639,14 @@ def bank_account_form(request, pk=None):
 def cards(request):
     return render(request, "accounting/cards.html")
 
+@company_page("accounting/import_statement.html")
 def import_statement(request):
     """The Import Statement page. The page does not read the file yet."""
     return render(request, "accounting/import_statement.html", {
         "banks": BankAccount.objects.filter(company=request.company, is_active=True).order_by("bank", "name"),
     })
 
+@company_page("accounting/reconcile.html")
 def reconcile(request):
     """The statement lines of the date range, the newest first. A line has a
     match when it links to a payment or to a journal entry. The difference
@@ -1435,6 +1676,7 @@ def vat(request):
 def paye(request):
     return render(request, "accounting/paye.html")
 
+@company_page("accounting/tax_dashboard.html")
 def tax_dashboard(request):
     """The tax position from the ledger. VAT payable: the credit balance of
     the tax accounts today (see tax_account_ids). Income tax: the movement

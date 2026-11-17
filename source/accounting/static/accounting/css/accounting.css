@@ -1953,3 +1953,21 @@ a.stream__item:hover { background: var(--gold-soft); }
     .sunburst__seg path { stroke: #FFFFFF; }
     .sunburst__value { color: #000000; }
 }
+
+/* The New Claim overlay (claims.html). A long name in a select must not make the overlay wider. */
+#claim-panel { min-width: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#claim-panel .field__control { min-width: 0; }
+@media (max-width: 900px) { #claim-panel { grid-template-columns: minmax(0, 1fr); } }
+/* One line of a claim: reason, account, amount, receipts, remove. */
+.claim-line { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.6fr) 110px 84px 32px; gap: 8px; align-items: center; }
+.claim-line--head { margin-bottom: 6px; }
+.claim-lines { display: grid; gap: 8px; }
+.claim-line__files { justify-content: center; }
+.claim-lines__foot { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+.claim-lines__total { font-size: 13px; color: var(--ink-soft); }
+.claim-lines__total strong { margin-left: 6px; color: var(--ink); font-variant-numeric: tabular-nums; }
+@media (max-width: 900px) { .claim-line { grid-template-columns: minmax(0, 1fr) 110px; } .claim-line--head { display: none; } }
+
+/* ---- No-company ribbon (see module_base.html) ---------------------- */
+/* The button of the ribbon goes to the right side. */
+.warn-ribbon .tool { margin-left: auto; }

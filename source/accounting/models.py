@@ -252,6 +252,7 @@ class Document(CompanyOwned, TimeStamped):
         BILL        = "B", "Bill"
         CREDIT_NOTE = "C", "Credit note"
         PURCHASE_ORDER = "O", "Purchase order"   # A commitment, not a liability: it has no journal entry
+        CLAIM       = "L", "Claim"               # An employee submits it. Its claim data is in Claim. It is not printed.
 
     class Status(models.TextChoices):
         DRAFT       = "D", "Draft"
@@ -521,6 +522,97 @@ class RecurringEntry(CompanyOwned, TimeStamped):
         self.next_run = frequency.after(self.start_date, self.entries.count())
         self.is_active = self.is_active and (self.end_date is None or self.next_run <= self.end_date)
         self.save()
+
+
+class Employee(CompanyOwned, TimeStamped):
+    """A user who works for the company. The entity holds the ledger lines of the employee,
+    e.g. the claims that the business must pay to the employee."""
+    user   = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="employees")
+    entity = models.OneToOneField(Entity, on_delete=models.PROTECT, related_name="employee")
+
+    class Meta:
+        unique_together = [("company", "user")]
+
+    def __str__(self):
+        return self.entity.name
+
+    @classmethod
+    def of(cls, company, user):
+        """The employee of the user in the company. Make it, with its entity, when it does not exist."""
+        employee = cls.objects.filter(company=company, user=user).select_related("entity").first()
+        if employee is None:
+            entity = Entity.objects.create(company=company, type=Entity.EntityType.INDIVIDUAL, email=user.email,
+                                           name=user.get_full_name() or user.get_username())
+            IndividualProfile.objects.create(entity=entity, first_name=user.first_name or user.get_username(),
+                                             last_name=user.last_name)
+            employee = cls.objects.create(company=company, user=user, entity=entity)
+        return employee
+
+
+class Claim(models.Model):
+    """The claim data of a Document with the Claim type (see claims.html). The document has the
+    number, the date, the lines, the journal entry and the entity: who gets the money (the
+    employee, the creditor or the insurer). Each claim document has the Purchase direction, also
+    an insurance claim, because the Sales pages and customer_entities read each Sale document.
+        Expense    the employee paid costs of the business. The business pays the employee.
+        Insurance  the business claims a loss from its insurer. The insurer pays the business.
+        Creditor   a creditor asks for money. The business pays the creditor.
+    The payment methods need the prefetch document__allocations__payment__journal_entry."""
+
+    class Kind(models.TextChoices):
+        EXPENSE   = "E", "Expense claim"
+        INSURANCE = "I", "Insurance claim"
+        CREDITOR  = "C", "Creditor claim"
+
+    document        = models.OneToOneField(Document, on_delete=models.CASCADE, primary_key=True, related_name="claim")
+    kind            = models.CharField(max_length=1, choices=Kind.choices, default=Kind.EXPENSE)
+    employee        = models.ForeignKey(Employee, on_delete=models.PROTECT, related_name="claims")  # Who claims
+    control_account = models.ForeignKey(Account, on_delete=models.PROTECT, related_name="+")  # The payable or receivable (see posting.CLAIM_ACCOUNTS)
+
+    def __str__(self):
+        return self.document.number
+
+    @property
+    def money_in(self):
+        """True when the business gets the money of the claim (an insurance claim)."""
+        return self.kind == self.Kind.INSURANCE
+
+    def payments(self):
+        """The payments of the claim that are not void (see posting.allocate)."""
+        return [a.payment for a in self.document.allocations.all()
+                if a.payment.journal_entry and a.payment.journal_entry.status != JournalEntry.Status.VOID]
+
+    @property
+    def pending_payment(self):
+        """The payment of the claim that waits in the journal, or None."""
+        return next((p for p in self.payments() if p.journal_entry.status == JournalEntry.Status.DRAFT), None)
+
+    @property
+    def paid_on(self):
+        """The date of the payment of a Paid claim, or None."""
+        dates = [p.date for p in self.payments() if p.journal_entry.status == JournalEntry.Status.POSTED]
+        return max(dates) if self.document.status == Document.Status.PAID and dates else None
+
+    def paid_between(self, start, end):
+        """The sum of the posted payments of the claim with a date in the range. No start: all
+        the payments up to the end."""
+        return sum((a.amount for a in self.document.allocations.all()
+                    if a.payment.journal_entry and a.payment.journal_entry.status == JournalEntry.Status.POSTED
+                    and (start is None or start <= a.payment.date) and a.payment.date <= end), Decimal(0))
+
+    def open_on(self, day):
+        """The open amount of the claim on the day: an approved claim less its posted payments
+        up to the day. Zero when the claim is not approved on the day."""
+        S = Document.Status
+        if self.document.status not in (S.APPROVED, S.PART_PAID, S.PAID) or self.document.date > day:
+            return Decimal(0)
+        return self.document.gross - self.paid_between(None, day)
+
+
+class ClaimReceipt(models.Model):
+    """A receipt file of one line of a claim."""
+    line = models.ForeignKey(DocumentLine, on_delete=models.CASCADE, related_name="receipts")
+    file = models.ForeignKey("filestore.StoredFile", on_delete=models.PROTECT, related_name="+")
 
 
 class AuditLog(CompanyOwned):

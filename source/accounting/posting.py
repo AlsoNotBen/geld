@@ -13,8 +13,8 @@ from decimal import Decimal, ROUND_HALF_UP
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
-from accounting.models import (Account, BankAccount, Document, DocumentLine, JournalEntry, JournalLine, Payment,
-                               PaymentAllocation, Period, RecurringEntry, customer_entities, supplier_entities)
+from accounting.models import (Account, BankAccount, Claim, Document, DocumentLine, JournalEntry, JournalLine,
+                               Payment, PaymentAllocation, Period, RecurringEntry, customer_entities, supplier_entities)
 from inventory.models import Item, StockMovement, stock_levels
 
 CENT = Decimal("0.01")
@@ -27,6 +27,12 @@ VAT        = "VAT Control"
 OPENING    = "Opening Balance Equity"
 INVENTORY  = "Inventory"
 COST_OF_SALES = "Cost of Sales"
+INSURANCE_INCOME = "Insurance Recoveries"
+CLAIM_ACCOUNTS = {     # The default control account of each kind of claim (see Claim.control_account)
+    Claim.Kind.EXPENSE:   "Employee Claims Payable",
+    Claim.Kind.CREDITOR:  "Creditor Claims Payable",
+    Claim.Kind.INSURANCE: "Insurance Claims Receivable",
+}
 
 
 def _add(entry, account, amount, entity=None, description=""):
@@ -116,8 +122,34 @@ def _pay(payment, document, amount):
 
 def is_direct(payment):
     """True when the user selected an account that is not a control account.
-    Such a payment is not for an invoice or a bill (e.g. a bank charge or a loan)."""
-    return payment.account_id is not None and payment.account.name not in (RECEIVABLE, PAYABLE)
+    Such a payment is not for an invoice, a bill or a claim (e.g. a bank charge or a loan)."""
+    return (payment.account_id is not None and payment.account.name not in (RECEIVABLE, PAYABLE)
+            and not payment.allocations.exists())
+
+
+def _claim_of(payment):
+    """The claim with the reference of the payment as its number, or None. Tell the user
+    when the payment cannot pay the claim."""
+    reference = payment.reference.strip()
+    document = reference and (Document.objects.filter(company=payment.company, doc_type=Document.DocType.CLAIM,
+                                                      number=reference)
+                              .select_related("claim", "entity").prefetch_related("lines__tax_code").first())
+    if not document:
+        return None
+    S = Document.Status
+    if document.status not in (S.APPROVED, S.PART_PAID):
+        raise ValidationError(f"Claim {document.number} is {document.get_status_display().lower()}. "
+                              "Only an approved claim with an open amount can take a payment.")
+    if payment.entity_id != document.entity_id:
+        raise ValidationError(f"Claim {document.number} is for {document.entity.name}. Select {document.entity.name}.")
+    if (payment.direction == Payment.Direction.IN) != document.claim.money_in:
+        direction = Payment.Direction.IN if document.claim.money_in else Payment.Direction.OUT
+        raise ValidationError(f"Claim {document.number} needs the direction {direction.label}.")
+    if payment.date < document.date:
+        raise ValidationError(f"The payment date cannot be before the date of claim {document.number}.")
+    if payment.amount > document.balance:
+        raise ValidationError(f"The amount is more than the open amount of claim {document.number}: {document.balance}.")
+    return document
 
 
 def allocate(payment):
@@ -130,8 +162,19 @@ def allocate(payment):
     "Allocate unreferenced to oldest invoices". An amount that is left over
     stays unallocated (see post_cash_entry: it goes to Suspense).
     A direct payment (see is_direct) pays no document.
+
+    A reference that is the number of a claim pays that claim only: all or
+    a part of its open amount (see _claim_of). The payment goes to the claim
+    account. The claim is Paid or Partially paid when the journal posts the
+    entry of the payment (see update_claims).
     Returns the documents that the payment pays.
     """
+    claim = _claim_of(payment)
+    if claim:
+        payment.account = claim.claim.control_account
+        payment.save(update_fields=["account"])
+        PaymentAllocation.objects.create(payment=payment, document=claim, amount=payment.amount)
+        return [claim]
     if is_direct(payment):
         return []
     S = Document.Status
@@ -361,6 +404,55 @@ def post_bill(bill):
         bill.save(update_fields=["journal_entry", "status"])
         move_stock(bill, StockMovement.Direction.IN)
     return entry
+
+
+def post_claim(document):
+    """Approve a draft claim (a Document with the Claim type): write its ACCRUAL entry and post it.
+        Expense, creditor: Dr the account of each line / Cr the claim account (the total)
+        Insurance:         Dr the claim account (the total) / Cr the account of each line
+    The claim line keeps the entity of the document (the employee, the creditor or the insurer).
+    On the cash basis the claim shows when it is paid (see allocate)."""
+    claim = document.claim
+    sign = -1 if claim.money_in else 1
+    with transaction.atomic():
+        entry = JournalEntry.objects.create(
+            company=document.company, date=document.date, period=_open_period(document.company, document.date),
+            entry_type=JournalEntry.EntryType.GENERAL if claim.money_in else JournalEntry.EntryType.PURCHASES,
+            basis=JournalEntry.Basis.ACCRUAL, status=JournalEntry.Status.POSTED, posted_at=timezone.now(),
+            reference=document.number, narration=f"{claim.get_kind_display()} · {claim.employee}"[:255],
+        )
+        total = _add_rolled_up(entry, [(line.account, sign * line.net_amount)
+                                       for line in document.lines.select_related("account")])
+        _add(entry, claim.control_account, -total, entity=document.entity)
+        document.journal_entry = entry
+        document.status = Document.Status.APPROVED
+        document.save(update_fields=["journal_entry", "status", "updated_at"])
+    return entry
+
+
+def update_claims(company):
+    """Run after the journal posts or voids entries. When the ACCRUAL entry of a claim payment
+    is void, the payment pays nothing: its CASH entry becomes void too, and its allocation goes.
+    Then the posted payments set the status of the claim: Paid (all the claim), Partially paid,
+    or Approved (no posted payment)."""
+    S = JournalEntry.Status
+    claims = (Document.objects
+              .filter(company=company, doc_type=Document.DocType.CLAIM,
+                      status__in=[Document.Status.APPROVED, Document.Status.PART_PAID])
+              .prefetch_related("lines__tax_code", "allocations__payment__journal_entry"))
+    for document in claims:
+        posted = Decimal(0)
+        for allocation in document.allocations.all():
+            payment = allocation.payment
+            if payment.journal_entry.status == S.VOID:
+                JournalEntry.objects.filter(pk=payment.cash_entry_id, status=S.DRAFT).update(status=S.VOID)
+                allocation.delete()
+            elif payment.journal_entry.status == S.POSTED:
+                posted += allocation.amount
+        status = (Document.Status.PAID if posted >= document.gross
+                  else Document.Status.PART_PAID if posted else Document.Status.APPROVED)
+        if status != document.status:
+            Document.objects.filter(pk=document.pk).update(status=status)
 
 
 def post_opening_balance(company, account, amount, date, reference, narration, entity=None,

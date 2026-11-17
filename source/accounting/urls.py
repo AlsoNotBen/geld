@@ -38,6 +38,10 @@ urlpatterns = [
     path("bills/approve-all/", views.bill_approve_all, name="bill_approve_all"),
     path("bills/<int:pk>/deny/", views.bill_deny, name="bill_deny"),
     path("claims/", views.claims, name="claims"),
+    path("claims/new/", views.claim_create, name="claim_create"),
+    path("claims/<int:pk>/approve/", views.claim_approve, name="claim_approve"),
+    path("claims/approve-all/", views.claim_approve_all, name="claim_approve_all"),
+    path("claims/<int:pk>/deny/", views.claim_deny, name="claim_deny"),
 
     # General
     path("services/", views.services, name="services"),

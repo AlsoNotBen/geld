@@ -1,12 +1,29 @@
 {% extends "accounting/module_base.html" %}
+{% load static fin %}
 
 {% comment %}
   ============================================================================
   accounting/templates/accounting/claims.html
   ----------------------------------------------------------------------------
-  A claim gives money back to an employee for a cost of the business. Make
-  sure that each claim has a receipt before you approve it. The module has
-  no claim model yet, thus the list is empty.
+  An employee submits a claim: a Document with the Claim type (doc), with its
+  Claim (doc.claim) and one line for each receipt (reason, account, amount,
+  files). The page has two parts:
+      .review      the draft claims. Approve posts the entry of the claim.
+                   View shows the claim, and its Deny button voids it.
+                   Accept All approves all of them.
+      .tabset      the approved claims: Open (the default) and Paid. The Pay
+                   (or Receive, for an insurance claim) icon opens the Record
+                   Payment overlay with the claim number as the reference
+                   (payment_form.js). The payment can pay all or a part of the
+                   open amount. It makes draft entries. The claim is Paid (or
+                   Partially paid) when the entries are accepted in Journal
+                   Entries (see posting.allocate and update_claims).
+  Only an Owner or an Accountant sees the Approve, Deny, Pay and Receive buttons.
+
+  The New Claim button opens #claim-dialog. Its three tabs set the kind of
+  the claim (Expense is the default), and the default claim account of the
+  kind (see posting.CLAIM_ACCOUNTS). claims.js adds and removes the line rows
+  and sends the form with fetch().
   ============================================================================
 {% endcomment %}
 
@@ -21,33 +38,331 @@
 
     <div class="page__head">
         <h1 class="page__title">Claims</h1>
-        <p class="page__note">A claim gives money back to an employee for a cost of the business. Make sure that each claim has a receipt before you approve it.</p>
+        <p class="page__note">An employee submits a claim for money. Make sure that each line has a receipt before you approve the claim.</p>
     </div>
 
     <div class="actionbar" role="group" aria-label="Page controls">
         <div class="actionbar__group">
-            <button class="tool tool--primary" type="button">
+            <button class="tool tool--primary" type="button" data-claim-new>
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
                 New Claim
             </button>
+            {% if can_review %}
+            <form method="post" action="{% url 'accounting:claim_approve_all' %}">
+                {% csrf_token %}
+                <button class="tool" type="submit">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Accept All
+                </button>
+            </form>
+            {% endif %}
+            <span class="tool__sep" aria-hidden="true"></span>
             <button class="tool" type="button" data-print>
                 <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M7 9V4h10v5M7 19h10v-5H7v5z" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="6" rx="1"/></svg>
                 Print
             </button>
-            <button class="tool" type="button">
-                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M8 11l4 4 4-4M4 21h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                Export
-            </button>
+        </div>
+        <p class="actionbar__hint">The Paid tab shows the claims paid in the date range: {{ range_label|default:"the current financial year" }}.</p>
+    </div>
+
+    {% for message in messages %}
+    <div class="sheet__errors{% if message.level_tag == 'success' %} sheet__errors--ok{% endif %}" role="alert">
+        <p>{{ message }}</p>
+    </div>
+    {% endfor %}
+
+    {# ============================== REVIEW ============================== #}
+    <section class="review" aria-labelledby="review-title">
+        <div class="review__head">
+            <h2 class="review__title" id="review-title">Review</h2>
+            <p class="review__hint">These claims wait for a review. Approve posts the claim to the ledger. View shows the lines and the receipts, and its Deny button voids the claim.</p>
+        </div>
+
+        <table class="table table--review" data-num data-columns>
+            <thead>
+                <tr><th>Date</th><th>Number</th><th>Employee</th><th>Type</th><th>Pay to / from</th><th>Lines</th><th>Amount</th><th><span class="visually-hidden">Review</span></th></tr>
+            </thead>
+            <tbody>
+                {% for doc in review_claims %}
+                <tr>
+                    <td data-sort="{{ doc.date|date:'Y-m-d' }}">{{ doc.date }}</td>
+                    <td>{{ doc.number }}</td>
+                    <td>{{ doc.claim.employee }}</td>
+                    <td>{{ doc.claim.get_kind_display }}</td>
+                    <td>{{ doc.entity }}</td>
+                    <td>{{ doc.lines.all|length }}</td>
+                    <td class="{% if doc.claim.money_in %}is-credit{% else %}is-debit{% endif %}">{{ doc.gross|money }}</td>
+                    <td>
+                        <div class="review__buttons">
+                            {% if can_review %}
+                            <form method="post" action="{% url 'accounting:claim_approve' doc.id %}">
+                                {% csrf_token %}
+                                <button class="row-icon row-icon--accept" type="submit" title="Approve" aria-label="Approve {{ doc.number }}">
+                                    <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4 10-10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                </button>
+                            </form>
+                            {% endif %}
+                            <button class="row-icon" type="button" title="View" aria-label="View {{ doc.number }}" data-claim-view="claim-view-{{ doc.id }}">
+                                <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" stroke-linejoin="round"/><circle cx="12" cy="12" r="3"/></svg>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="8">There are no claims to review.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    {# =========================== OPEN AND PAID =========================== #}
+    {% comment %} journals.js runs the tabs. {% endcomment %}
+    <div class="tabset" data-tabset data-tabset-param="claims">
+        <div class="tabset__list" role="tablist" aria-label="Claims by payment">
+            <button class="tabset__tab" type="button" role="tab" data-tab="open" id="tab-open" aria-controls="panel-open" aria-selected="true" tabindex="0">Open</button>
+            <button class="tabset__tab" type="button" role="tab" data-tab="paid" id="tab-paid" aria-controls="panel-paid" aria-selected="false" tabindex="-1">Paid</button>
+        </div>
+
+        <div class="tabset__panel" role="tabpanel" data-panel="open" id="panel-open" aria-labelledby="tab-open" tabindex="0">
+            <h2 class="tabset__print-title">Open claims</h2>
+            <table class="table" data-num data-columns>
+                <thead>
+                    <tr><th>Date</th><th>Number</th><th>Employee</th><th>Type</th><th>Pay to / from</th><th>Amount</th><th>Open</th><th><span class="visually-hidden">Payment</span></th></tr>
+                </thead>
+                <tbody>
+                    {% for doc in open_claims %}
+                    <tr>
+                        <td data-sort="{{ doc.date|date:'Y-m-d' }}">{{ doc.date }}</td>
+                        <td>{{ doc.number }}</td>
+                        <td>{{ doc.claim.employee }}</td>
+                        <td>{{ doc.claim.get_kind_display }}</td>
+                        <td>{{ doc.entity }}</td>
+                        <td class="{% if doc.claim.money_in %}is-credit{% else %}is-debit{% endif %}">{{ doc.gross|money }}</td>
+                        <td class="{% if doc.claim.money_in %}is-credit{% else %}is-debit{% endif %}">{{ doc.balance|money }}</td>
+                        <td>
+                            <div class="review__buttons">
+                            {% with payment=doc.claim.pending_payment %}
+                            {% if payment %}
+                            <a href="{% url 'accounting:journals' %}" title="Accept the entries of {{ payment.number }} to pay the claim">{{ payment.number }} waits in the journal</a>
+                            {% endif %}
+                            {% endwith %}
+                            {% if can_review and doc.balance > 0 %}
+                            {% comment %} payment_form.js opens the Record Payment overlay with these values. {% endcomment %}
+                            <button class="row-icon" type="button" data-payment-new
+                                    title="{% if doc.claim.money_in %}Receive{% else %}Pay{% endif %}"
+                                    aria-label="{% if doc.claim.money_in %}Receive{% else %}Pay{% endif %} {{ doc.number }}"
+                                    data-direction="{% if doc.claim.money_in %}IN{% else %}OUT{% endif %}"
+                                    data-entity="{{ doc.entity_id }}"
+                                    data-amount="{{ doc.balance|stringformat:'.2f' }}"
+                                    data-reference="{{ doc.number }}"
+                                    data-account="{{ doc.claim.control_account_id }}">
+                                {% if doc.claim.money_in %}
+                                <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M17 7L7 17M15 17H7V9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                {% else %}
+                                <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                {% endif %}
+                            </button>
+                            {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8">There are no open claims.</td></tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr><td colspan="6">Total of the open claims</td><td>{{ open_total|money }}</td><td></td></tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div class="tabset__panel" role="tabpanel" data-panel="paid" id="panel-paid" aria-labelledby="tab-paid" tabindex="0" hidden>
+            <h2 class="tabset__print-title">Paid claims</h2>
+            <table class="table" data-num data-columns>
+                <thead>
+                    <tr><th>Date</th><th>Number</th><th>Employee</th><th>Type</th><th>Pay to / from</th><th>Paid on</th><th>Amount</th></tr>
+                </thead>
+                <tbody>
+                    {% for doc in paid_claims %}
+                    <tr>
+                        <td data-sort="{{ doc.date|date:'Y-m-d' }}">{{ doc.date }}</td>
+                        <td>{{ doc.number }}</td>
+                        <td>{{ doc.claim.employee }}</td>
+                        <td>{{ doc.claim.get_kind_display }}</td>
+                        <td>{{ doc.entity }}</td>
+                        <td data-sort="{{ doc.claim.paid_on|date:'Y-m-d' }}">{{ doc.claim.paid_on }}</td>
+                        <td class="{% if doc.claim.money_in %}is-credit{% else %}is-debit{% endif %}">{{ doc.gross|money }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7">There are no paid claims in this period.</td></tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr><td colspan="6">Total of the paid claims</td><td>{{ paid_total|money }}</td></tr>
+                </tfoot>
+            </table>
         </div>
     </div>
 
-    <table class="table">
-        <thead>
-            <tr><th>Date</th><th>Number</th><th>Employee</th><th>Category</th><th>Status</th><th>Amount</th></tr>
-        </thead>
-        <tbody>
-            <tr><td colspan="6">There are no claims.</td></tr>
-        </tbody>
-    </table>
+    <noscript>
+        <style>
+            .tabset__list { display: none; }
+            .tabset__panel[hidden] { display: block; }
+            .tabset__panel + .tabset__panel { margin-top: 30px; }
+            .tabset__print-title { display: block; margin: 0 0 14px; font-size: 15px; font-weight: 600; color: var(--ink); }
+        </style>
+    </noscript>
+
+    {# ============================= NEW CLAIM ============================= #}
+    {% comment %} The tabs set the hidden kind field and the default claim
+         account. An element with data-for-kind shows for those kinds only
+         (claims.js). Each line row comes from #claim-line-template. {% endcomment %}
+    <dialog class="sheet sheet--wide" id="claim-dialog" aria-labelledby="claim-dialog-title"
+            data-insurance-account="{{ insurance_account.id|default:'' }}">
+        <form method="post" action="{% url 'accounting:claim_create' %}" enctype="multipart/form-data">
+            {% csrf_token %}
+            {{ claim_form.kind }}
+            <div class="sheet__head">
+                <h2 class="sheet__title" id="claim-dialog-title">New Claim</h2>
+            </div>
+            <div class="warn-ribbons" role="alert" data-claim-errors hidden></div>
+            <div class="sheet__body">
+                <div class="tabset__list lead-form__tabs" role="tablist" aria-label="Type of claim">
+                    {% for value, label, account in claim_kinds %}
+                    <button class="tabset__tab" type="button" role="tab" data-kind="{{ value }}" id="claim-tab-{{ value }}"
+                            data-claim-account="{{ account|default:'' }}"
+                            aria-controls="claim-panel" aria-selected="{% if forloop.first %}true{% else %}false{% endif %}"
+                            {% if not forloop.first %}tabindex="-1"{% endif %}>{{ label|title }}</button>
+                    {% endfor %}
+                </div>
+
+                <div class="sheet__body--split lead-form__panel" id="claim-panel" role="tabpanel">
+                    <p class="field field--wide page__note" data-for-kind="E">The employee paid costs of the business. The business pays the employee back.</p>
+                    <p class="field field--wide page__note" data-for-kind="I" hidden>The business claims a loss from its insurer. The insurer pays the business.</p>
+                    <p class="field field--wide page__note" data-for-kind="C" hidden>A creditor asks for money. The business pays the creditor.</p>
+
+                    <div class="field">
+                        <label class="field__label" for="{{ claim_form.user.id_for_label }}">{{ claim_form.user.label }}</label>
+                        {{ claim_form.user }}
+                    </div>
+                    <div class="field">
+                        <label class="field__label" for="{{ claim_form.number.id_for_label }}">{{ claim_form.number.label }}</label>
+                        {{ claim_form.number }}
+                    </div>
+                    <div class="field">
+                        <label class="field__label" for="{{ claim_form.date.id_for_label }}">{{ claim_form.date.label }}</label>
+                        {{ claim_form.date }}
+                    </div>
+                    <div class="field">
+                        <label class="field__label" for="{{ claim_form.control_account.id_for_label }}">{{ claim_form.control_account.label }}</label>
+                        {{ claim_form.control_account }}
+                    </div>
+                    <div class="field" data-for-kind="CI" hidden>
+                        <label class="field__label" for="{{ claim_form.entity.id_for_label }}">
+                            <span data-for-kind="C">Creditor</span><span data-for-kind="I" hidden>Insurer</span>
+                        </label>
+                        {{ claim_form.entity }}
+                    </div>
+
+                    <div class="field field--wide">
+                        <div class="claim-line claim-line--head" aria-hidden="true">
+                            <span class="field__label">Reason</span>
+                            <span class="field__label"><span data-for-kind="EC">Expense account</span><span data-for-kind="I" hidden>Income account</span></span>
+                            <span class="field__label">Amount</span>
+                            <span class="field__label">Receipts</span>
+                            <span></span>
+                        </div>
+                        <div class="claim-lines" data-claim-lines></div>
+                        <div class="claim-lines__foot">
+                            <button class="tool tool--sm" type="button" data-line-add>
+                                <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+                                Add Line
+                            </button>
+                            <span class="claim-lines__total">Total <strong data-claim-total>0.00</strong></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="sheet__foot">
+                <button class="tool" type="button" data-dialog-cancel>Cancel</button>
+                <button class="tool tool--primary" type="submit">Save Draft</button>
+            </div>
+        </form>
+    </dialog>
+
+    {% comment %} One line of a claim. claims.js sets the key: the files of the line
+         go as line_files_<key>. {% endcomment %}
+    <template id="claim-line-template">
+        <div class="claim-line" data-claim-line>
+            <input type="hidden" name="line_key">
+            <input class="field__control" type="text" name="line_reason" maxlength="255" placeholder="e.g. Fuel to the client" aria-label="Reason">
+            <select class="field__control" name="line_account" aria-label="Account">
+                <option value="">Select</option>
+                {% for account in accounts %}<option value="{{ account.id }}">{{ account }}</option>{% endfor %}
+            </select>
+            <input class="field__control" type="number" name="line_amount" step="0.01" min="0.01" placeholder="0.00" aria-label="Amount">
+            <label class="tool tool--sm claim-line__files" title="Add receipts">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M21 12.5l-8.5 8.5a5 5 0 01-7-7L14 5.5a3.3 3.3 0 014.7 4.7L10.2 18.7a1.7 1.7 0 01-2.4-2.4L15.5 8.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span data-files-label>Add</span>
+                <input type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.webp" hidden>
+            </label>
+            <button class="row-icon" type="button" title="Remove the line" aria-label="Remove the line" data-line-remove>
+                <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>
+            </button>
+        </div>
+    </template>
+
+    {# =========================== VIEW A CLAIM =========================== #}
+    {% for doc in review_claims %}
+    <dialog class="sheet sheet--wide" id="claim-view-{{ doc.id }}" aria-labelledby="claim-view-title-{{ doc.id }}">
+        <form method="post" action="{% url 'accounting:claim_approve' doc.id %}">
+            {% csrf_token %}
+            <div class="sheet__head">
+                <h2 class="sheet__title" id="claim-view-title-{{ doc.id }}">{{ doc.claim.get_kind_display }} {{ doc.number }}</h2>
+            </div>
+            <div class="sheet__body sheet__body--split">
+                <div class="field"><span class="field__label">Employee</span><p class="lead__read">{{ doc.claim.employee }}</p></div>
+                <div class="field"><span class="field__label">Date</span><p class="lead__read">{{ doc.date }}</p></div>
+                <div class="field"><span class="field__label">Claim account</span><p class="lead__read">{{ doc.claim.control_account }}</p></div>
+                <div class="field"><span class="field__label">Pay to / from</span><p class="lead__read">{{ doc.entity }}</p></div>
+                <div class="field field--wide">
+                    <table class="table">
+                        <thead><tr><th>Reason</th><th>Account</th><th>Receipts</th><th>Amount</th></tr></thead>
+                        <tbody>
+                            {% for line in doc.lines.all %}
+                            <tr>
+                                <td>{{ line.description }}</td>
+                                <td>{{ line.account }}</td>
+                                <td>{% for receipt in line.receipts.all %}<a href="{% url 'filestore:download' receipt.file.pk %}?inline" target="_blank" rel="noopener">{{ receipt.file.original_name }}</a>{% if not forloop.last %}<br>{% endif %}{% empty %}No receipt{% endfor %}</td>
+                                <td>{{ line.net_amount|money }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot><tr><td colspan="3">Total</td><td>{{ doc.gross|money }}</td></tr></tfoot>
+                    </table>
+                </div>
+            </div>
+            <div class="sheet__foot">
+                <button class="tool" type="button" data-dialog-cancel>Close</button>
+                {% if can_review %}
+                <button class="tool tool--danger" type="submit" formaction="{% url 'accounting:claim_deny' doc.id %}">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>
+                    Deny
+                </button>
+                <button class="tool tool--accept" type="submit">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Approve
+                </button>
+                {% endif %}
+            </div>
+        </form>
+    </dialog>
+    {% endfor %}
 </section>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script src="{% static 'accounting/js/journals.js' %}"></script>
+<script src="{% static 'accounting/js/claims.js' %}"></script>
 {% endblock %}

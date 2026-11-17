@@ -205,6 +205,15 @@
         {% endblock %}
     </div>
 </div>
+
+{% comment %} A user without a company sees this ribbon (base.css). The button
+     opens the Add New Company overlay (base.js reads data-company-new). {% endcomment %}
+{% if user.is_authenticated and not request.company %}
+<p class="warn-ribbon" role="status">
+    You do not have a company. Make a company first. The Accounting pages need a company to show and keep data.
+    <button class="tool tool--sm" type="button" data-company-new="{% url 'company_create' %}">Add New Company</button>
+</p>
+{% endif %}
 {% endblock %}
 
 
@@ -227,8 +236,8 @@
 
 
             <div class="nav__group">Bookkeeping</div>
-            {% comment %} The pending_entries context processor gives pending_count
-                 and pending_bills. A zero shows no pill. {% endcomment %}
+            {% comment %} The pending_entries context processor gives pending_count,
+                 pending_bills and pending_claims. A zero shows no pill. {% endcomment %}
             <a class="nav__item" data-nav="journal" href="{% url 'accounting:journals' %}">
                 Journal Entries
                 {% if pending_count %}<span class="nav__count">{{ pending_count }}</span>{% endif %}
@@ -246,7 +255,10 @@
                 {% if pending_bills %}<span class="nav__count">{{ pending_bills }}</span>{% endif %}
             </a>
             <a class="nav__item" data-nav="suppliers" href="{% url 'accounting:suppliers' %}">Suppliers</a>
-            <a class="nav__item" data-nav="claims" href="{% url 'accounting:claims' %}">Claims</a>
+            <a class="nav__item" data-nav="claims" href="{% url 'accounting:claims' %}">
+                Claims
+                {% if pending_claims %}<span class="nav__count">{{ pending_claims }}</span>{% endif %}
+            </a>
 
             <div class="nav__group">General</div>
             <a class="nav__item" data-nav="services" href="{% url 'accounting:services' %}">Services</a>

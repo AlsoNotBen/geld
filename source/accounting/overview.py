@@ -14,7 +14,7 @@ from shared.models import Supplier
 from shared.templatetags.avatar_tags import avatar_url
 from accounting.date_range import previous_range
 from accounting.posting import PAYABLE, RECEIVABLE, SUSPENSE
-from accounting.views import ZERO, cash_account_ids, movements, posted_lines, tax_account_ids
+from accounting.views import ZERO, cash_account_ids, company_page, movements, posted_lines, tax_account_ids
 
 RANGES = {
     "7":     "Last 7 days",
@@ -64,12 +64,14 @@ PAGE_NAMES = {
     "accounting:equity":          "Equity and Notes",
     "accounting:bills":           "Bills",
     "accounting:suppliers":       "Suppliers",
+    "accounting:claims":          "Claims",
 }
 DOCUMENT_PAGES = {
     Document.DocType.BILL:        "accounting:bills",
     Document.DocType.INVOICE:     "accounting:receivables",
     Document.DocType.QUOTE:       "sales:quotes",
     Document.DocType.CREDIT_NOTE: "sales:credit_notes",
+    Document.DocType.CLAIM:       "accounting:claims",
 }
 
 
@@ -492,7 +494,6 @@ def movement(company, accounts, invoices, bills, start, end):
             income, expenses, income - expenses,
         ]
 
-    # Each row: the name, True when a rise is good news (see change), and True for an amount.
     names = [("Invoices issued", True, False), ("Invoices paid", True, False), ("Bills received", None, False),
              ("Bills paid", None, False), ("Entries posted", None, False), ("Income", True, True),
              ("Expenses", False, True), ("Margin", True, True)]
@@ -507,9 +508,6 @@ def movement(company, accounts, invoices, bills, start, end):
         rows.append({"name": name, "this": text(this, money), "last": text(last, money), "change": rise, "tone": tone})
     return before, rows
 
-# accounting/overview.py
-# 1. Add this function below running_totals.
-
 def opening_totals(lines, days):
     """The open opening balances (see document_lines) at the end of each day, in two parts: the
     positive balances, and the negative balances as positive amounts. No payment pays a negative
@@ -518,9 +516,7 @@ def opening_totals(lines, days):
     return (running_totals([line for line in lines if line[0] not in negative], days),
             running_totals([(key, day, -amount, due) for key, day, amount, due in lines if key in negative], days))
 
-
-# 2. Replace your dashboard function with this one.
-
+@company_page("accounting/overview.html")
 def dashboard(request):
     company     = request.company
     T           = Account.AccountType
@@ -569,6 +565,20 @@ def dashboard(request):
     )
     review_count    = len(review)
     review_total    = sum((bill.gross for bill in review), ZERO)
+
+    # The claims (see Document.DocType.CLAIM). The open amount of a claim is the amount that is
+    # approved and not paid on the day. A payment counts when the journal posts its entry.
+    claims          = list(Document.objects.filter(company=company, doc_type=Document.DocType.CLAIM)
+                           .exclude(status=Document.Status.VOID).select_related("claim__control_account")
+                           .prefetch_related("lines__tax_code", "allocations__payment__journal_entry"))
+    claim_drafts    = [c for c in claims if c.status == Document.Status.DRAFT]
+    claim_review    = sum((c.gross for c in claim_drafts), ZERO)
+    claim_open      = sum((c.claim.open_on(as_of) for c in claims), ZERO)
+    claim_paid      = sum((c.claim.paid_between(start, as_of) for c in claims), ZERO)
+
+    def unpaid_claims(day):
+        """The open claims on the day that the business must pay."""
+        return sum((c.claim.open_on(day) for c in claims if not c.claim.money_in), ZERO)
     tax_ids         = tax_account_ids(company)
     part_of         = {}
 
@@ -690,7 +700,7 @@ def dashboard(request):
         {"title": "BILLS & CLAIMS", "href": bills_page, "hint": since,
          "center": {
              "label": "Total", "href": bills_page,
-             "value": compact(review_total + sum(
+             "value": compact(review_total + claim_review + claim_open + claim_paid + sum(
                  (bought[s][1] for s in ("due", "late", "risk", "paid")), ZERO)),
          },
          **sunburst([
@@ -706,9 +716,14 @@ def dashboard(request):
                       bought["paid"][1],
                       note="paid in full in the date range"),
              ]),
-             # TODO: add claims as children when the model exists.
-             node("Claims", "violet", link("claims"),
-                  note="no claims are recorded yet"),
+             node("Claims", "violet", link("claims"), children=[
+                 node("For Review", "violet", link("claims", "#review-title"),
+                      claim_review, note="draft claims"),
+                 node("Open", "blue", link("claims", "?claims=open"),
+                      claim_open, note="approved, not yet paid"),
+                 node("Paid", "aqua", link("claims", "?claims=paid"),
+                      claim_paid, note="paid in the date range"),
+             ]),
          ], unit)},
     ]
 
@@ -737,6 +752,8 @@ def dashboard(request):
         - journal_balance(company, RECEIVABLE, as_of, 1))
     payable_gap = abs(
         unpaid[-1][0] + supplier_payable[-1] - supplier_receivable[-1]
+        + sum((c.claim.open_on(as_of) for c in claims   # A claim can post to Accounts Payable too.
+               if c.claim.control_account.name == PAYABLE), ZERO)
         - journal_balance(company, PAYABLE, as_of, -1))
 
     def ledger_of(name, tab):
@@ -770,6 +787,8 @@ def dashboard(request):
         ("Action", "Bills to review", "Approve or deny each draft bill",
          review_count, review_total, "is-debit",
          bills_page + "#review-title"),
+        ("Action", "Claims to review", "Approve or deny each draft claim",
+         len(claim_drafts), claim_review, "is-debit", link("claims", "#review-title")),
         ("Action", "Journal entries to accept",
          "Draft entries are not in the reports",
          draft_count, draft_total, "", link("journals")),
@@ -817,8 +836,8 @@ def dashboard(request):
                    if b["paid"] and start <= b["paid"] <= day), ZERO)
               for day in days],
              "is-debit", bills_page + "?bills=paid"),
-        # TODO: use unpaid claims per day when the model exists.
-        card("Unpaid Claims", [ZERO] * len(days), "is-debit", link("claims")),
+        card("Unpaid Claims", [unpaid_claims(day) for day in days],
+             "is-debit", link("claims", "?claims=open")),
         card("Recurring Invoices", recurring(Document.DocType.INVOICE),
              "is-credit", link("receivables")),
         card("Recurring Bills", recurring(Document.DocType.BILL),

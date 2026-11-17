@@ -242,7 +242,10 @@ window.App = window.App || {};      // Make the namespace before you fill it.
     toggle.addEventListener("click", function () {
         setMenu(menu.getAttribute("data-open") !== "true");
     });
-    menu.querySelector("[data-company-new]").addEventListener("click", function () {
+    // Each button with data-company-new opens the overlay, e.g. the menu item
+    // and the "no company" ribbon of a module page.
+    document.addEventListener("click", function (e) {
+        if (!e.target.closest("[data-company-new]")) return;
         setMenu(false);
         openOverlay();
     });

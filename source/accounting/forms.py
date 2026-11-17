@@ -1,8 +1,11 @@
 import datetime
+from decimal import Decimal, InvalidOperation
 from django import forms
+from django.contrib.auth import get_user_model
 from django.utils import timezone
-from accounting.models import (Account, BankAccount, Document, Entity, Note, NumberSequence, OrganizationProfile,
+from accounting.models import (Account, BankAccount, Claim, Document, Entity, Note, NumberSequence, OrganizationProfile,
                                Payment, RecurringDocument, Service, in_one_month)
+from accounting.posting import CLAIM_ACCOUNTS
 from shared.models import Supplier
 from shared.forms import AvatarField
 from filestore.services import update_avatar
@@ -107,6 +110,93 @@ class BillForm(forms.ModelForm):
         if data.get("date") and data.get("due") and data["due"] < data["date"]:
             self.add_error("due", "The due date must be on or after the bill date.")
         return data
+
+
+class ClaimForm(forms.ModelForm):
+    """The New Claim overlay: the claim (a Document with the Claim type, and its Claim) and its
+    lines. The tabs of the overlay set the kind. The user must be a member of the company. The
+    view sets the company, the employee of the user, and for an expense claim, the entity (the
+    employee).
+
+    Each line row sends line_key, line_reason, line_account and line_amount, and its files as
+    line_files_<key>. clean() puts the lines in self.lines: [(reason, account, amount, uploads)]."""
+
+    kind            = forms.ChoiceField(choices=Claim.Kind.choices, widget=forms.HiddenInput())
+    user            = forms.ModelChoiceField(label="Employee", queryset=get_user_model().objects.none())
+    control_account = forms.ModelChoiceField(label="Claim account", queryset=Account.objects.none(), empty_label="Select")
+
+    class Meta:
+        model = Document
+        fields = ["kind", "number", "user", "date", "control_account", "entity"]
+        labels = {"number": "Claim number", "entity": "Creditor"}
+        widgets = {"date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d")}
+
+    def __init__(self, *args, company=None, user=None, defaults=None, **kwargs):
+        """defaults: the default claim account of each kind (see ClaimForm.defaults)."""
+        kwargs.setdefault("auto_id", "claim_%s")      # The Record Payment overlay of the page has id_number etc.
+        super().__init__(*args, **kwargs)
+        self.company = company
+        self.lines = []
+        users = get_user_model().objects.filter(memberships__company=company).order_by("first_name", "username")
+        self.fields["user"].queryset = users
+        self.fields["user"].label_from_instance = lambda u: u.get_full_name() or u.get_username()
+        self.fields["control_account"].queryset = Account.objects.filter(company=company, is_active=True).order_by("code")
+        self.fields["entity"].required = False
+        self.fields["entity"].queryset = Entity.objects.filter(company=company).order_by("name")
+        self.fields["entity"].empty_label = "Select"
+        if not self.is_bound:
+            self.initial.update(number=NumberSequence.peek(company, "claim", "CLM-"), date=datetime.date.today(),
+                                user=user, kind=Claim.Kind.EXPENSE,
+                                control_account=(defaults or {}).get(Claim.Kind.EXPENSE))
+        for field in self.fields.values():
+            field.widget.attrs["class"] = "field__control"
+
+    def clean_number(self):
+        number = self.cleaned_data["number"]
+        if Document.objects.filter(company=self.company, doc_type=Document.DocType.CLAIM, number=number).exists():
+            raise forms.ValidationError("Another claim has this number.")
+        return number
+
+    def clean(self):
+        data = super().clean()
+        kind = data.get("kind")
+        if kind == Claim.Kind.EXPENSE:
+            data["entity"] = None
+        elif not data.get("entity"):
+            self.add_error("entity", "Select the insurer." if kind == Claim.Kind.INSURANCE else "Select the creditor.")
+        self.clean_lines(data.get("control_account"))
+        return data
+
+    def clean_lines(self, control):
+        """Read the line rows into self.lines. A row without a reason, an amount and files is ignored."""
+        accounts = {str(a.pk): a for a in self.fields["control_account"].queryset}
+        rows = zip(*(self.data.getlist(f"line_{name}") for name in ("key", "reason", "account", "amount")))
+        for n, (key, reason, account, amount) in enumerate(rows, 1):
+            reason, uploads = reason.strip(), self.files.getlist(f"line_files_{key}") if self.files else []
+            if not (reason or amount.strip() or uploads):
+                continue
+            try:
+                amount = Decimal(amount)
+            except InvalidOperation:
+                amount = None
+            if not reason:
+                self.add_error(None, f"Line {n}: give the reason.")
+            elif account not in accounts:
+                self.add_error(None, f"Line {n}: select the account.")
+            elif amount is None or not amount.is_finite() or amount <= 0:
+                self.add_error(None, f"Line {n}: the amount must be more than zero.")
+            elif accounts[account] == control:
+                self.add_error(None, f"Line {n}: select an account that is not the claim account.")
+            else:
+                self.lines.append((reason[:255], accounts[account], amount.quantize(Decimal("0.01")), uploads))
+        if not self.lines and not self.errors:
+            self.add_error(None, "Add a line with a reason, an account and an amount.")
+
+    @staticmethod
+    def defaults(company):
+        """The default claim account of each kind of claim: {kind: account id} (see CLAIM_ACCOUNTS)."""
+        ids = dict(Account.objects.filter(company=company, name__in=CLAIM_ACCOUNTS.values()).values_list("name", "id"))
+        return {kind: ids.get(name) for kind, name in CLAIM_ACCOUNTS.items()}
 
 
 class SupplierForm(forms.ModelForm):

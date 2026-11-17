@@ -2,7 +2,8 @@
   accounting/templates/accounting/_accounts_table.html
   The table of one Chart of Accounts tab.
   Give it: rows, total, total_label. Each row is (account, depth). The
-  depth indents the name of a child account (see tree_order in views.py).
+  depth indents the name of a child account. The rows are by code, each
+  child below its parent (see tree_order in views.py).
   A code can look like a number (1000.1), thus it is in a [data-code]
   span: base.js and view_mode.js do not format it.
   The page gives tax_ids and can_edit_tax. The Edit button of the Tax code
