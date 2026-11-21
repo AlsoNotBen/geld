@@ -13,7 +13,9 @@
                of the invoice give its due date.
       Paid     the paid invoices of the date range.
 
-  Columns: Date · Number · Due · Customer · Status (Unpaid only) · Amount
+  Columns: Date · Number · Due · Customer · Status (Unpaid only) · Amount ·
+  Document (the PDF of the invoice, see InvoiceDocument.issue).
+  Each column has a filter and a sort (table_columns.js).
   New Invoice opens the document overlay (see documents.js).
   ============================================================================
 {% endcomment %}
@@ -73,9 +75,9 @@
         <div class="tabset__panel" role="tabpanel" data-panel="unpaid"
              id="panel-unpaid" aria-labelledby="tab-unpaid" tabindex="0">
             <h2 class="tabset__print-title">Unpaid invoices</h2>
-            <table class="table table--bills" data-num>
+            <table class="table table--bills" data-num data-columns>
                 <thead>
-                    <tr><th>Date</th><th>Number</th><th>Due</th><th>Customer</th><th>Status</th><th>Balance</th></tr>
+                    <tr><th>Date</th><th>Number</th><th>Due</th><th>Customer</th><th>Status</th><th>Balance</th><th><span class="visually-hidden">Document</span></th></tr>
                 </thead>
                 <tbody>
                     {% for invoice in unpaid_invoices %}
@@ -86,13 +88,14 @@
                         <td>{{ invoice.entity.name }}</td>
                         <td>{% if invoice.due and invoice.due < today %}<span class="status status--out">Overdue</span>{% elif invoice.status == "PP" %}<span class="status status--low">Partially paid</span>{% else %}<span class="status status--busy">Open</span>{% endif %}</td>
                         <td class="{% if invoice.due and invoice.due < today %}is-overdue{% else %}is-credit{% endif %}">{{ invoice.balance|money }}</td>
+                        <td>{% include "accounting/_file_icons.html" with files=invoice.files.all label=invoice.number %}</td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="6">There are no open invoices.</td></tr>
+                    <tr><td colspan="7">There are no open invoices.</td></tr>
                     {% endfor %}
                 </tbody>
                 <tfoot>
-                    <tr><td colspan="5">Total receivable</td><td class="is-credit">{{ unpaid_total|money }}</td></tr>
+                    <tr><td colspan="5">Total receivable</td><td class="is-credit">{{ unpaid_total|money }}</td><td></td></tr>
                 </tfoot>
             </table>
         </div>
@@ -100,9 +103,9 @@
         <div class="tabset__panel" role="tabpanel" data-panel="paid"
              id="panel-paid" aria-labelledby="tab-paid" tabindex="0" hidden>
             <h2 class="tabset__print-title">Paid invoices</h2>
-            <table class="table table--bills" data-num>
+            <table class="table table--bills" data-num data-columns>
                 <thead>
-                    <tr><th>Date</th><th>Number</th><th>Due</th><th>Customer</th><th>Amount</th></tr>
+                    <tr><th>Date</th><th>Number</th><th>Due</th><th>Customer</th><th>Amount</th><th><span class="visually-hidden">Document</span></th></tr>
                 </thead>
                 <tbody>
                     {% for invoice in paid_invoices %}
@@ -112,13 +115,14 @@
                         <td>{{ invoice.due|date:"Y-m-d"|default:"—" }}</td>
                         <td>{{ invoice.entity.name }}</td>
                         <td class="is-credit">{{ invoice.gross|money }}</td>
+                        <td>{% include "accounting/_file_icons.html" with files=invoice.files.all label=invoice.number %}</td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="5">There are no paid invoices in this period.</td></tr>
+                    <tr><td colspan="6">There are no paid invoices in this period.</td></tr>
                     {% endfor %}
                 </tbody>
                 <tfoot>
-                    <tr><td colspan="4">Total of the paid invoices</td><td class="is-credit">{{ paid_total|money }}</td></tr>
+                    <tr><td colspan="4">Total of the paid invoices</td><td class="is-credit">{{ paid_total|money }}</td><td></td></tr>
                 </tfoot>
             </table>
         </div>

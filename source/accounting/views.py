@@ -1351,7 +1351,7 @@ def open_invoices(company):
     )
 
     invoices = invoices.select_related("entity")
-    invoices = invoices.prefetch_related("lines__tax_code", "allocations")
+    invoices = invoices.prefetch_related("lines__tax_code", "allocations", "files")
 
     return list(invoices.order_by("due", "date"))
 
@@ -1425,7 +1425,7 @@ def receivables(request):
     paid = list(Document.objects
                 .filter(company=request.company, direction=Document.Direction.SALE,
                         doc_type=Document.DocType.INVOICE, status=Document.Status.PAID, date__range=(start, end))
-                .select_related("entity").prefetch_related("lines__tax_code")
+                .select_related("entity").prefetch_related("lines__tax_code", "files")
                 .order_by("due", "date"))
     return render(request, "accounting/receivables.html", {
         "unpaid_invoices": unpaid,
@@ -1448,7 +1448,7 @@ def aging_report(documents):
             buckets = [ZERO] * len(labels)
             buckets[age_bucket(days) - 1] = document.balance
             rows.append({"number": document.number, "name": document.entity.name, "buckets": buckets,
-                         "total": document.balance})
+                         "total": document.balance, "files": document.files.all()})
     rows.sort(key=lambda r: r["name"])      # The documents of one name stay in the order of the due date.
     totals = [sum(column, ZERO) for column in zip(*(r["buckets"] for r in rows))] or [ZERO] * len(labels)
     return {"labels": labels, "rows": rows, "totals": totals, "total": sum(totals, ZERO)}

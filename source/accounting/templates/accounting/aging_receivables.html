@@ -10,6 +10,8 @@
   does not show. The payment terms of each invoice give its due date. The
   groups are AGEING_LABELS without Current (see accounting/documents.py
   and aging_report in views.py).
+  The last column opens the PDF of the invoice. Each column has a filter and a sort
+  (table_columns.js).
   ============================================================================
 {% endcomment %}
 
@@ -41,9 +43,9 @@
         <p class="actionbar__hint">The ages are at today's date. An invoice that is not yet due does not show.</p>
     </div>
 
-    <table class="table table--aging" data-num>
+    <table class="table table--aging" data-num data-columns>
         <thead>
-            <tr><th>Reference</th><th>Customer</th>{% for label in labels %}<th>{{ label }}</th>{% endfor %}<th>Total</th></tr>
+            <tr><th>Reference</th><th>Customer</th>{% for label in labels %}<th>{{ label }}</th>{% endfor %}<th>Total</th><th><span class="visually-hidden">Document</span></th></tr>
         </thead>
         <tbody>
             {% for row in rows %}
@@ -52,13 +54,14 @@
                 <td>{{ row.name }}</td>
                 {% for amount in row.buckets %}<td{% if amount %} class="is-overdue"{% endif %}>{{ amount|money }}</td>{% endfor %}
                 <td class="is-overdue">{{ row.total|money }}</td>
+                <td>{% include "accounting/_file_icons.html" with files=row.files label=row.number %}</td>
             </tr>
             {% empty %}
-            <tr><td colspan="7">There are no overdue invoices.</td></tr>
+            <tr><td colspan="8">There are no overdue invoices.</td></tr>
             {% endfor %}
         </tbody>
         <tfoot>
-            <tr><td>Total</td><td></td>{% for amount in totals %}<td{% if amount %} class="is-overdue"{% endif %}>{{ amount|money }}</td>{% endfor %}<td{% if total %} class="is-overdue"{% endif %}>{{ total|money }}</td></tr>
+            <tr><td>Total</td><td></td>{% for amount in totals %}<td{% if amount %} class="is-overdue"{% endif %}>{{ amount|money }}</td>{% endfor %}<td{% if total %} class="is-overdue"{% endif %}>{{ total|money }}</td><td></td></tr>
         </tfoot>
     </table>
 </section>

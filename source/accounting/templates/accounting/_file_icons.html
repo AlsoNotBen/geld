@@ -1,0 +1,13 @@
+{% comment %}
+  The document icons at the end of a table row. Each icon opens one file in
+  a new tab. A row without a file shows no icon.
+  Give it: files (StoredFile records), label (the name of the record).
+{% endcomment %}
+<div class="review__buttons">
+    {% for file in files %}
+    <a class="row-icon" href="{% url 'filestore:download' file.pk %}?inline" target="_blank" rel="noopener"
+       title="{{ file.original_name }}" aria-label="Open the document {{ file.original_name }} of {{ label }}">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 3h8l4 4v14H6V3z" stroke-linejoin="round"/><path d="M14 3v4h4M9 12h6M9 16h6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </a>
+    {% endfor %}
+</div>

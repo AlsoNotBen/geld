@@ -22,10 +22,13 @@ import datetime
 from decimal import Decimal, ROUND_HALF_UP
 from django import forms
 from django.core.exceptions import ValidationError
+from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import Q
 from documents.forms import (DocumentOptionsForm, LineItemsField, SelectWithAddButton, SelectWithDetails)
 from documents.registry import DocumentType, register
+from documents.renderers import logo_data_uri, render_pdf
+from filestore.services import save_upload
 from accounting.models import *
 from accounting.posting import RECEIVABLE, _account, post_invoice_entry
 from inventory.models import Item, ItemType
@@ -443,9 +446,22 @@ class InvoiceDocument(SalesDocument):
                                               Document.Status.SENT, discount=options["discount_rate"])
             document.journal_entry = post_invoice_entry(document)
             document.save(update_fields=["journal_entry"])
+            self.keep_pdf(request, options, document)
             AuditLog.record(request, AuditLog.Action.CREATE if created else AuditLog.Action.UPDATE, document)
             if options["recurring"] and not RecurringDocument.objects.filter(template=document).exists():
                 RecurringDocument.start(document, options["frequency"], request.user)
+
+    def keep_pdf(self, request, options, document):
+        """Keep the PDF of the invoice in the files of the Document. The Document links to
+        its journal entry, thus the entry has the PDF too. The Receivables pages open it.
+        A new issue of the same number replaces the old PDF."""
+        context = self.get_context(request, options)
+        context["company_logo"] = logo_data_uri(request.company)
+        pdf = ContentFile(render_pdf(self.template_name, context), name=self.get_filename(options))
+        old = list(document.files.all())
+        document.files.set([save_upload(pdf, request.user, request.company)])
+        for file in old:
+            file.delete()
 
 
 def _sales_record(company, options, entity, doc_type, due, status=None, discount=ZERO):
